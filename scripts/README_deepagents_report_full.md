@@ -127,10 +127,38 @@ The script writes additional artifacts under the run folder:
 - `report_notes/quality_evals.jsonl`: per-iteration evaluation scores (when quality loops run).
 - `report_notes/quality_pairwise.jsonl`: pairwise comparison notes (pairwise strategy).
 - `report_notes/report_meta.json`: runtime metadata (duration, model, format, etc.).
+- `report_notes/figures.jsonl`: extracted PDF figure inventory (when figure extraction is enabled).
+- `report_assets/figures/`: extracted PDF figures (PNG/JPG).
 - `report_views/`: HTML viewer pages for files (HTML output only).
 - `supporting/<timestamp>/`: web research outputs (when `--web-search` is enabled).
 
 The report output also appends a small `Miscellaneous` section with runtime metadata.
+
+## PDF figure extraction (optional)
+If enabled, embedded images are extracted from referenced PDFs and inserted near the section that cites the source.
+This preserves provenance (source PDF + page) without interpreting the chart content.
+
+```bash
+python scripts/deepagents_report_full.py \
+  --run ./runs/20260104_basic-oa \
+  --output ./runs/20260104_basic-oa/report_full.html \
+  --figures \
+  --figures-max-per-pdf 4 \
+  --figures-min-area 12000 \
+  --figures-renderer auto \
+  --figures-dpi 150
+```
+
+Options:
+- `--figures` / `--no-figures`: enable or disable figure extraction (default: enabled).
+- `--figures-max-per-pdf`: cap the number of images per PDF.
+- `--figures-min-area`: discard small icons/logos (area in pixels squared).
+- `--figures-renderer`: render vector pages when embedded images are absent (`auto`, `pdfium`, `poppler`, `mupdf`, `none`).
+- `--figures-dpi`: render quality for vector pages.
+
+Requires `pymupdf` (already included in `.[all]`). For vector-only PDFs, install:
+- `pypdfium2` + `pillow` (default, pure Python).
+- Optional fallbacks: Poppler (`pdftocairo`) or MuPDF (`mutool`).
 
 ## Web research (optional)
 Enable online enrichment using Tavily:
@@ -199,6 +227,11 @@ When output is `.html`, links inside the report open in a side panel:
 - `--max-files`: Max files returned by listing tool.
 - `--max-chars`: Max chars returned by file reader.
 - `--max-pdf-pages`: Max PDF pages to extract per read.
+- `--figures` / `--no-figures`: Enable or disable embedded PDF figures.
+- `--figures-max-per-pdf`: Max figures extracted per PDF.
+- `--figures-min-area`: Minimum image area to keep (px^2).
+- `--figures-renderer`: Renderer for vector pages when embedded images are missing.
+- `--figures-dpi`: DPI for page rendering.
 - `--max-refs`: Max references appended to the report.
 - `--notes-dir`: Override `report_notes/` location.
 - `--progress` / `--no-progress`: Show or hide progress snippets.

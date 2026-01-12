@@ -186,6 +186,28 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--max-files", type=int, default=200, help="Max files to list in tool output.")
     ap.add_argument("--max-chars", type=int, default=16000, help="Max chars returned by read tool.")
     ap.add_argument("--max-pdf-pages", type=int, default=6, help="Max PDF pages to extract when needed.")
+    ap.add_argument(
+        "--figures",
+        dest="extract_figures",
+        action="store_true",
+        default=True,
+        help="Extract embedded PDF figures for the report (default: enabled).",
+    )
+    ap.add_argument(
+        "--no-figures",
+        dest="extract_figures",
+        action="store_false",
+        help="Disable embedded PDF figure extraction.",
+    )
+    ap.add_argument("--figures-max-per-pdf", type=int, default=4, help="Max figures extracted per PDF.")
+    ap.add_argument("--figures-min-area", type=int, default=12000, help="Min image area (px^2) to keep.")
+    ap.add_argument(
+        "--figures-renderer",
+        default="auto",
+        choices=["auto", "pdfium", "poppler", "mupdf", "none"],
+        help="Renderer for vector PDF pages when needed (default: auto).",
+    )
+    ap.add_argument("--figures-dpi", type=int, default=150, help="DPI for rendered PDF pages.")
     ap.add_argument("--max-refs", type=int, default=200, help="Max references to append (default: 200).")
     ap.add_argument("--notes-dir", help="Optional folder to save intermediate notes (scout/evidence).")
     ap.add_argument("--author", help="Author name shown in the report header.")
@@ -1176,6 +1198,341 @@ def read_pdf_with_fitz(pdf_path: Path, max_pages: int, max_chars: int) -> str:
     return text[:max_chars]
 
 
+def extract_pdf_images(
+    pdf_path: Path,
+    output_dir: Path,
+    run_dir: Path,
+    max_per_pdf: int,
+    min_area: int,
+) -> list[dict]:
+    try:
+        import fitz  # type: ignore
+    except Exception:
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records: list[dict] = []
+    pdf_rel = f"./{pdf_path.relative_to(run_dir).as_posix()}"
+    try:
+        doc = fitz.open(str(pdf_path))
+    except Exception:
+        return records
+    seen: set[int] = set()
+    for page_index in range(len(doc)):
+        page = doc[page_index]
+        images = page.get_images(full=True)
+        for img_index, img in enumerate(images):
+            xref = img[0]
+            if xref in seen:
+                continue
+            seen.add(xref)
+            try:
+                base = doc.extract_image(xref)
+            except Exception:
+                continue
+            width = int(base.get("width") or 0)
+            height = int(base.get("height") or 0)
+            if width and height and width * height < min_area:
+                continue
+            ext = (base.get("ext") or "png").lower()
+            tag = f"{pdf_rel}#p{page_index + 1}-{img_index + 1}"
+            name = f"{slugify_url(tag)}.{ext}"
+            img_path = output_dir / name
+            if not img_path.exists():
+                try:
+                    with img_path.open("wb") as handle:
+                        handle.write(base.get("image", b""))
+                except Exception:
+                    continue
+            img_rel = f"./{img_path.relative_to(run_dir).as_posix()}"
+            records.append(
+                {
+                    "pdf_path": pdf_rel,
+                    "image_path": img_rel,
+                    "page": page_index + 1,
+                    "width": width,
+                    "height": height,
+                    "method": "embedded",
+                }
+            )
+            if len(records) >= max_per_pdf:
+                doc.close()
+                return records
+        if len(records) >= max_per_pdf:
+            break
+    doc.close()
+    return records
+
+
+def _pillow_image() -> Optional[object]:
+    try:
+        from PIL import Image  # type: ignore
+    except Exception:
+        return None
+    return Image
+
+
+def _crop_whitespace(image, min_area: int) -> Optional[object]:
+    try:
+        gray = image.convert("L")
+        mask = gray.point(lambda x: 0 if x > 245 else 255, "1")
+        bbox = mask.getbbox()
+    except Exception:
+        return image
+    if not bbox:
+        return None
+    left, top, right, bottom = bbox
+    margin = 6
+    left = max(0, left - margin)
+    top = max(0, top - margin)
+    right = min(image.width, right + margin)
+    bottom = min(image.height, bottom + margin)
+    cropped = image.crop((left, top, right, bottom))
+    if cropped.width * cropped.height < min_area:
+        return None
+    return cropped
+
+
+def _pdfium_available() -> bool:
+    try:
+        import pypdfium2  # type: ignore
+    except Exception:
+        return False
+    return _pillow_image() is not None
+
+
+def _poppler_available() -> bool:
+    return shutil.which("pdftocairo") is not None
+
+
+def _mupdf_available() -> bool:
+    return shutil.which("mutool") is not None
+
+
+def select_figure_renderer(choice: str) -> str:
+    value = (choice or "auto").strip().lower()
+    if value in {"none", "off"}:
+        return "none"
+    if value == "pdfium":
+        return "pdfium" if _pdfium_available() else "none"
+    if value == "poppler":
+        return "poppler" if _poppler_available() else "none"
+    if value == "mupdf":
+        return "mupdf" if _mupdf_available() else "none"
+    if _pdfium_available():
+        return "pdfium"
+    if _poppler_available():
+        return "poppler"
+    if _mupdf_available():
+        return "mupdf"
+    return "none"
+
+
+def render_pdf_pages(
+    pdf_path: Path,
+    output_dir: Path,
+    run_dir: Path,
+    renderer: str,
+    dpi: int,
+    max_pages: int,
+    min_area: int,
+) -> list[dict]:
+    choice = select_figure_renderer(renderer)
+    if choice == "none":
+        return []
+    if choice == "pdfium":
+        return render_pdf_pages_pdfium(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
+    if choice == "poppler":
+        return render_pdf_pages_poppler(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
+    if choice == "mupdf":
+        return render_pdf_pages_mupdf(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
+    return []
+
+
+def render_pdf_pages_pdfium(
+    pdf_path: Path,
+    output_dir: Path,
+    run_dir: Path,
+    dpi: int,
+    max_pages: int,
+    min_area: int,
+) -> list[dict]:
+    try:
+        import pypdfium2 as pdfium  # type: ignore
+    except Exception:
+        return []
+    pillow = _pillow_image()
+    if pillow is None:
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records: list[dict] = []
+    pdf_rel = f"./{pdf_path.relative_to(run_dir).as_posix()}"
+    doc = pdfium.PdfDocument(str(pdf_path))
+    pages = min(max_pages, len(doc))
+    scale = max(dpi / 72.0, 0.1)
+    for page_index in range(pages):
+        page = doc.get_page(page_index)
+        try:
+            bitmap = page.render(scale=scale)
+            image = bitmap.to_pil()
+        finally:
+            try:
+                page.close()
+            except Exception:
+                pass
+        cropped = _crop_whitespace(image, min_area) if image else None
+        if cropped is None:
+            continue
+        tag = f"{pdf_rel}#render-p{page_index + 1}"
+        name = f"{slugify_url(tag)}.png"
+        img_path = output_dir / name
+        try:
+            cropped.save(img_path, format="PNG")
+        except Exception:
+            continue
+        img_rel = f"./{img_path.relative_to(run_dir).as_posix()}"
+        records.append(
+            {
+                "pdf_path": pdf_rel,
+                "image_path": img_rel,
+                "page": page_index + 1,
+                "width": int(cropped.width),
+                "height": int(cropped.height),
+                "method": "rendered",
+            }
+        )
+        if len(records) >= max_pages:
+            break
+    return records
+
+
+def _crop_image_path(image_path: Path, min_area: int) -> Optional[tuple[int, int]]:
+    pillow = _pillow_image()
+    if pillow is None:
+        return None
+    Image = pillow
+    try:
+        image = Image.open(image_path)
+    except Exception:
+        return None
+    cropped = _crop_whitespace(image, min_area)
+    if cropped is None:
+        return None
+    if cropped is not image:
+        try:
+            cropped.save(image_path, format="PNG")
+        except Exception:
+            return None
+    return int(cropped.width), int(cropped.height)
+
+
+def render_pdf_pages_poppler(
+    pdf_path: Path,
+    output_dir: Path,
+    run_dir: Path,
+    dpi: int,
+    max_pages: int,
+    min_area: int,
+) -> list[dict]:
+    if not _poppler_available():
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records: list[dict] = []
+    pdf_rel = f"./{pdf_path.relative_to(run_dir).as_posix()}"
+    for page_index in range(max_pages):
+        tag = f"{pdf_rel}#render-p{page_index + 1}"
+        name = f"{slugify_url(tag)}.png"
+        img_path = output_dir / name
+        prefix = img_path.with_suffix("")
+        cmd = [
+            "pdftocairo",
+            "-f",
+            str(page_index + 1),
+            "-l",
+            str(page_index + 1),
+            "-png",
+            "-singlefile",
+            "-r",
+            str(dpi),
+            str(pdf_path),
+            str(prefix),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0 or not img_path.exists():
+            if page_index == 0:
+                break
+            continue
+        size = _crop_image_path(img_path, min_area)
+        if size is None:
+            continue
+        width, height = size
+        img_rel = f"./{img_path.relative_to(run_dir).as_posix()}"
+        records.append(
+            {
+                "pdf_path": pdf_rel,
+                "image_path": img_rel,
+                "page": page_index + 1,
+                "width": width,
+                "height": height,
+                "method": "rendered",
+            }
+        )
+        if len(records) >= max_pages:
+            break
+    return records
+
+
+def render_pdf_pages_mupdf(
+    pdf_path: Path,
+    output_dir: Path,
+    run_dir: Path,
+    dpi: int,
+    max_pages: int,
+    min_area: int,
+) -> list[dict]:
+    if not _mupdf_available():
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records: list[dict] = []
+    pdf_rel = f"./{pdf_path.relative_to(run_dir).as_posix()}"
+    for page_index in range(max_pages):
+        tag = f"{pdf_rel}#render-p{page_index + 1}"
+        name = f"{slugify_url(tag)}.png"
+        img_path = output_dir / name
+        cmd = [
+            "mutool",
+            "draw",
+            "-r",
+            str(dpi),
+            "-o",
+            str(img_path),
+            str(pdf_path),
+            str(page_index + 1),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0 or not img_path.exists():
+            if page_index == 0:
+                break
+            continue
+        size = _crop_image_path(img_path, min_area)
+        if size is None:
+            continue
+        width, height = size
+        img_rel = f"./{img_path.relative_to(run_dir).as_posix()}"
+        records.append(
+            {
+                "pdf_path": pdf_rel,
+                "image_path": img_rel,
+                "page": page_index + 1,
+                "width": width,
+                "height": height,
+                "method": "rendered",
+            }
+        )
+        if len(records) >= max_pages:
+            break
+    return records
+
+
 def markdown_to_html(markdown_text: str) -> str:
     try:
         import markdown  # type: ignore
@@ -2019,6 +2376,15 @@ def wrap_html(title: str, body_html: str, template_name: Optional[str] = None, t
         "    }\n"
         "    .misc-block ul { margin: 0.6rem 0 0.8rem 1.2rem; }\n"
         "    .misc-block li { margin: 0.2rem 0; }\n"
+        "    .report-figure {\n"
+        "      margin: 1.4rem 0;\n"
+        "      padding: 0.8rem 1rem;\n"
+        "      border: 1px solid var(--rule);\n"
+        "      border-radius: 12px;\n"
+        "      background: var(--paper-alt);\n"
+        "    }\n"
+        "    .report-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }\n"
+        "    .report-figure figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.4rem; }\n"
         "    .viewer-overlay {\n"
         "      position: fixed;\n"
         "      inset: 0;\n"
@@ -2355,6 +2721,212 @@ def extract_cited_paths(text: Optional[str]) -> list[str]:
     for match in _CITED_PATH_RE.finditer(text):
         paths.append(match.group(1))
     return paths
+
+
+def resolve_related_pdf_path(
+    rel_path: str,
+    run_dir: Path,
+    meta_index: dict[str, dict],
+) -> Optional[str]:
+    rel_clean = rel_path.lstrip("./")
+    if rel_clean.lower().endswith(".pdf"):
+        pdf_abs = (run_dir / rel_clean).resolve()
+        if pdf_abs.exists():
+            return f"./{pdf_abs.relative_to(run_dir).as_posix()}"
+        return None
+    meta = meta_index.get(rel_path) or meta_index.get(rel_clean) or meta_index.get(f"./{rel_clean}")
+    if meta:
+        pdf_path = meta.get("pdf_path")
+        if pdf_path:
+            pdf_abs = (run_dir / pdf_path.lstrip("./")).resolve()
+            if pdf_abs.exists():
+                return f"./{pdf_abs.relative_to(run_dir).as_posix()}"
+    path = (run_dir / rel_clean).resolve()
+    if path.exists():
+        if path.parent.name == "text":
+            candidate = path.parent.parent / "pdf" / f"{path.stem}.pdf"
+        elif path.parent.name == "web_text":
+            candidate = path.parent.parent / "web_pdf" / f"{path.stem}.pdf"
+        else:
+            candidate = None
+        if candidate and candidate.exists():
+            return f"./{candidate.relative_to(run_dir).as_posix()}"
+    return None
+
+
+def find_section_spans(text: str, output_format: str) -> list[tuple[str, int, int]]:
+    if output_format == "tex":
+        pattern = re.compile(r"^\\section\\*?\\{([^}]+)\\}", re.MULTILINE)
+    else:
+        pattern = re.compile(r"^##\\s+(.+)$", re.MULTILINE)
+    matches = list(pattern.finditer(text))
+    spans: list[tuple[str, int, int]] = []
+    for idx, match in enumerate(matches):
+        start = match.start()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+        spans.append((match.group(1).strip(), start, end))
+    return spans
+
+
+def build_figure_plan(
+    report_text: str,
+    run_dir: Path,
+    archive_dir: Path,
+    supporting_dir: Optional[Path],
+    output_format: str,
+    max_per_pdf: int,
+    min_area: int,
+    renderer: str,
+    dpi: int,
+    notes_dir: Path,
+) -> list[dict]:
+    meta_index = build_text_meta_index(run_dir, archive_dir, supporting_dir)
+    spans = find_section_spans(report_text, output_format)
+    cited_paths = extract_cited_paths(report_text)
+    positions: dict[str, int] = {}
+    for path in cited_paths:
+        pos = report_text.find(path)
+        if pos == -1:
+            continue
+        if path not in positions or pos < positions[path]:
+            positions[path] = pos
+
+    def find_section_title(pos: int) -> Optional[str]:
+        for title, start, end in spans:
+            if start <= pos < end:
+                return title
+        return None
+
+    ordered = sorted(positions.items(), key=lambda item: item[1])
+    pdf_targets: dict[str, dict] = {}
+    for rel_path, pos in ordered:
+        pdf_path = resolve_related_pdf_path(rel_path, run_dir, meta_index)
+        if not pdf_path:
+            continue
+        if pdf_path in pdf_targets:
+            continue
+        pdf_targets[pdf_path] = {"source_path": rel_path, "section": find_section_title(pos), "position": pos}
+
+    if not pdf_targets:
+        return []
+
+    figures_dir = run_dir / "report_assets" / "figures"
+    entries: list[dict] = []
+    for pdf_path, info in pdf_targets.items():
+        pdf_abs = (run_dir / pdf_path.lstrip("./")).resolve()
+        if not pdf_abs.exists():
+            continue
+        images = extract_pdf_images(pdf_abs, figures_dir, run_dir, max_per_pdf, min_area)
+        if not images:
+            images = render_pdf_pages(pdf_abs, figures_dir, run_dir, renderer, dpi, max_per_pdf, min_area)
+        for image in images:
+            entry = {
+                "pdf_path": image["pdf_path"],
+                "image_path": image["image_path"],
+                "page": image["page"],
+                "width": image["width"],
+                "height": image["height"],
+                "method": image.get("method"),
+                "source_path": info["source_path"],
+                "section": info["section"],
+                "position": info["position"],
+            }
+            entries.append(entry)
+
+    if entries:
+        notes_dir.mkdir(parents=True, exist_ok=True)
+        figures_path = notes_dir / "figures.jsonl"
+        with figures_path.open("w", encoding="utf-8") as handle:
+            for entry in entries:
+                handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    return entries
+
+
+def render_figure_block(
+    entries: list[dict],
+    output_format: str,
+    report_dir: Path,
+    run_dir: Path,
+) -> str:
+    blocks: list[str] = []
+    for entry in entries:
+        pdf_abs = (run_dir / entry["pdf_path"].lstrip("./")).resolve()
+        img_abs = (run_dir / entry["image_path"].lstrip("./")).resolve()
+        pdf_href = os.path.relpath(pdf_abs, report_dir).replace("\\", "/")
+        img_href = os.path.relpath(img_abs, report_dir).replace("\\", "/")
+        page = entry.get("page")
+        if output_format == "tex":
+            caption = f"Source: \\\\texttt{{{latex_escape(entry['pdf_path'])}}}, page {page}."
+            blocks.append(
+                "\n".join(
+                    [
+                        "\\begin{figure}[htbp]",
+                        "\\centering",
+                        f"\\includegraphics[width=\\linewidth]{{{latex_escape(img_href)}}}",
+                        f"\\caption{{{caption}}}",
+                        "\\end{figure}",
+                    ]
+                )
+            )
+        else:
+            safe_img = html_lib.escape(img_href)
+            safe_pdf = html_lib.escape(pdf_href)
+            safe_label = html_lib.escape(entry["pdf_path"])
+            safe_alt = html_lib.escape(f"Figure from {entry['pdf_path']} (page {page})")
+            blocks.append(
+                "\n".join(
+                    [
+                        '<figure class="report-figure">',
+                        f'  <img src="{safe_img}" alt="{safe_alt}" />',
+                        f'  <figcaption>Figure: <a href="{safe_pdf}">{safe_label}</a> (page {page})</figcaption>',
+                        "</figure>",
+                    ]
+                )
+            )
+    return "\n\n".join(blocks)
+
+
+def insert_figures_by_section(
+    report_text: str,
+    figure_entries: list[dict],
+    output_format: str,
+    report_dir: Path,
+    run_dir: Path,
+) -> str:
+    if not figure_entries:
+        return report_text
+    spans = find_section_spans(report_text, output_format)
+    blocks: dict[str, list[dict]] = {}
+    orphan: list[dict] = []
+    for entry in figure_entries:
+        title = entry.get("section")
+        if title:
+            blocks.setdefault(title.lower(), []).append(entry)
+        else:
+            orphan.append(entry)
+
+    if not spans:
+        block = render_figure_block(figure_entries, output_format, report_dir, run_dir)
+        if output_format == "tex":
+            return report_text.rstrip() + "\n\n\\section*{Figures}\n" + block + "\n"
+        return report_text.rstrip() + "\n\n## Figures\n" + block + "\n"
+
+    rebuilt = report_text[: spans[0][1]]
+    for idx, (title, start, end) in enumerate(spans):
+        section_text = report_text[start:end]
+        entries = blocks.get(title.lower())
+        if entries:
+            block = render_figure_block(entries, output_format, report_dir, run_dir)
+            section_text = section_text.rstrip() + "\n\n" + block + "\n\n"
+        rebuilt += section_text
+
+    if orphan:
+        block = render_figure_block(orphan, output_format, report_dir, run_dir)
+        if output_format == "tex":
+            rebuilt = rebuilt.rstrip() + "\n\n\\section*{Figures}\n" + block + "\n"
+        else:
+            rebuilt = rebuilt.rstrip() + "\n\n## Figures\n" + block + "\n"
+    return rebuilt
 
 
 def extract_used_sources(text: Optional[str]) -> set[str]:
@@ -3419,7 +3991,24 @@ def main() -> int:
     author_name = resolve_author_name(args.author, report_prompt)
     byline = build_byline(author_name)
     report = f"{format_byline(byline, output_format)}\n\n{report.strip()}"
+    report_dir = run_dir if not args.output else Path(args.output).resolve().parent
+    figure_entries: list[dict] = []
+    if args.extract_figures:
+        figure_entries = build_figure_plan(
+            report,
+            run_dir,
+            archive_dir,
+            supporting_dir,
+            output_format,
+            args.figures_max_per_pdf,
+            args.figures_min_area,
+            args.figures_renderer,
+            args.figures_dpi,
+            notes_dir,
+        )
     report_body, citation_refs = rewrite_citations(report.rstrip(), output_format)
+    if figure_entries:
+        report_body = insert_figures_by_section(report_body, figure_entries, output_format, report_dir, run_dir)
     report = report_body
     if report_prompt:
         report = f"{report.rstrip()}{format_report_prompt_block(report_prompt, output_format)}"
@@ -3470,7 +4059,6 @@ def main() -> int:
     theme_css = load_template_css(template_spec)
     rendered = report
     if output_format == "html":
-        report_dir = run_dir if not args.output else Path(args.output).resolve().parent
         viewer_dir = run_dir / "report_views"
         viewer_map = build_viewer_map(report, run_dir, archive_dir, supporting_dir, report_dir, viewer_dir, args.max_chars)
         body_html = markdown_to_html(report)
