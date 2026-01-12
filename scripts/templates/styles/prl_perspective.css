@@ -1,0 +1,21 @@
+body.template-prl_perspective,
+body.template-prl_manuscript {
+  --ink: #1b1b1b;
+  --muted: #4f4f52;
+  --accent: #8b1e2d;
+  --link: #1b4f7d;
+  --page-bg: linear-gradient(120deg, #f7f3f1 0%, #fff9f6 55%, #ffffff 100%);
+  --body-font: "Palatino Linotype", "Book Antiqua", "Iowan Old Style", Georgia, serif;
+  --heading-font: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+  --ui-font: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+}
+
+body.template-prl_perspective .article h2,
+body.template-prl_manuscript .article h2 {
+  border-top: 2px solid rgba(139, 30, 45, 0.35);
+}
+
+body.template-prl_perspective .article h3,
+body.template-prl_manuscript .article h3 {
+  color: #2a2a2a;
+}

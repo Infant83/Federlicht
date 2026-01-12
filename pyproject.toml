@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hidair-feather"
+version = "0.2.0"
+description = "Feather-light knowledge intake for HiDair."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["requests"]
+
+[project.optional-dependencies]
+arxiv = ["arxiv"]
+pdf = ["pymupdf"]
+youtube = ["youtube-transcript-api"]
+local = ["python-docx", "python-pptx", "beautifulsoup4"]
+agents = ["deepagents", "markdown"]
+all = ["arxiv", "pymupdf", "youtube-transcript-api", "python-docx", "python-pptx", "beautifulsoup4"]
+
+[project.scripts]
+hidair-feather = "hidair_feather.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+exclude = [".backup", "runs", "archive"]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501"]

@@ -1,0 +1,10 @@
+requests
+arxiv
+pymupdf
+youtube-transcript-api
+python-docx
+python-pptx
+beautifulsoup4
+markdown
+pytest
+ruff

@@ -1,0 +1,22 @@
+body.template-annual_review {
+  --ink: #1c1d1c;
+  --muted: #4f5858;
+  --accent: #0f6973;
+  --link: #0c5c6d;
+  --page-bg: radial-gradient(1200px 600px at 15% -10%, #e6f2f2 0%, #f5f7f5 45%, #ffffff 100%);
+  --body-font: "Garamond", "Palatino Linotype", "Book Antiqua", "Iowan Old Style", Georgia, serif;
+  --heading-font: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+  --ui-font: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+}
+
+body.template-annual_review .kicker {
+  letter-spacing: 0.3em;
+}
+
+body.template-annual_review .article {
+  border-radius: 18px;
+}
+
+body.template-annual_review .article h2 {
+  border-top: 2px solid rgba(15, 105, 115, 0.25);
+}

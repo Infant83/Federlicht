@@ -1,0 +1,27 @@
+body.template-executive_brief {
+  --ink: #1b2224;
+  --muted: #4a555c;
+  --accent: #0f4c5c;
+  --link: #0d5a79;
+  --page-bg: linear-gradient(135deg, #eff3f4 0%, #f7f5f1 55%, #ffffff 100%);
+  --body-font: "Gill Sans", "Optima", "Trebuchet MS", "Helvetica Neue", sans-serif;
+  --heading-font: "Avenir Next", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+  --ui-font: "Avenir Next", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+}
+
+body.template-executive_brief .article {
+  border-radius: 14px;
+  padding: 32px 36px;
+}
+
+body.template-executive_brief .article h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 1rem;
+  border-top: 2px solid var(--accent);
+}
+
+body.template-executive_brief .report-deck {
+  font-family: var(--ui-font);
+  font-size: 0.95rem;
+}
