@@ -1,7 +1,7 @@
 import datetime as dt
 from pathlib import Path
 
-from hidair_feather.collector import (
+from feather.collector import (
     build_query_id,
     collect_instruction_files,
     is_explicit_youtube_query,
@@ -11,7 +11,7 @@ from hidair_feather.collector import (
     prepare_jobs,
     select_youtube_queries,
 )
-from hidair_feather.models import Job, QuerySpec
+from feather.models import Job, QuerySpec
 
 
 def test_collect_instruction_files_with_file(tmp_path) -> None:

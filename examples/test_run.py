@@ -135,7 +135,7 @@ def run() -> int:
         cmd = [
             args.python,
             "-m",
-            "hidair_feather",
+            "feather",
             "--input",
             str(instr),
             "--output",

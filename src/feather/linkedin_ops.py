@@ -8,7 +8,7 @@ import requests
 
 from . import __version__
 
-DEFAULT_USER_AGENT = f"HiDair-Feather/{__version__} (+https://example.invalid)"
+DEFAULT_USER_AGENT = f"Feather/{__version__} (+https://example.invalid)"
 ACTIVITY_PATTERNS = (
     re.compile(r"urn:li:activity:(\d+)", re.IGNORECASE),
     re.compile(r"activity-(\d+)", re.IGNORECASE),
@@ -17,7 +17,7 @@ ACTIVITY_PATTERNS = (
 
 
 def request_headers() -> Dict[str, str]:
-    ua = os.getenv("HIDAIR_USER_AGENT", DEFAULT_USER_AGENT)
+    ua = os.getenv("FEATHER_USER_AGENT", DEFAULT_USER_AGENT)
     return {
         "User-Agent": ua,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",

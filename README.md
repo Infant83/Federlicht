@@ -1,6 +1,6 @@
-# HiDair Feather Collector
+# Feather Collector
 
-Feather-light knowledge intake for HiDair. This CLI ingests date-named text instructions (YYYYMMDD.txt), runs Tavily search/extract, fetches arXiv papers, and builds an offline-friendly archive of everything it collected. Input can be a single `.txt` file or a folder of `.txt` files.
+Feather-light knowledge intake. This CLI ingests date-named text instructions (YYYYMMDD.txt), runs Tavily search/extract, fetches arXiv papers, and builds an offline-friendly archive of everything it collected. Input can be a single `.txt` file or a folder of `.txt` files.
 
 ## Features
 - Parse natural-language instructions from date-named `.txt` files.
@@ -23,7 +23,7 @@ Feather-light knowledge intake for HiDair. This CLI ingests date-named text inst
 - Environment: `YOUTUBE_API_KEY` must be set for YouTube search.
 - Optional env: `YOUTUBE_PROXY` or `YOUTUBE_PROXY_HTTP` / `YOUTUBE_PROXY_HTTPS` for transcript access when YouTube blocks direct requests.
 - Optional env: `OPENALEX_API_KEY` (used if set) and `OPENALEX_MAILTO` (polite contact string).
-- Optional env: `HIDAIR_USER_AGENT` to set a polite `User-Agent` for PDF downloads and OpenAlex requests.
+- Optional env: `FEATHER_USER_AGENT` to set a polite `User-Agent` for PDF downloads and OpenAlex requests.
 - `requirements.txt` is a convenience bundle for local runs/tests and includes optional deps + pytest.
 
 ## Installation
@@ -50,27 +50,27 @@ python -m pip install -r requirements.txt
 
 ## Usage
 ```bash
-hidair-feather --input ./instructions --output ./archive --set-id oled --download-pdf --max-results 8
+feather --input ./instructions --output ./archive --set-id oled --download-pdf --max-results 8
 
 # Inline query mode (separate items with ';' or newlines):
-hidair-feather --query "what is quantum computer; recent 30 days; arXiv:2401.01234; https://aaa.blog" --output ./runs --set-id qc --lang en
+feather --query "what is quantum computer; recent 30 days; arXiv:2401.01234; https://aaa.blog" --output ./runs --set-id qc --lang en
 
 # Open-access papers via OpenAlex (optional):
-hidair-feather --input ./instructions --output ./archive --openalex --download-pdf
+feather --input ./instructions --output ./archive --openalex --download-pdf
 
 # YouTube search with transcripts:
-hidair-feather --input ./instructions --output ./archive --youtube --yt-transcript
+feather --input ./instructions --output ./archive --youtube --yt-transcript
 
 # List or review existing runs:
-hidair-feather --list ./runs
-hidair-feather --review ./runs/20260104_basic
-hidair-feather --review ./runs/20260104_basic --review-full
-hidair-feather --list ./runs --filter ai
-hidair-feather --review ./runs/20260104_basic --format json
-hidair-feather --review ./runs/20260104_basic/archive/tavily_search.jsonl
+feather --list ./runs
+feather --review ./runs/20260104_basic
+feather --review ./runs/20260104_basic --review-full
+feather --list ./runs --filter ai
+feather --review ./runs/20260104_basic --format json
+feather --review ./runs/20260104_basic/archive/tavily_search.jsonl
 
 # Or:
-python -m hidair_feather --input ./instructions --output ./archive --set-id oled --download-pdf --max-results 8
+python -m feather --input ./instructions --output ./archive --set-id oled --download-pdf --max-results 8
 
 # Or without installing (local runner):
 python run.py --input ./instructions --output ./archive --set-id oled --download-pdf --max-results 8
@@ -84,8 +84,8 @@ python scripts/deepagents_report_full.py --run ./runs/20260104_basic-oa --output
 # See scripts/README_deepagents_report_full.md for detailed options.
 
 # Windows wrappers (no install):
-# .\hidair-feather.ps1 --input .\instructions --output .\archive --set-id oled --max-results 8
-# .\hidair-feather.cmd --input .\instructions --output .\archive --set-id oled --max-results 8
+# .\feather.ps1 --input .\instructions --output .\archive --set-id oled --max-results 8
+# .\feather.cmd --input .\instructions --output .\archive --set-id oled --max-results 8
 ```
 
 Arguments:
@@ -181,13 +181,13 @@ Created under `--output/<queryID>/`:
   - `<queryID>-index.md`: Human-friendly summary with relative file paths for downstream ingestion.
 
 ## Project Layout
-- `src/hidair_feather/`: Core package code.
+- `src/feather/`: Core package code.
 - `tests/`: Unit tests (pytest).
 - `examples/`: Sample instruction files.
 - `scripts/`: Helper scripts (e.g., deepagents report generator).
 - `.backup/`: Archived files moved out of the main tree.
 - `run.py`: Local CLI runner without installation.
-- `hidair-feather.ps1` / `hidair-feather.cmd`: Convenience wrappers for Windows.
+- `feather.ps1` / `feather.cmd`: Convenience wrappers for Windows.
 
 ## Testing
 ```bash

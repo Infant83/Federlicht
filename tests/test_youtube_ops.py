@@ -1,4 +1,4 @@
-from hidair_feather.youtube_ops import detail_to_metadata, extract_video_id
+from feather.youtube_ops import detail_to_metadata, extract_video_id
 
 
 def test_extract_video_id_variants() -> None:

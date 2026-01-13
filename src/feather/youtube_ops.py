@@ -9,7 +9,7 @@ import requests
 from . import __version__
 
 YOUTUBE_BASE = "https://www.googleapis.com/youtube/v3"
-DEFAULT_USER_AGENT = f"HiDair-Feather/{__version__} (+https://example.invalid)"
+DEFAULT_USER_AGENT = f"Feather/{__version__} (+https://example.invalid)"
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
@@ -24,7 +24,7 @@ TRANSCRIPT_AVAILABLE = YouTubeTranscriptApi is not None
 
 
 def request_headers() -> Dict[str, str]:
-    ua = os.getenv("HIDAIR_USER_AGENT", DEFAULT_USER_AGENT)
+    ua = os.getenv("FEATHER_USER_AGENT", DEFAULT_USER_AGENT)
     return {"User-Agent": ua, "Accept": "application/json"}
 
 

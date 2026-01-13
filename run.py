@@ -13,7 +13,7 @@ SRC = ROOT / "src"
 if SRC.exists():
     sys.path.insert(0, str(SRC))
 
-from hidair_feather.cli import main  # noqa: E402
+from feather.cli import main  # noqa: E402
 
 
 if __name__ == "__main__":

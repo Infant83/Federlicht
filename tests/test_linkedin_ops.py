@@ -1,4 +1,4 @@
-from hidair_feather.linkedin_ops import (
+from feather.linkedin_ops import (
     extract_activity_id,
     extract_images,
     extract_links,

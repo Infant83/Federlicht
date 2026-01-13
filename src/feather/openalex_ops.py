@@ -9,11 +9,11 @@ import requests
 from . import __version__
 
 OPENALEX_BASE = "https://api.openalex.org"
-DEFAULT_USER_AGENT = f"HiDair-Feather/{__version__} (+https://example.invalid)"
+DEFAULT_USER_AGENT = f"Feather/{__version__} (+https://example.invalid)"
 
 
 def request_headers() -> Dict[str, str]:
-    ua = os.getenv("HIDAIR_USER_AGENT", DEFAULT_USER_AGENT)
+    ua = os.getenv("FEATHER_USER_AGENT", DEFAULT_USER_AGENT)
     return {"User-Agent": ua, "Accept": "application/pdf,*/*"}
 
 

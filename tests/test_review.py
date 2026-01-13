@@ -1,6 +1,6 @@
 import json
 
-from hidair_feather.review import (
+from feather.review import (
     collect_run_summary,
     find_run_dirs,
     format_run_list,

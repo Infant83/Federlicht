@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Generate a report from a HiDair Feather run using deepagents.
+Generate a report from a Feather run using deepagents.
 
 Usage:
   python scripts/deepagents_report.py --run ./runs/20260107_ai-trends --output ./runs/20260107_ai-trends/report.md
@@ -25,7 +25,7 @@ DEFAULT_MODEL = "gpt-5.2"
 
 
 def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Deepagents report generator for HiDair Feather runs.")
+    ap = argparse.ArgumentParser(description="Deepagents report generator for Feather runs.")
     ap.add_argument("--run", required=True, help="Path to run folder or archive folder.")
     ap.add_argument("--output", help="Write report to this path (default: print to stdout).")
     ap.add_argument("--lang", default="ko", help="Report language preference (default: ko).")
@@ -363,7 +363,7 @@ def wrap_html(title: str, body_html: str) -> str:
         "<body>\n"
         "  <div class=\"page\">\n"
         "    <header class=\"masthead\">\n"
-        "      <div class=\"kicker\">HiDair Feather</div>\n"
+        "      <div class=\"kicker\">Feather</div>\n"
         f"      <div class=\"report-title\">{safe_title}</div>\n"
         "      <div class=\"report-deck\">Research review and tech survey</div>\n"
         "    </header>\n"
@@ -609,7 +609,7 @@ def main() -> int:
     language = normalize_lang(args.lang)
     report_prompt = load_report_prompt(args.prompt, args.prompt_file)
     system_prompt = (
-        "You are a research report writer. Use the provided tools to read files in a HiDair Feather archive. "
+        "You are a research report writer. Use the provided tools to read files in a Feather archive. "
         "Summarize findings with evidence, cite file paths, and avoid guessing. When possible, include original "
         "source URLs in references (not only archive paths). Always read available JSONL metadata files "
         "(tavily_search.jsonl, openalex/works.jsonl, arxiv/papers.jsonl, youtube/videos.jsonl, local/manifest.jsonl) "
@@ -668,7 +668,7 @@ def main() -> int:
     output_format = choose_format(args.output)
     rendered = report
     if output_format == "html":
-        rendered = wrap_html(f"HiDair Feather Report - {query_id}", linkify_html(markdown_to_html(report)))
+        rendered = wrap_html(f"Feather Report - {query_id}", linkify_html(markdown_to_html(report)))
 
     if args.output:
         out_path = Path(args.output)

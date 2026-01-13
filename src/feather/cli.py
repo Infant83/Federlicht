@@ -33,18 +33,18 @@ def normalize_lang(value: Optional[str]) -> Optional[str]:
 def build_parser() -> argparse.ArgumentParser:
     epilog = (
         "Examples:\n"
-        "  hidair-feather --input ./instructions --output ./archive --set-id oled --max-results 5\n"
-        "  hidair-feather --query \"quantum computing; recent 30 days; arXiv:2401.01234\" --output ./runs --set-id qc --lang en\n"
-        "  hidair-feather --input ./instructions --output ./archive --openalex --download-pdf\n"
-        "  hidair-feather --list ./runs\n"
-        "  hidair-feather --review ./runs/20260104_basic\n"
-        "  hidair-feather --input ./instructions --output ./archive --youtube --yt-transcript\n"
-        "  python -m hidair_feather --input ./instructions --output ./archive --download-pdf\n"
+        "  feather --input ./instructions --output ./archive --set-id oled --max-results 5\n"
+        "  feather --query \"quantum computing; recent 30 days; arXiv:2401.01234\" --output ./runs --set-id qc --lang en\n"
+        "  feather --input ./instructions --output ./archive --openalex --download-pdf\n"
+        "  feather --list ./runs\n"
+        "  feather --review ./runs/20260104_basic\n"
+        "  feather --input ./instructions --output ./archive --youtube --yt-transcript\n"
+        "  python -m feather --input ./instructions --output ./archive --download-pdf\n"
         "  python run.py --input ./examples/instructions --output ./runs --set-id example\n"
         "\n"
         "Library mode:\n"
-        "  python -c \"from hidair_feather.cli import main; main(['--input','./instructions','--output','./archive'])\"\n"
-        "  python -c \"from hidair_feather.collector import prepare_jobs, run_job; from hidair_feather.tavily import TavilyClient; "
+        "  python -c \"from feather.cli import main; main(['--input','./instructions','--output','./archive'])\"\n"
+        "  python -c \"from feather.collector import prepare_jobs, run_job; from feather.tavily import TavilyClient; "
         "import os; jobs=prepare_jobs(input_path=Path('./instructions'), query=None, output_root=Path('./archive'), "
         "set_id=None, lang_pref=None, openalex_enabled=False, openalex_max_results=None, youtube_enabled=False, "
         "youtube_max_results=None, youtube_transcript=False, youtube_order='relevance', days=30, max_results=8, "
@@ -52,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
         "t=TavilyClient(os.getenv('TAVILY_API_KEY')); [run_job(j, t) for j in jobs]\"\n"
     )
     ap = argparse.ArgumentParser(
-        description="Feather-light knowledge intake for HiDair. Non-LLM web/arXiv collector driven by date-named TXT instructions.",
+        description="Feather-light knowledge intake. Non-LLM web/arXiv collector driven by date-named TXT instructions.",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=epilog,
     )

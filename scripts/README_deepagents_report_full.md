@@ -1,6 +1,6 @@
 # deepagents_report_full.py
 
-In-depth, multi-step report generator for a HiDair Feather run folder. It reads the archived sources (JSONL indices, PDFs, transcripts, local docs), synthesizes insights, and produces a narrative report with inline citations and a numbered References section.
+In-depth, multi-step report generator for a Feather run folder. It reads the archived sources (JSONL indices, PDFs, transcripts, local docs), synthesizes insights, and produces a narrative report with inline citations and a numbered References section.
 
 ## Install
 ```bash
@@ -201,7 +201,7 @@ Quality selection strategy:
 ## Author line
 The report header includes:
 ```
-Hidair assisted and prompted by "Author Name" - YYYY-MM-DD HH:MM
+Feather assisted and prompted by "Author Name" - YYYY-MM-DD HH:MM
 ```
 Set it via `--author`, or include a line like `Author: Your Name` in the prompt file. If omitted, the default is:
 `Hyun-Jung Kim / AI Governance Team`.

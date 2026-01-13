@@ -4,4 +4,4 @@ param(
     [string[]]$Args
 )
 
-python -m hidair_feather @Args
+python -m feather @Args

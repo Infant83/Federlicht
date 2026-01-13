@@ -1316,7 +1316,7 @@ def build_index_md(job: Job) -> str:
         args = [
             "python",
             "-m",
-            "hidair_feather",
+            "feather",
             "--input",
             str(j.src_file),
             "--output",

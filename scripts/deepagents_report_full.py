@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-In-depth, multi-step report generator for a HiDair Feather run.
+In-depth, multi-step report generator for a Feather run.
 
 Usage:
   python scripts/deepagents_report_full.py --run ./runs/20260109_sectioned --output ./runs/20260109_sectioned/report_full.md
@@ -859,7 +859,7 @@ def compile_latex_to_pdf(tex_path: Path) -> tuple[bool, str]:
 
 
 def request_headers() -> dict[str, str]:
-    return {"User-Agent": "HiDairFeather/1.0 (+https://example.local)"}
+    return {"User-Agent": "Feather/1.0 (+https://example.local)"}
 
 
 def slugify_url(url: str, max_len: int = 80) -> str:
@@ -2448,7 +2448,7 @@ def wrap_html(title: str, body_html: str, template_name: Optional[str] = None, t
         f"<body class=\"{template_class.strip()}\">\n"
         "  <div class=\"page\">\n"
         "    <header class=\"masthead\">\n"
-        "      <div class=\"kicker\">HiDair Feather</div>\n"
+        "      <div class=\"kicker\">Feather</div>\n"
         f"      <div class=\"report-title\">{safe_title}</div>\n"
         "      <div class=\"report-deck\">Research review and tech survey</div>\n"
         "    </header>\n"
@@ -3278,7 +3278,7 @@ def resolve_author_name(author_cli: Optional[str], report_prompt: Optional[str])
 
 def build_byline(author: str) -> str:
     stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-    return f'Hidair assisted and prompted by "{author}" — {stamp}'
+    return f'Feather assisted and prompted by "{author}" — {stamp}'
 
 
 def print_progress(label: str, content: str, enabled: bool, max_chars: int) -> None:
@@ -4065,7 +4065,7 @@ def main() -> int:
         body_html = linkify_html(body_html)
         body_html = inject_viewer_links(body_html, viewer_map)
         rendered = wrap_html(
-            f"HiDair Feather Report - {query_id}",
+            f"Feather Report - {query_id}",
             body_html,
             template_name=template_spec.name,
             theme_css=theme_css,
@@ -4074,7 +4074,7 @@ def main() -> int:
         latex_template = load_template_latex(template_spec)
         rendered = render_latex_document(
             latex_template,
-            f"HiDair Feather Report - {query_id}",
+            f"Feather Report - {query_id}",
             author_name,
             dt.datetime.now().strftime("%Y-%m-%d"),
             report,

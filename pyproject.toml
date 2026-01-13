@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hidair-feather"
+name = "feather"
 version = "0.2.0"
-description = "Feather-light knowledge intake for HiDair."
+description = "Feather-light knowledge intake."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = ["requests"]
@@ -19,7 +19,7 @@ agents = ["deepagents", "markdown"]
 all = ["arxiv", "pymupdf", "youtube-transcript-api", "python-docx", "python-pptx", "beautifulsoup4"]
 
 [project.scripts]
-hidair-feather = "hidair_feather.cli:main"
+feather = "feather.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,7 +1,7 @@
 import datetime as dt
 from pathlib import Path
 
-from hidair_feather.utils import normalize_for_json, parse_date_from_filename, safe_filename
+from feather.utils import normalize_for_json, parse_date_from_filename, safe_filename
 
 
 def test_parse_date_from_filename_valid() -> None:
