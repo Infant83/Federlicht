@@ -1,13 +1,13 @@
-업데이트된 Plan(완료 체크 반영 + 보고서 완성을 위한 누락 단계 보강):
+업데이트된 Plan(완료표시/누락 단계 보강)
 
-- [x] 지시문/범위 확정 — `instruction/20260110_qc-oled.txt`와 `archive/_job.json`, `archive/_log.txt`, 인덱스를 읽어 수집 기간(최근 12개월=365일), 질의/필터, 누락·편향(403 등)을 확정  
-- [x] 아카이브 소스 스크리닝 — `archive/tavily_search.jsonl` 및 `archive/openalex/works.jsonl`에서 OLED×양자컴퓨팅/양자화학 키워드 히트(예: qEOM-VQE/VQD, excited states, TADF, iQCC 등) 존재 여부/분포를 1차 확인(정량 집계는 다음 단계에서 표로 고정 필요)  
-- [ ] (정량 고정) 키워드 히트 “카운트/중복제거/상위 출처” 표 작성 — Tavily 결과(쿼리별 Top5)와 OA works(최대 45개 잠재치)에서 **OLED∩quantum** 교집합을 URL/DOI 기준으로 디듑 및 빈도표 생성  
-- [ ] 주출처 vs supporting 재분류 — 논문/리뷰/공식발표(주출처)와 웹자료(지원) 분리 라벨링 + “인용 가능성(1차성/동료심사/기관공식/재현가능성)” 기준 문서화  
-- [ ] (핵심 1차 근거 체인 확보) **npj Computational Materials(2021, s41524-021-00540-6)** 원문에서 사용 알고리즘(qEOM-VQE/VQD), 활성공간, 실험비교/ΔE_ST 정확도, 장치/에뮬레이터 조건을 추출 → IBM 블로그 및 Mitsubishi PDF 주장과 **Claim–Evidence map** 정합성 점검  
-- [ ] 핵심 기술축 뼈대 구성 — “알고리즘(양자화학·QML) → 워크플로(하이브리드) → 데이터 파이프라인(학습·검증·실험연계)” 구조로 RMP 템플릿 섹션 아웃라인 작성  
-- [ ] OLED 적용/성과 매핑 — 형광/인광/TADF/CP-OLED별 물성 타깃(ΔE_ST, SOC, 여기상태 에너지, 안정성 등)과 계산/실험 연결고리를 **주출처에 우선 매핑**하고 성과·재현성·스케일링 평가  
-- [ ] 산업 동향/한계 정리 — Tavily에서 삼성디스플레이·LG디스플레이·UDC의 **QC 직접 적용 공개근거 유무**를 재점검(현재는 QD-OLED/공급·특허 등 간접자료 위주)하고 “공개정보 한계”를 근거 중심으로 기술  
-- [ ] 시나리오 2~3개 구성 — QC-보강 역설계 파이프라인, DFT+QC 혼합(여기상태), 기업 내부 PoC 등을 “주장→근거→한계→의미+근거강도” 카드로 작성  
-- [ ] 전망/후속 질문 도출 — 12~24개월 내 HW/오류완화/FTQC·인프라 변화 가설을 근거와 함께 정리, 의사결정자용 질문(데이터·IP·검증·비용·공정 리스크) 목록화  
-- [ ] (누락 보완) 다운로드 실패(403: Wiley/ASME/MDPI) 항목은 **대체 접근(랜딩/프리프린트/기관저장본)** 시도 후, 실패 시 보고서에 “확인불가(텍스트 미확보)”로 명시하는 처리 방침 추가
+- [x] 범위·정의·평가틀 확정 — “지난 12개월” 기준(작성일 기준 최근 12개월)과 OLED 발광재료(형광/인광/TADF/CP‑OLED) 및 ‘양자컴퓨팅 기반 재료탐색’ 포함/제외를 명시, 근거 강도(높음/중간/낮음) 판정 규칙 설정 | Evidence: https://doi.org/10.1007/s10904-024-03567-6, archive/openalex/text/W4406330631.txt
+- [x] 아카이브 지도 점검 — `20260110_qc-oled-index.md`, `_log.txt`, `openalex/works.jsonl` 기반으로 수집 커버리지(특히 arXiv 0건)·누락 원인(403 등) 확인, 보고서 내 “근거 공백” 처리 방침(1차 우선·supporting 명시·공백 자체를 리스크로 기술) 결정 | Evidence: https://research.ibm.com/blog/quantum-for-oled, archive/tavily_search.jsonl
+- [ ] OLED×QC 직접 소스 표적화 — `tavily_search.jsonl`·`source_index.jsonl`에서 IBM blog/기업 PDF가 지목한 arXiv/npj 등 “1차 문헌으로 격상” 항목의 DOI/arXiv ID/서지정보를 추출하고 1차(논문/공식발표) vs supporting(웹)로 재분류 | Evidence: https://www.nature.com/articles/s41524-021-00540-6, archive/tavily_search.jsonl
+- [ ] 1차 문헌 정독(아카이브 내 TXT/PDF) — `W4417018335`로 양자우위/적용성 평가 프레임 확보, `W4410193211`로 QC+ML 혼합 워크플로 비교축 도출, `W4406477905`로 “quantum materials” 용어 혼선 정리 | Evidence: https://doi.org/10.1186/s40712-024-00202-7, archive/openalex/text/W4406477905.txt
+- [ ] (누락 보강) OLED 직접 1차 문헌(npj/arXiv) 원문 확보 시도 및 대체 경로 확정 — npj `s41524-021-00540-6` 및 arXiv `2512.13657` 등은 현재 웹 링크 중심이므로, 아카이브 내 PDF/TXT 유무 재탐색 → 없으면 “원문 미확보”로 명시하고(필수), 페이지/초록/보도자료 인용은 supporting으로 강등 | Evidence: https://www.nature.com/articles/s41524-021-00540-6, archive/tavily_search.jsonl
+- [ ] 기술 흐름 합성(알고리즘·파이프라인) — VQE/여기상태(EOM/qEOM, VQD)·QAOA·회로압축·오차완화 등을 “문제정의→계산타깃(ΔE_ST, SOC, 여기전이 등)→데이터/실험 연계”로 정리, 재현성·스케일링 평가 포함 | Evidence: https://www.mcgc.com/english/news_mcc/2021/__icsFiles/afieldfile/2021/05/26/qhubeng.pdf, archive/tavily_search.jsonl
+- [ ] 산업 동향·공개정보 한계 정리 — 삼성디스플레이/LG디스플레이/UDC 공개자료를 ‘사실(공개 협업/발표)’ vs ‘추론(적용 가능성)’으로 분리, 근거 제한 사유(비공개/특허/공정기밀) 명시 | Evidence: https://www.lgcorp.com/media/release/26853, archive/tavily_search.jsonl
+- [ ] 대표 시나리오 2~3개 구성 — TADF 여기상태 예측, 인광 Ir‑complex 설계, CP‑OLED 원형편광 설계 등에서 “주장→근거→한계→의미” + 근거강도 라벨 부여 | Evidence: https://research.ibm.com/blog/quantum-for-oled, archive/tavily_search.jsonl
+- [ ] 간극·병목·해결과제 및 전망 작성 — 학계 성과↔산업 적용 병목(정확도/오차완화, 데이터 희소, 수명·수율·공정호환, 비용/리드타임) 종합, 12–24개월 변화 신호와 의사결정자용 후속 질문(추가 확보해야 할 1차 문헌 포함) 제시 | Evidence: https://www.mcgc.com/english/news_mcc/2021/__icsFiles/afieldfile/2021/05/26/qhubeng.pdf, archive/tavily_search.jsonl
+- [ ] (누락 보강) 인용/서지 정리 및 “근거 공백 표” 작성 — 1차/지원 근거를 표로 분리(문헌ID, 유형, 핵심 주장, 강도, 비고: 원문 확보 여부/접근 제한)하여 보고서의 투명성 확보 | Evidence: https://doi.org/10.1038/s41467-025-59439-1, archive/openalex/text/W4410193211.txt
+- [ ] (누락 보강) 최종 보고서 구조화·문장 규격 점검 — 요구된 서술 형식(각 핵심 주장: 주장→근거→한계→의미), 용어 정의/비교, 과장 금지, supporting 명시 규칙이 전 섹션에 일관 적용되는지 최종 점검 | Evidence: https://doi.org/10.63721/25jpair0118, archive/openalex/text/W4417018335.txt
