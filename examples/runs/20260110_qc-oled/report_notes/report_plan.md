@@ -1,13 +1,13 @@
-업데이트된 Plan(완료표시/누락 단계 보강)
+계획이 업데이트되었습니다. 현재 상태는 다음과 같습니다:
 
-- [x] 범위·정의·평가틀 확정 — “지난 12개월” 기준(작성일 기준 최근 12개월)과 OLED 발광재료(형광/인광/TADF/CP‑OLED) 및 ‘양자컴퓨팅 기반 재료탐색’ 포함/제외를 명시, 근거 강도(높음/중간/낮음) 판정 규칙 설정 | Evidence: https://doi.org/10.1007/s10904-024-03567-6, archive/openalex/text/W4406330631.txt
-- [x] 아카이브 지도 점검 — `20260110_qc-oled-index.md`, `_log.txt`, `openalex/works.jsonl` 기반으로 수집 커버리지(특히 arXiv 0건)·누락 원인(403 등) 확인, 보고서 내 “근거 공백” 처리 방침(1차 우선·supporting 명시·공백 자체를 리스크로 기술) 결정 | Evidence: https://research.ibm.com/blog/quantum-for-oled, archive/tavily_search.jsonl
-- [ ] OLED×QC 직접 소스 표적화 — `tavily_search.jsonl`·`source_index.jsonl`에서 IBM blog/기업 PDF가 지목한 arXiv/npj 등 “1차 문헌으로 격상” 항목의 DOI/arXiv ID/서지정보를 추출하고 1차(논문/공식발표) vs supporting(웹)로 재분류 | Evidence: https://www.nature.com/articles/s41524-021-00540-6, archive/tavily_search.jsonl
-- [ ] 1차 문헌 정독(아카이브 내 TXT/PDF) — `W4417018335`로 양자우위/적용성 평가 프레임 확보, `W4410193211`로 QC+ML 혼합 워크플로 비교축 도출, `W4406477905`로 “quantum materials” 용어 혼선 정리 | Evidence: https://doi.org/10.1186/s40712-024-00202-7, archive/openalex/text/W4406477905.txt
-- [ ] (누락 보강) OLED 직접 1차 문헌(npj/arXiv) 원문 확보 시도 및 대체 경로 확정 — npj `s41524-021-00540-6` 및 arXiv `2512.13657` 등은 현재 웹 링크 중심이므로, 아카이브 내 PDF/TXT 유무 재탐색 → 없으면 “원문 미확보”로 명시하고(필수), 페이지/초록/보도자료 인용은 supporting으로 강등 | Evidence: https://www.nature.com/articles/s41524-021-00540-6, archive/tavily_search.jsonl
-- [ ] 기술 흐름 합성(알고리즘·파이프라인) — VQE/여기상태(EOM/qEOM, VQD)·QAOA·회로압축·오차완화 등을 “문제정의→계산타깃(ΔE_ST, SOC, 여기전이 등)→데이터/실험 연계”로 정리, 재현성·스케일링 평가 포함 | Evidence: https://www.mcgc.com/english/news_mcc/2021/__icsFiles/afieldfile/2021/05/26/qhubeng.pdf, archive/tavily_search.jsonl
-- [ ] 산업 동향·공개정보 한계 정리 — 삼성디스플레이/LG디스플레이/UDC 공개자료를 ‘사실(공개 협업/발표)’ vs ‘추론(적용 가능성)’으로 분리, 근거 제한 사유(비공개/특허/공정기밀) 명시 | Evidence: https://www.lgcorp.com/media/release/26853, archive/tavily_search.jsonl
-- [ ] 대표 시나리오 2~3개 구성 — TADF 여기상태 예측, 인광 Ir‑complex 설계, CP‑OLED 원형편광 설계 등에서 “주장→근거→한계→의미” + 근거강도 라벨 부여 | Evidence: https://research.ibm.com/blog/quantum-for-oled, archive/tavily_search.jsonl
-- [ ] 간극·병목·해결과제 및 전망 작성 — 학계 성과↔산업 적용 병목(정확도/오차완화, 데이터 희소, 수명·수율·공정호환, 비용/리드타임) 종합, 12–24개월 변화 신호와 의사결정자용 후속 질문(추가 확보해야 할 1차 문헌 포함) 제시 | Evidence: https://www.mcgc.com/english/news_mcc/2021/__icsFiles/afieldfile/2021/05/26/qhubeng.pdf, archive/tavily_search.jsonl
-- [ ] (누락 보강) 인용/서지 정리 및 “근거 공백 표” 작성 — 1차/지원 근거를 표로 분리(문헌ID, 유형, 핵심 주장, 강도, 비고: 원문 확보 여부/접근 제한)하여 보고서의 투명성 확보 | Evidence: https://doi.org/10.1038/s41467-025-59439-1, archive/openalex/text/W4410193211.txt
-- [ ] (누락 보강) 최종 보고서 구조화·문장 규격 점검 — 요구된 서술 형식(각 핵심 주장: 주장→근거→한계→의미), 용어 정의/비교, 과장 금지, supporting 명시 규칙이 전 섹션에 일관 적용되는지 최종 점검 | Evidence: https://doi.org/10.63721/25jpair0118, archive/openalex/text/W4417018335.txt
+- [x] 보고서 요구사항/템플릿 정합화 — 최종 목차(Review of Modern Physics 스타일) 확정 | Evidence: ./archive/tavily_search.jsonl, /archive/tavily_search.jsonl
+- [ ] 아카이브 커버리지·수집 실패 원인 점검 — 학술 1차 문헌 공백과 용어 충돌 리스크 명시 | Evidence: ./archive/openalex/text/W4406477905.txt, https://jmsg.springeropen.com/counter/pdf/10.1186/s40712-024-00202-7
+- [ ] 출처 풀 재구성 — 논문과 supporting을 라벨링하고 인용 우선순위 설정
+- [ ] 핵심 논문 정독·근거 추출 — OpenAlex 텍스트에서 직접 인용 구절 발췌 | Evidence: ./archive/openalex/text/W4417018335.txt, https://doi.org/10.63721/25jpair0118
+- [ ] supporting 웹 소스 세분 분류 — URL 분류 및 주장 가능한 범위·불확실성 기록 | Evidence: ./archive/openalex/text/W4406477905.txt, /archive/openalex/text/W4406477905.txt
+- [ ] OLED 물성-양자알고리즘 매핑 작성 — 적용 지점·요구 자원·스케일링 한계 정리 | Evidence: ./archive/openalex/text/W4417018335.txt, https://doi.org/10.63721/25jpair0118
+- [ ] 산업 동향·사례 정리 — 공개자료 요약하고 공개정보 한계 기술 | Evidence: ./archive/tavily_search.jsonl, /archive/tavily_search.jsonl
+- [ ] 대표 시나리오 2~3개 설계 — 지표·벤치마크·리스크·근거강도를 갖춘 사례 구성 | Evidence: ./archive/tavily_search.jsonl, /archive/tavily_search.jsonl
+- [ ] 종합·전망·후속 질문 아웃라인 — 병목과 변화 가설 정리 및 의사결정자용 검증 질문 목록화 | Evidence: ./archive/openalex/text/W4417018335.txt, https://doi.org/10.63721/25jpair0118
+
+각 단계가 완료될 때마다 즉시 업데이트할 것이며, 필요한 경우 추가적인 단계도 포함하겠습니다.

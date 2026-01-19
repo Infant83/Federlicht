@@ -11,6 +11,8 @@ section: Key Result
 section: Method Snapshot
 section: Why It Matters
 section: Outlook
+section: Risks & Gaps
+section: Critics
 section: Appendix
 guide Synopsis: 1-2 paragraphs; high-signal overview.
 guide Context: 2-3 anchor references and the prior state of the art.
@@ -18,6 +20,8 @@ guide Key Result: single main result with evidence and metrics.
 guide Method Snapshot: short, precise method summary.
 guide Why It Matters: implications for theory and applications.
 guide Outlook: near-term validation and next experiments.
+guide Risks & Gaps: highlight missing evidence, constraints, unknowns, and validation needs. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
+guide Critics: short headline + brief paragraphs + bullets; include contrarian views. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
 writer_guidance: Keep narrative tight; prioritize one central takeaway.
 writer_guidance: Cite only the most relevant sources.
 ---

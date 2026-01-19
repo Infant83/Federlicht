@@ -37,6 +37,8 @@ from . import tools as feder_tools
 
 
 DEFAULT_MODEL = "gpt-5.2"
+DEFAULT_CHECK_MODEL = "gpt-4o"
+STREAMING_ENABLED = False
 DEFAULT_AUTHOR = "Hyun-Jung Kim / AI Governance Team"
 DEFAULT_TEMPLATE_NAME = "default"
 FORMAL_TEMPLATES = {
@@ -57,6 +59,7 @@ DEFAULT_SECTIONS = [
     "Critics",
     "Appendix",
 ]
+FREE_FORMAT_REQUIRED_SECTIONS = ["Risks & Gaps", "Critics"]
 DEFAULT_LATEX_TEMPLATE = r"""\documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{hyperref}
@@ -76,6 +79,11 @@ DEFAULT_LATEX_TEMPLATE = r"""\documentclass[11pt]{article}
 """
 
 ARXIV_ID_RE = re.compile(r"^\d{4}\.\d{4,5}(?:v\d+)?$")
+REPORT_PLACEHOLDER_RE = re.compile(
+    r"(보고서 내용을 완성했습니다|수정.*?(하겠습니다|할 예정|예정)|업데이트.*?(하겠습니다|할 예정)|"
+    r"다시 작성|작업을 마친 후|I will update|I will revise|I will finalize|will update the report)",
+    re.IGNORECASE,
+)
 
 
 def templates_dir() -> Path:
@@ -135,6 +143,12 @@ def parse_args() -> argparse.Namespace:
         help="Write report to this path (default: print to stdout). Extension selects format (.md/.html/.tex).",
     )
     ap.add_argument(
+        "--echo-markdown",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="When --output is set, also print the markdown report to stdout (default: disabled).",
+    )
+    ap.add_argument(
         "--pdf",
         dest="pdf",
         action="store_true",
@@ -158,6 +172,12 @@ def parse_args() -> argparse.Namespace:
         help="Report template name or .md template path (default: auto).",
     )
     ap.add_argument(
+        "--free-format",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Use free-form structure without enforcing a section skeleton (default: disabled).",
+    )
+    ap.add_argument(
         "--agent-info",
         nargs="?",
         const="-",
@@ -171,7 +191,16 @@ def parse_args() -> argparse.Namespace:
         "--template-adjust",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Adjust template sections/guidance to match run intent (default: enabled).",
+        help="Ensure required sections are present (default: enabled).",
+    )
+    ap.add_argument(
+        "--template-adjust-mode",
+        default="risk_only",
+        choices=["risk_only", "extend", "replace"],
+        help=(
+            "Template adjuster mode: risk_only only adds Risks & Gaps/Critics without touching other sections "
+            "(default); extend keeps template sections and adds new ones; replace uses adjusted list."
+        ),
     )
     ap.add_argument(
         "--preview-template",
@@ -202,6 +231,11 @@ def parse_args() -> argparse.Namespace:
         help="Quality selection strategy (pairwise: compare candidates then synthesize, best_of: keep highest score).",
     )
     ap.add_argument("--quality-model", help="Optional model name for critique/revision loops.")
+    ap.add_argument(
+        "--check-model",
+        default=DEFAULT_CHECK_MODEL,
+        help=f"Model name for alignment/plan checks and quality loops (default: {DEFAULT_CHECK_MODEL}).",
+    )
     ap.add_argument("--quality-max-chars", type=int, default=12000, help="Max chars passed to critique/revision.")
     ap.add_argument(
         "--model",
@@ -226,10 +260,38 @@ def parse_args() -> argparse.Namespace:
         help="Print intermediate progress snippets (default: enabled).",
     )
     ap.add_argument(
+        "--stream",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Stream agent responses to stdout as they are generated (default: enabled).",
+    )
+    ap.add_argument(
+        "--stream-debug",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Log streaming event metadata for debugging (default: disabled).",
+    )
+    ap.add_argument(
         "--alignment-check",
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Check alignment with the report prompt at each stage (default: enabled).",
+    )
+    ap.add_argument(
+        "--repair-mode",
+        default="append",
+        choices=["append", "replace", "off"],
+        help=(
+            "Structural repair behavior when sections are missing: "
+            "append adds only missing sections, replace rewrites the report, off disables repair "
+            "(default: append)."
+        ),
+    )
+    ap.add_argument(
+        "--repair-debug",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Log structural repair diagnostics (default: disabled).",
     )
     ap.add_argument("--progress-chars", type=int, default=800, help="Max chars for progress snippets.")
     ap.add_argument("--max-files", type=int, default=200, help="Max files to list in tool output.")
@@ -1307,7 +1369,7 @@ def synthesize_reports(
     backend,
     max_chars: int,
 ) -> str:
-    format_instructions = build_format_instructions(output_format, required_sections)
+    format_instructions = build_format_instructions(output_format, required_sections, free_form=args.free_format)
     synthesis_prompt = build_synthesize_prompt(format_instructions, template_guidance_text, language)
     synthesis_agent = create_agent_with_fallback(create_deep_agent, model_name, tools, synthesis_prompt, backend)
     notes = "\n".join(
@@ -1617,6 +1679,7 @@ def adjust_template_spec(
     model_name: str,
     create_deep_agent,
     backend,
+    adjust_mode: str = "extend",
     prompt_override: Optional[str] = None,
     model_override: Optional[str] = None,
 ) -> tuple[TemplateSpec, Optional[dict]]:
@@ -1624,6 +1687,48 @@ def adjust_template_spec(
         return template_spec, None
     base_sections = normalize_section_list(template_spec.sections) or list(DEFAULT_SECTIONS)
     required_sections = infer_required_sections_from_prompt(report_prompt, base_sections)
+    if adjust_mode == "risk_only":
+        ensure_sections = ["Risks & Gaps", "Critics"]
+        adjusted_sections = list(base_sections)
+        added_sections: list[str] = []
+        for section in ensure_sections:
+            if section in adjusted_sections:
+                continue
+            insert_at = adjusted_sections.index("Appendix") if "Appendix" in adjusted_sections else len(adjusted_sections)
+            adjusted_sections.insert(insert_at, section)
+            added_sections.append(section)
+        if not added_sections:
+            return template_spec, None
+        merged_guidance = dict(template_spec.section_guidance)
+        fallback_writer: list[str] = []
+        if added_sections:
+            fallback_guidance, fallback_writer = fallback_template_guidance(added_sections)
+            merged_guidance.update(fallback_guidance)
+        merged_writer = list(template_spec.writer_guidance)
+        for item in fallback_writer:
+            if item and item not in merged_writer:
+                merged_writer.append(item)
+        adjusted_spec = TemplateSpec(
+            name=template_spec.name,
+            sections=adjusted_sections,
+            section_guidance=merged_guidance,
+            writer_guidance=merged_writer,
+            description=template_spec.description,
+            tone=template_spec.tone,
+            audience=template_spec.audience,
+            css=template_spec.css,
+            latex=template_spec.latex,
+            source=template_spec.source,
+        )
+        adjustment = {
+            "rationale": "risk_only",
+            "sections": adjusted_sections,
+            "section_guidance": {k: merged_guidance[k] for k in added_sections if k in merged_guidance},
+            "writer_guidance": fallback_writer,
+            "required_sections": ensure_sections,
+            "adjust_mode": adjust_mode,
+        }
+        return adjusted_spec, adjustment
     template_guidance = "\n".join(f"- {key}: {value}" for key, value in template_spec.section_guidance.items())
     writer_guidance = "\n".join(f"- {item}" for item in template_spec.writer_guidance)
     prompt = prompt_override or build_template_adjuster_prompt(output_format)
@@ -1662,6 +1767,9 @@ def adjust_template_spec(
         return template_spec, None
     sections = parsed.get("sections") if isinstance(parsed.get("sections"), list) else base_sections
     adjusted_sections = normalize_section_list(sections)
+    if adjust_mode == "extend":
+        extras = [section for section in adjusted_sections if section not in base_sections]
+        adjusted_sections = normalize_section_list(list(base_sections) + extras)
     adjusted_sections = merge_required_sections(adjusted_sections, required_sections, base_sections)
     section_guidance = parsed.get("section_guidance") if isinstance(parsed.get("section_guidance"), dict) else {}
     writer_guidance = parsed.get("writer_guidance") if isinstance(parsed.get("writer_guidance"), list) else []
@@ -1700,6 +1808,7 @@ def adjust_template_spec(
         "section_guidance": clean_guidance,
         "writer_guidance": clean_writer_guidance,
         "required_sections": required_sections,
+        "adjust_mode": adjust_mode,
     }
     return adjusted_spec, adjustment
 
@@ -1727,6 +1836,7 @@ def write_template_adjustment_note(
         f"Template: {template_spec.name}",
         f"Format: {output_format}",
         f"Language: {language}",
+        f"Adjust mode: {adjustment.get('adjust_mode', 'unknown')}",
         "",
         "## Rationale",
         rationale or "(none)",
@@ -1788,13 +1898,40 @@ class FormatInstructions:
     citation_instruction: str
 
 
-def build_format_instructions(output_format: str, required_sections: list[str]) -> FormatInstructions:
-    report_skeleton = build_report_skeleton(required_sections, output_format)
-    section_heading_instruction = (
-        "Use the following exact H2 headings in this order (do not rename; do not add extra H2 headings):\n"
-        if output_format != "tex"
-        else "Use the following exact \\section headings in this order (do not rename; do not add extra \\section headings):\n"
-    )
+def build_format_instructions(
+    output_format: str,
+    required_sections: list[str],
+    free_form: bool = False,
+) -> FormatInstructions:
+    report_skeleton = ""
+    if free_form:
+        required_list = "\n".join(f"- {section}" for section in required_sections)
+        if required_sections:
+            section_heading_instruction = (
+                "Choose a clear section structure using H2 headings (use H3 for subpoints). "
+                "Include the required sections listed below using these exact H2 headings and place them at the end "
+                "of the report body. Do not use H3 for top-level sections.\n"
+                if output_format != "tex"
+                else "Choose a clear section structure using \\section headings (use \\subsection for subpoints). "
+                "Include the required sections listed below using these exact \\section headings and place them at the end "
+                "of the report body.\n"
+            )
+            report_skeleton = required_list
+        else:
+            section_heading_instruction = (
+                "Choose a clear section structure using H2 headings (use H3 for subpoints). "
+                "If the report prompt specifies headings or ordering, follow it exactly.\n"
+                if output_format != "tex"
+                else "Choose a clear section structure using \\section headings (use \\subsection for subpoints). "
+                "If the report prompt specifies headings or ordering, follow it exactly.\n"
+            )
+    else:
+        report_skeleton = build_report_skeleton(required_sections, output_format)
+        section_heading_instruction = (
+            "Use the following exact H2 headings in this order (do not rename; do not add extra H2 headings):\n"
+            if output_format != "tex"
+            else "Use the following exact \\section headings in this order (do not rename; do not add extra \\section headings):\n"
+        )
     citation_instruction = (
         "Avoid printing full URLs in the body; use short link labels like [source] or [paper] instead. "
         "Prefer markdown links for file paths so they are clickable. "
@@ -1811,9 +1948,14 @@ def build_format_instructions(output_format: str, required_sections: list[str]) 
             "Only use & inside tabular/align environments. "
             "Use underscores only inside math; otherwise escape as \\_. "
         )
+        section_rule = (
+            "Use \\section{...} headings for each required section and \\subsection for subpoints. "
+            if not free_form
+            else "Use \\section{...} headings as needed and \\subsection for subpoints. "
+        )
         format_instruction = (
             "Write LaTeX body only (no documentclass/preamble). "
-            "Use \\section{...} headings for each required section and \\subsection for subpoints. "
+            f"{section_rule}"
             "Do not use Markdown formatting. "
             "Avoid square brackets except for raw source citations. "
             f"{latex_safety_instruction}"
@@ -1850,7 +1992,19 @@ def build_clarifier_prompt(language: str) -> str:
     )
 
 
-def build_alignment_prompt() -> str:
+def build_alignment_prompt(language: str) -> str:
+    normalized = normalize_lang(language)
+    if normalized == "Korean":
+        return (
+            "당신은 정합성 검토자입니다. 단계 산출물이 보고서 포커스 프롬프트 및 사용자 보충 설명과 "
+            "정합되는지 평가하세요. 프롬프트/보충 정보가 없으면 런 컨텍스트(쿼리 ID, 지시문 범위, "
+            "가용 소스)에 대한 정합성을 판단하세요. 아래 형식을 정확히 지키세요:\n"
+            "정합성 점수: <0-100>\n"
+            "정합:\n- ...\n"
+            "누락/리스크:\n- ...\n"
+            "다음 단계 가이드:\n- ...\n"
+            "간결하고 실행 가능하게 작성하세요."
+        )
     return (
         "You are an alignment auditor. Check whether the stage output aligns with the report focus prompt "
         "and any user clarifications. If no prompt or clarifications exist, judge alignment to the run context "
@@ -1926,6 +2080,16 @@ def build_writer_prompt(
             "and a few bullet points highlighting orthogonal or contrarian viewpoints, risks, or overlooked constraints. "
             "If relevant, touch on AI ethics, regulation (e.g., EU AI Act), safety/security, and explainability. "
         )
+    risk_gap_guidance = ""
+    if any(section.lower().startswith("risks") for section in required_sections):
+        risk_gap_guidance = (
+            "For the Risks & Gaps section, highlight constraints, missing evidence, and validation needs; "
+            "calibrate depth to evidence strength and context. "
+        )
+    not_applicable_guidance = (
+        "If Risks & Gaps or Critics are not applicable for this report, write a brief "
+        "'Not applicable' note (Korean: '해당없음') and explain why. "
+    )
     tone_instruction = (
         "Use a formal/academic research-journal tone suitable for PRL/Nature/Annual Review-style manuscripts. "
         if template_spec.name in FORMAL_TEMPLATES
@@ -1938,6 +2102,7 @@ def build_writer_prompt(
         f"{format_instructions.section_heading_instruction}{format_instructions.report_skeleton}\n"
         f"{'Template guidance:\\n' + template_guidance_text + '\\n' if template_guidance_text else ''}"
         f"{format_instructions.format_instruction}"
+        "Output the report body directly; do not include status updates or promises. "
         "Math formatting rule: Any formula or symbolic expression must be valid LaTeX and wrapped in $...$ "
         "(inline) or $$...$$ (block). Do not use bare brackets [ ... ] for equations. "
         "Always wrap subscripts/superscripts (e.g., $\\Delta E_{ST}$, $E(S_1)$, $S_1/T_1$). "
@@ -1953,6 +2118,8 @@ def build_writer_prompt(
         f"{format_instructions.citation_instruction}"
         "When formulas are important, render them in LaTeX using $...$ or $$...$$ so they can be rendered in HTML. "
         f"{critics_guidance}"
+        f"{risk_gap_guidance}"
+        f"{not_applicable_guidance}"
         "If supporting web research exists under ./supporting/..., integrate it as updated evidence and label it as "
         "web-derived support (not primary experimental evidence). "
         f"Write the report in {language}. Keep proper nouns and source titles in their original language. "
@@ -1960,12 +2127,31 @@ def build_writer_prompt(
     )
 
 
-def build_repair_prompt(format_instructions: FormatInstructions, output_format: str, language: str) -> str:
+def build_repair_prompt(
+    format_instructions: FormatInstructions,
+    output_format: str,
+    language: str,
+    mode: str = "replace",
+    free_form: bool = False,
+) -> str:
+    mode_instruction = ""
+    if mode == "append":
+        mode_instruction = "Return ONLY the missing sections with their headings; do not restate existing sections. "
+    elif mode == "replace":
+        mode_instruction = "Return the full repaired report with all sections present. "
+    if free_form:
+        heading_rule = (
+            "Use the exact headings for the missing required sections and append them at the end of the report body. "
+            "Do not remove or rename any existing sections. "
+        )
+    else:
+        heading_rule = "Use the exact section headings in the required skeleton and keep their order. "
     return (
         "You are a structural editor. The report is missing required sections. "
         "Add the missing sections while preserving all existing content and citations. "
-        "Use the exact section headings in the required skeleton and keep their order. "
-        "Do not add extra section headings. "
+        f"{mode_instruction}"
+        f"{heading_rule}"
+        "Do not add extra section headings. Do not include status updates or promises. "
         f"{'Prefer markdown links for file paths. ' if output_format != 'tex' else 'Keep LaTeX section commands and avoid Markdown formatting. '}"
         f"{format_instructions.latex_safety_instruction}"
         f"Write in {language}."
@@ -1974,21 +2160,31 @@ def build_repair_prompt(format_instructions: FormatInstructions, output_format: 
 
 def build_critic_prompt(language: str, required_sections: list[str]) -> str:
     required_sections_label = ", ".join(required_sections)
+    section_check = (
+        f"Confirm all required sections are present ({required_sections_label}) and note any missing. "
+        if required_sections
+        else "Assess whether the section structure is clear and appropriate. "
+    )
     return (
         "You are a rigorous journal editor. Critique the report for clarity, narrative flow, "
         "depth of insight, evidence usage, and alignment with the report focus. "
         "Flag any reliance on JSONL index data instead of source content, including citations that point "
         "to JSONL index files rather than the underlying sources. "
-        f"Confirm all required sections are present ({required_sections_label}) and note any missing. "
+        f"{section_check}"
         "If the report already meets high-quality standards, respond with 'NO_CHANGES'. "
         f"Write in {language}."
     )
 
 
 def build_revise_prompt(format_instructions: FormatInstructions, output_format: str, language: str) -> str:
+    section_rule = (
+        "Preserve the required sections and citations. "
+        if format_instructions.report_skeleton
+        else "Preserve citations and keep the section structure coherent. "
+    )
     return (
         "You are a senior editor. Revise the report to address the critique. "
-        "Preserve the required sections and citations. "
+        f"{section_rule}"
         "Improve narrative flow, synthesis, and technical rigor. "
         "Do not add a full References list; the script appends a Source Index automatically. "
         f"{'Keep LaTeX formatting and section commands; do not convert to Markdown. ' if output_format == 'tex' else ''}"
@@ -2096,14 +2292,21 @@ def normalize_config_overrides(raw: dict) -> dict:
     overrides: dict[str, object] = {}
     for key in (
         "model",
+        "check_model",
         "quality_model",
         "model_vision",
         "template_adjust",
+        "template_adjust_mode",
         "quality_iterations",
         "quality_strategy",
         "web_search",
         "alignment_check",
+        "stream",
+        "stream_debug",
+        "repair_mode",
+        "repair_debug",
         "interactive",
+        "free_format",
         "language",
         "lang",
     ):
@@ -2117,12 +2320,20 @@ def apply_config_overrides(args: argparse.Namespace, config: dict) -> None:
         return
     if isinstance(config.get("model"), str) and config["model"].strip():
         args.model = config["model"].strip()
+    if isinstance(config.get("check_model"), str) and config["check_model"].strip():
+        args.check_model = config["check_model"].strip()
     if isinstance(config.get("quality_model"), str) and config["quality_model"].strip():
         args.quality_model = config["quality_model"].strip()
     if isinstance(config.get("model_vision"), str) and config["model_vision"].strip():
         args.model_vision = config["model_vision"].strip()
     if isinstance(config.get("template_adjust"), bool):
         args.template_adjust = config["template_adjust"]
+    if isinstance(config.get("template_adjust_mode"), str) and config["template_adjust_mode"] in {
+        "risk_only",
+        "extend",
+        "replace",
+    }:
+        args.template_adjust_mode = config["template_adjust_mode"]
     if isinstance(config.get("quality_iterations"), int) and config["quality_iterations"] >= 0:
         args.quality_iterations = config["quality_iterations"]
     if isinstance(config.get("quality_strategy"), str) and config["quality_strategy"] in {"pairwise", "best_of"}:
@@ -2131,8 +2342,18 @@ def apply_config_overrides(args: argparse.Namespace, config: dict) -> None:
         args.web_search = config["web_search"]
     if isinstance(config.get("alignment_check"), bool):
         args.alignment_check = config["alignment_check"]
+    if isinstance(config.get("stream"), bool):
+        args.stream = config["stream"]
+    if isinstance(config.get("stream_debug"), bool):
+        args.stream_debug = config["stream_debug"]
+    if isinstance(config.get("repair_mode"), str) and config["repair_mode"] in {"append", "replace", "off"}:
+        args.repair_mode = config["repair_mode"]
+    if isinstance(config.get("repair_debug"), bool):
+        args.repair_debug = config["repair_debug"]
     if isinstance(config.get("interactive"), bool):
         args.interactive = config["interactive"]
+    if isinstance(config.get("free_format"), bool):
+        args.free_format = config["free_format"]
     if isinstance(config.get("language"), str) and config["language"].strip():
         args.lang = config["language"].strip()
     if isinstance(config.get("lang"), str) and config["lang"].strip():
@@ -2190,15 +2411,16 @@ def build_agent_info(
     template_spec: TemplateSpec,
     template_guidance_text: str,
     required_sections: list[str],
+    free_format: bool = False,
     agent_overrides: Optional[dict] = None,
 ) -> dict:
-    if not required_sections:
+    if not required_sections and not free_format:
         required_sections = list(DEFAULT_SECTIONS)
     if not template_guidance_text:
         template_guidance_text = build_template_guidance_text(template_spec)
     overrides = normalize_agent_overrides(agent_overrides)
-    quality_model = args.quality_model or args.model
-    format_instructions = build_format_instructions(output_format, required_sections)
+    quality_model = args.quality_model or args.check_model or args.model
+    format_instructions = build_format_instructions(output_format, required_sections, free_form=args.free_format)
     metrics = ", ".join(QUALITY_WEIGHTS.keys())
     writer_prompt = resolve_agent_prompt(
         "writer",
@@ -2214,14 +2436,14 @@ def build_agent_info(
     )
     scout_prompt = resolve_agent_prompt("scout", build_scout_prompt(language), overrides)
     clarifier_prompt = resolve_agent_prompt("clarifier", build_clarifier_prompt(language), overrides)
-    align_prompt = resolve_agent_prompt("alignment", build_alignment_prompt(), overrides)
+    align_prompt = resolve_agent_prompt("alignment", build_alignment_prompt(language), overrides)
     plan_prompt = resolve_agent_prompt("planner", build_plan_prompt(language), overrides)
     plan_check_prompt = resolve_agent_prompt("plan_check", build_plan_check_prompt(language), overrides)
     web_prompt = resolve_agent_prompt("web_query", build_web_prompt(), overrides)
     evidence_prompt = resolve_agent_prompt("evidence", build_evidence_prompt(language), overrides)
     repair_prompt = resolve_agent_prompt(
         "structural_editor",
-        build_repair_prompt(format_instructions, output_format, language),
+        build_repair_prompt(format_instructions, output_format, language, free_form=args.free_format),
         overrides,
     )
     critic_prompt = resolve_agent_prompt("critic", build_critic_prompt(language, required_sections), overrides)
@@ -2245,9 +2467,9 @@ def build_agent_info(
     image_prompt = resolve_agent_prompt("image_analyst", build_image_prompt(), overrides)
     scout_model = resolve_agent_model("scout", args.model, overrides)
     clarifier_model = resolve_agent_model("clarifier", args.model, overrides)
-    alignment_model = resolve_agent_model("alignment", args.model, overrides)
+    alignment_model = resolve_agent_model("alignment", args.check_model or args.model, overrides)
     planner_model = resolve_agent_model("planner", args.model, overrides)
-    plan_check_model = resolve_agent_model("plan_check", args.model, overrides)
+    plan_check_model = resolve_agent_model("plan_check", args.check_model or args.model, overrides)
     web_model = resolve_agent_model("web_query", args.model, overrides)
     evidence_model = resolve_agent_model("evidence", args.model, overrides)
     writer_model = resolve_agent_model("writer", args.model, overrides)
@@ -2267,6 +2489,8 @@ def build_agent_info(
     alignment_enabled = resolve_agent_enabled("alignment", bool(args.alignment_check), overrides)
     web_enabled = resolve_agent_enabled("web_query", bool(args.web_search), overrides)
     template_adjust_enabled = resolve_agent_enabled("template_adjuster", bool(args.template_adjust), overrides)
+    if free_format:
+        template_adjust_enabled = False
     quality_enabled = bool(args.quality_iterations > 0)
     critic_enabled = resolve_agent_enabled("critic", quality_enabled, overrides)
     reviser_enabled = resolve_agent_enabled("reviser", quality_enabled, overrides)
@@ -2323,7 +2547,8 @@ def build_agent_info(
             "quality_model": quality_model,
             "model_vision": args.model_vision,
             "template": template_spec.name,
-            "template_adjust": args.template_adjust,
+            "template_adjust": template_adjust_enabled,
+            "free_format": args.free_format,
             "quality_iterations": args.quality_iterations,
             "quality_strategy": args.quality_strategy,
             "web_search": args.web_search,
@@ -3915,7 +4140,7 @@ class SafeFilesystemBackend:
                 if normalized.lower().startswith(root_norm.lower()):
                     rel = normalized[len(root_norm) :].lstrip("/")
                     return f"/{rel}" if rel else "/"
-                for marker in ("/archive", "/instruction", "/report", "/report_notes"):
+                for marker in ("/archive", "/instruction", "/report", "/report_notes", "/supporting", "/report_views"):
                     idx = normalized.lower().find(marker)
                     if idx != -1:
                         rel = normalized[idx + 1 :]
@@ -3923,13 +4148,14 @@ class SafeFilesystemBackend:
                 return None
 
             def _resolve_path(self, key: str) -> Path:  # type: ignore[override]
-                if self.virtual_mode and isinstance(key, str):
-                    raw = key.strip()
-                    normalized = raw.replace("\\", "/")
-                    if _WINDOWS_ABS_RE.match(normalized):
-                        mapped = self._map_windows_path(normalized)
-                        if mapped is not None:
-                            return super()._resolve_path(mapped)
+                if self.virtual_mode:
+                    raw = os.fspath(key) if isinstance(key, (str, os.PathLike)) else None
+                    if isinstance(raw, str) and raw:
+                        normalized = raw.strip().replace("\\", "/")
+                        if _WINDOWS_ABS_RE.match(normalized):
+                            mapped = self._map_windows_path(normalized)
+                            if mapped is not None:
+                                return super()._resolve_path(mapped)
                 return super()._resolve_path(key)
 
         self._backend = _Backend(root_dir=root_dir, virtual_mode=True)
@@ -5242,18 +5468,29 @@ def is_openai_model_name(model_name: str) -> bool:
     return bool(_OPENAI_MODEL_RE.match(model_name.strip()))
 
 
-def build_openai_compat_model(model_name: str):
+def build_openai_compat_model(model_name: str, streaming: bool = False):
     try:
         from langchain_openai import ChatOpenAI  # type: ignore
     except Exception:
         return None
     base_url = os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE")
+    kwargs = {"model": model_name}
+    if streaming:
+        kwargs["streaming"] = True
     if base_url:
         try:
-            return ChatOpenAI(model=model_name, base_url=base_url)
+            return ChatOpenAI(**kwargs, base_url=base_url)
         except TypeError:
-            return ChatOpenAI(model=model_name, openai_api_base=base_url)
-    return ChatOpenAI(model=model_name)
+            try:
+                return ChatOpenAI(**kwargs, openai_api_base=base_url)
+            except TypeError:
+                kwargs.pop("streaming", None)
+                return ChatOpenAI(**kwargs, openai_api_base=base_url)
+    try:
+        return ChatOpenAI(**kwargs)
+    except TypeError:
+        kwargs.pop("streaming", None)
+        return ChatOpenAI(**kwargs)
 
 
 def build_vision_model(model_name: str):
@@ -5306,7 +5543,7 @@ def create_agent_with_fallback(create_deep_agent, model_name: str, tools, system
         elif is_openai_compat_model_name(model_name):
             use_compat = True
         if use_compat:
-            compat_model = build_openai_compat_model(model_name)
+            compat_model = build_openai_compat_model(model_name, streaming=STREAMING_ENABLED)
             if compat_model is None:
                 print(
                     "OpenAI-compatible model requested but langchain-openai is unavailable. "
@@ -5315,6 +5552,10 @@ def create_agent_with_fallback(create_deep_agent, model_name: str, tools, system
                     file=sys.stderr,
                 )
             else:
+                model_value = compat_model
+        elif STREAMING_ENABLED and is_openai_model_name(model_name):
+            compat_model = build_openai_compat_model(model_name, streaming=True)
+            if compat_model is not None:
                 model_value = compat_model
         try:
             return create_deep_agent(model=model_value, **kwargs)
@@ -5352,6 +5593,11 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 args.quality_iterations = 0
+    check_model = args.check_model.strip() if args.check_model else ""
+    if not check_model:
+        check_model = args.model
+    global STREAMING_ENABLED
+    STREAMING_ENABLED = bool(args.stream)
     output_format = choose_format(args.output)
     start_stamp = dt.datetime.now()
     start_timer = time.monotonic()
@@ -5381,7 +5627,9 @@ def main() -> int:
         template_spec = load_template_spec(style_choice, report_prompt)
         if not template_spec.sections:
             template_spec.sections = list(DEFAULT_SECTIONS)
-        required_sections = list(template_spec.sections)
+        required_sections = (
+            list(FREE_FORMAT_REQUIRED_SECTIONS) if args.free_format else list(template_spec.sections)
+        )
         template_guidance_text = build_template_guidance_text(template_spec)
         payload = build_agent_info(
             args,
@@ -5391,6 +5639,7 @@ def main() -> int:
             template_spec,
             template_guidance_text,
             required_sections,
+            args.free_format,
             agent_overrides,
         )
         write_agent_info(payload, args.agent_info)
@@ -5528,14 +5777,264 @@ def main() -> int:
     web_search_enabled = resolve_agent_enabled("web_query", bool(args.web_search), agent_overrides)
     template_adjust_enabled = resolve_agent_enabled("template_adjuster", bool(args.template_adjust), agent_overrides)
     clarifier_enabled = resolve_agent_enabled("clarifier", True, agent_overrides)
+    if args.free_format:
+        template_adjust_enabled = False
     args.alignment_check = alignment_enabled
     args.web_search = web_search_enabled
     args.template_adjust = template_adjust_enabled
     vision_override = resolve_agent_model("image_analyst", args.model_vision or "", agent_overrides)
     if vision_override:
         args.model_vision = vision_override
-    alignment_prompt = resolve_agent_prompt("alignment", build_alignment_prompt(), agent_overrides)
-    alignment_model = resolve_agent_model("alignment", args.model, agent_overrides)
+    alignment_prompt = resolve_agent_prompt("alignment", build_alignment_prompt(normalize_lang(args.lang)), agent_overrides)
+    alignment_model = resolve_agent_model("alignment", check_model, agent_overrides)
+
+    def _coerce_stream_text(value: object) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            parts = []
+            for item in value:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text = item.get("text") or item.get("content") or item.get("value")
+                    if text:
+                        parts.append(str(text))
+            return "".join(parts)
+        return ""
+
+    def _unpack_stream_chunk(chunk: object) -> tuple[Optional[str], object]:
+        if isinstance(chunk, tuple):
+            if len(chunk) == 2:
+                return chunk[0], chunk[1]
+            if len(chunk) >= 3:
+                return chunk[1], chunk[2]
+        return None, None
+
+    def run_agent(label: str, agent, payload: dict, show_progress: bool = True) -> str:
+        if not args.stream:
+            result = agent.invoke(payload)
+            text = extract_agent_text(result)
+            if show_progress:
+                print_progress(label, text, args.progress, args.progress_chars)
+            return text
+        print(f"\n[{label}]\n", end="", flush=True)
+        final_state = None
+        streamed_parts: list[str] = []
+        printed_any = False
+        message_events = 0
+        value_events = 0
+        debug_samples = 0
+        try:
+            for chunk in agent.stream(payload, stream_mode=["messages", "values"], subgraphs=True):
+                mode, data = _unpack_stream_chunk(chunk)
+                if mode == "messages":
+                    message_events += 1
+                    if isinstance(data, tuple) and data:
+                        message = data[0]
+                    else:
+                        message = data
+                    msg_type = getattr(message, "type", None) or getattr(message, "role", None)
+                    msg_type_label = str(msg_type).lower() if msg_type is not None else ""
+                    if args.stream_debug and debug_samples < 3:
+                        debug_samples += 1
+                        print(
+                            f"[stream-debug] {label}: mode=messages type={msg_type_label}",
+                            file=sys.stderr,
+                        )
+                    if msg_type_label and msg_type_label not in ("ai", "assistant") and not msg_type_label.startswith("ai"):
+                        continue
+                    content = getattr(message, "content", None)
+                    text = _coerce_stream_text(content)
+                    if text:
+                        streamed_parts.append(text)
+                        printed_any = True
+                        sys.stdout.write(text)
+                        sys.stdout.flush()
+                elif mode == "values":
+                    value_events += 1
+                    final_state = data
+        except Exception as exc:
+            print(f"\n[warn] streaming failed for {label}: {exc}", file=sys.stderr)
+            result = agent.invoke(payload)
+            text = extract_agent_text(result)
+            if show_progress:
+                print_progress(label, text, args.progress, args.progress_chars)
+            return text
+        if args.stream_debug:
+            print(
+                f"[stream-debug] {label}: messages={message_events} values={value_events} printed={printed_any}",
+                file=sys.stderr,
+            )
+        if not printed_any and final_state is not None:
+            fallback_text = extract_agent_text(final_state).strip()
+            if fallback_text:
+                sys.stdout.write(fallback_text)
+                sys.stdout.flush()
+        print("\n")
+        if final_state is not None:
+            return extract_agent_text(final_state)
+        return "".join(streamed_parts).strip()
+
+    def trim_to_sections(text: str) -> str:
+        if not text:
+            return ""
+        pattern = r"^\\section\\*?\\{" if output_format == "tex" else r"^##\\s+"
+        match = re.search(pattern, text, re.MULTILINE)
+        return text[match.start() :].strip() if match else text.strip()
+
+    def extract_section_headings(text: str) -> list[str]:
+        if output_format == "tex":
+            return [
+                match.group(1).strip()
+                for match in re.finditer(r"^\\section\\*?\\{([^}]+)\\}", text, re.MULTILINE)
+            ]
+        return [match.group(1).strip() for match in re.finditer(r"^##\\s+(.+)$", text, re.MULTILINE)]
+
+    def coerce_required_headings(text: str, sections: list[str]) -> str:
+        if output_format == "tex":
+            return text
+        if not text or not sections:
+            return text
+        lines = text.splitlines()
+        lowered = [section.lower() for section in sections]
+        for idx, line in enumerate(lines):
+            if not line.startswith("### "):
+                continue
+            heading = line[4:].strip()
+            if any(heading.lower().startswith(section) for section in lowered):
+                lines[idx] = f"## {heading}"
+        return "\n".join(lines)
+
+    def report_needs_retry(text: str) -> tuple[bool, str]:
+        if not text.strip():
+            return True, "empty"
+        if REPORT_PLACEHOLDER_RE.search(text):
+            return True, "placeholder"
+        headings = extract_section_headings(text)
+        min_headings = max(len(required_sections), 3)
+        if len(headings) < min_headings:
+            return True, f"headings_{len(headings)}"
+        missing = find_missing_sections(text, required_sections, output_format)
+        if missing:
+            return True, f"missing_{len(missing)}"
+        return False, ""
+
+    def build_writer_retry_guardrail(reason: str) -> str:
+        required_list = "\n".join(f"- {section}" for section in required_sections)
+        return "\n".join(
+            [
+                "CRITICAL: The previous output did not contain a complete report.",
+                f"Reason: {reason}",
+                "Return the full report body now. Do not include status updates, promises, or meta commentary.",
+                "Use H2 headings (##) for top-level sections and H3 for subpoints.",
+                "Include the required sections listed below using exact H2 headings and place them at the end:",
+                required_list or "(none)",
+            ]
+        )
+
+    def coerce_repair_headings(text: str, sections: list[str]) -> str:
+        if output_format == "tex":
+            return text
+        if not text:
+            return text
+        lines = text.splitlines()
+        lowered = [section.lower() for section in sections]
+        for idx, line in enumerate(lines):
+            if not line.startswith("### "):
+                continue
+            heading = line[4:].strip()
+            if any(heading.lower().startswith(section) for section in lowered):
+                lines[idx] = f"## {heading}"
+        return "\n".join(lines)
+
+    def append_missing_sections(report_text: str, supplement: str) -> str:
+        cleaned = trim_to_sections(supplement)
+        if not cleaned:
+            return report_text
+        if report_text.strip():
+            return f"{report_text.rstrip()}\n\n{cleaned}\n"
+        return f"{cleaned}\n"
+
+    def run_structural_repair(report_text: str, missing_sections: list[str], label: str) -> str:
+        if not missing_sections or args.repair_mode == "off":
+            return report_text
+        repair_mode = args.repair_mode
+        repair_skeleton = build_report_skeleton(
+            missing_sections if repair_mode == "append" else required_sections,
+            output_format,
+        )
+        repair_prompt = resolve_agent_prompt(
+            "structural_editor",
+            build_repair_prompt(
+                format_instructions,
+                output_format,
+                language,
+                mode=repair_mode,
+                free_form=args.free_format,
+            ),
+            agent_overrides,
+        )
+        repair_model = resolve_agent_model("structural_editor", args.model, agent_overrides)
+        repair_agent = create_agent_with_fallback(create_deep_agent, repair_model, tools, repair_prompt, backend)
+        repair_input = "\n".join(
+            [
+                "Required skeleton:",
+                repair_skeleton,
+                "",
+                "Missing sections:",
+                ", ".join(missing_sections),
+                "",
+                "Evidence notes:",
+                truncate_text(evidence_notes, args.quality_max_chars),
+                "",
+                "Report focus prompt:",
+                report_prompt or "(none)",
+                "",
+                "Current report:",
+                truncate_text(report_text, args.quality_max_chars),
+            ]
+        )
+        repair_text = run_agent(
+            label,
+            repair_agent,
+            {"messages": [{"role": "user", "content": repair_input}]},
+            show_progress=False,
+        )
+        repair_text = normalize_report_paths(repair_text, run_dir)
+        repair_text = coerce_repair_headings(repair_text, missing_sections)
+        repair_headings = extract_section_headings(repair_text)
+        matching = [
+            heading
+            for heading in repair_headings
+            if any(heading.lower().startswith(section.lower()) for section in missing_sections)
+        ]
+        if args.repair_debug:
+            print(
+                f"[repair-debug] {label}: mode={repair_mode} missing={len(missing_sections)} "
+                f"report_len={len(report_text)} repair_len={len(repair_text)} "
+                f"headings={repair_headings}",
+                file=sys.stderr,
+            )
+        if repair_mode == "append":
+            if not matching:
+                if args.repair_debug:
+                    print(
+                        f"[repair-debug] {label}: no matching headings in repair output; skipping append",
+                        file=sys.stderr,
+                    )
+                return report_text
+            return append_missing_sections(report_text, repair_text)
+        candidate = repair_text.strip()
+        if not candidate:
+            return report_text
+        min_len = max(400, int(len(report_text) * 0.5))
+        candidate_missing = find_missing_sections(candidate, required_sections, output_format)
+        if not extract_section_headings(candidate):
+            return report_text
+        if len(candidate) < min_len or (candidate_missing and len(candidate_missing) >= len(missing_sections)):
+            return append_missing_sections(report_text, candidate)
+        return candidate
 
     def run_alignment_check(stage: str, content: str) -> Optional[str]:
         if not alignment_enabled:
@@ -5561,9 +6060,12 @@ def main() -> int:
             "",
             f"Write in {language}.",
         ]
-        align_result = align_agent.invoke({"messages": [{"role": "user", "content": "\n".join(align_input)}]})
-        align_notes = extract_agent_text(align_result)
-        print_progress(f"Alignment Check ({stage})", align_notes, args.progress, args.progress_chars)
+        align_notes = run_agent(
+            f"Alignment Check ({stage})",
+            align_agent,
+            {"messages": [{"role": "user", "content": "\n".join(align_input)}]},
+            show_progress=True,
+        )
         note_name = f"alignment_{slugify_label(stage)}.md"
         (notes_dir / note_name).write_text(align_notes, encoding="utf-8")
         return align_notes
@@ -5612,9 +6114,12 @@ def main() -> int:
         scout_input.extend(["", "Report focus prompt:", report_prompt])
     if source_triage_text:
         scout_input.extend(["", "Source triage (lightweight):", source_triage_text])
-    scout_result = scout_agent.invoke({"messages": [{"role": "user", "content": "\n".join(scout_input)}]})
-    scout_notes = extract_agent_text(scout_result)
-    print_progress("Scout Notes", scout_notes, args.progress, args.progress_chars)
+    scout_notes = run_agent(
+        "Scout Notes",
+        scout_agent,
+        {"messages": [{"role": "user", "content": "\n".join(scout_input)}]},
+        show_progress=True,
+    )
 
     clarification_questions: Optional[str] = None
     clarification_answers = load_user_answers(args.answers, args.answers_file)
@@ -5626,9 +6131,12 @@ def main() -> int:
         clarifier_input.extend(["", "Scout notes:", scout_notes])
         if report_prompt:
             clarifier_input.extend(["", "Report focus prompt:", report_prompt])
-        clarifier_result = clarifier_agent.invoke({"messages": [{"role": "user", "content": "\n".join(clarifier_input)}]})
-        clarification_questions = extract_agent_text(clarifier_result)
-        print_progress("Clarification Questions", clarification_questions, args.progress, args.progress_chars)
+        clarification_questions = run_agent(
+            "Clarification Questions",
+            clarifier_agent,
+            {"messages": [{"role": "user", "content": "\n".join(clarifier_input)}]},
+            show_progress=True,
+        )
         if clarification_questions and "no_questions" not in clarification_questions.lower():
             if not clarification_answers and args.interactive:
                 clarification_answers = read_user_answers()
@@ -5656,6 +6164,7 @@ def main() -> int:
             args.model,
             create_deep_agent,
             backend,
+            adjust_mode=args.template_adjust_mode,
             prompt_override=template_adjuster_prompt,
             model_override=template_adjuster_model,
         )
@@ -5672,8 +6181,10 @@ def main() -> int:
 
     if not template_spec.sections:
         template_spec.sections = list(DEFAULT_SECTIONS)
-    required_sections = list(template_spec.sections)
-    format_instructions = build_format_instructions(output_format, required_sections)
+    required_sections = (
+        list(FREE_FORMAT_REQUIRED_SECTIONS) if args.free_format else list(template_spec.sections)
+    )
+    format_instructions = build_format_instructions(output_format, required_sections, free_form=args.free_format)
     report_skeleton = format_instructions.report_skeleton
     context_lines.append(f"Template: {template_spec.name}")
     if template_spec.source:
@@ -5695,9 +6206,12 @@ def main() -> int:
         plan_input.extend(["", "Report focus prompt:", report_prompt])
     if clarification_answers:
         plan_input.extend(["", "User clarifications:", clarification_answers])
-    plan_result = plan_agent.invoke({"messages": [{"role": "user", "content": "\n".join(plan_input)}]})
-    plan_text = extract_agent_text(plan_result)
-    print_progress("Plan", plan_text, args.progress, args.progress_chars)
+    plan_text = run_agent(
+        "Plan",
+        plan_agent,
+        {"messages": [{"role": "user", "content": "\n".join(plan_input)}]},
+        show_progress=True,
+    )
     (notes_dir / "report_plan.md").write_text(plan_text, encoding="utf-8")
     align_plan = run_alignment_check("plan", plan_text)
 
@@ -5712,8 +6226,13 @@ def main() -> int:
         web_input.extend(["", "Scout notes:", scout_notes, "", "Plan:", plan_text])
         if report_prompt:
             web_input.extend(["", "Report focus prompt:", report_prompt])
-        web_result = web_agent.invoke({"messages": [{"role": "user", "content": "\n".join(web_input)}]})
-        web_queries = parse_query_lines(extract_agent_text(web_result), args.web_max_queries)
+        web_text = run_agent(
+            "Web Query Draft",
+            web_agent,
+            {"messages": [{"role": "user", "content": "\n".join(web_input)}]},
+            show_progress=False,
+        )
+        web_queries = parse_query_lines(web_text, args.web_max_queries)
         print_progress("Web Queries", "\n".join(web_queries) if web_queries else "None", args.progress, args.progress_chars)
         if web_queries:
             supporting_summary, _ = run_web_research(
@@ -5771,14 +6290,17 @@ def main() -> int:
     if supporting_summary:
         evidence_parts.extend(["", "Supporting web research summary:", supporting_summary])
     evidence_input = "\n".join(evidence_parts)
-    evidence_result = evidence_agent.invoke({"messages": [{"role": "user", "content": evidence_input}]})
-    evidence_notes = extract_agent_text(evidence_result)
-    print_progress("Evidence Notes", evidence_notes, args.progress, args.progress_chars)
+    evidence_notes = run_agent(
+        "Evidence Notes",
+        evidence_agent,
+        {"messages": [{"role": "user", "content": evidence_input}]},
+        show_progress=True,
+    )
     (notes_dir / "evidence_notes.md").write_text(evidence_notes, encoding="utf-8")
     align_evidence = run_alignment_check("evidence", evidence_notes)
 
     plan_check_prompt = resolve_agent_prompt("plan_check", build_plan_check_prompt(language), agent_overrides)
-    plan_check_model = resolve_agent_model("plan_check", args.model, agent_overrides)
+    plan_check_model = resolve_agent_model("plan_check", check_model, agent_overrides)
     plan_check_agent = create_agent_with_fallback(create_deep_agent, plan_check_model, tools, plan_check_prompt, backend)
     plan_check_input = "\n".join(
         [
@@ -5792,9 +6314,12 @@ def main() -> int:
             report_prompt or "(none)",
         ]
     )
-    plan_check_result = plan_check_agent.invoke({"messages": [{"role": "user", "content": plan_check_input}]})
-    plan_text = extract_agent_text(plan_check_result)
-    print_progress("Plan Update", plan_text, args.progress, args.progress_chars)
+    plan_text = run_agent(
+        "Plan Update",
+        plan_check_agent,
+        {"messages": [{"role": "user", "content": plan_check_input}]},
+        show_progress=True,
+    )
     (notes_dir / "report_plan.md").write_text(plan_text, encoding="utf-8")
 
     claim_map = feder_tools.build_claim_map(evidence_notes, max_claims=80)
@@ -5841,42 +6366,30 @@ def main() -> int:
     if supporting_summary:
         writer_parts.extend(["", "Supporting web research summary:", supporting_summary])
     writer_input = "\n".join(writer_parts)
-    writer_result = writer_agent.invoke({"messages": [{"role": "user", "content": writer_input}]})
-    report = extract_agent_text(writer_result)
+    report = run_agent(
+        "Writer Draft",
+        writer_agent,
+        {"messages": [{"role": "user", "content": writer_input}]},
+        show_progress=False,
+    )
     report = normalize_report_paths(report, run_dir)
-    missing_sections = find_missing_sections(report, required_sections, output_format)
-    if missing_sections:
-        repair_prompt = resolve_agent_prompt(
-            "structural_editor",
-            build_repair_prompt(format_instructions, output_format, language),
-            agent_overrides,
+    report = coerce_required_headings(report, required_sections)
+    retry_needed, retry_reason = report_needs_retry(report)
+    if retry_needed:
+        retry_input = "\n".join([build_writer_retry_guardrail(retry_reason), "", writer_input])
+        report = run_agent(
+            "Writer Draft (retry)",
+            writer_agent,
+            {"messages": [{"role": "user", "content": retry_input}]},
+            show_progress=False,
         )
-        repair_model = resolve_agent_model("structural_editor", args.model, agent_overrides)
-        repair_agent = create_agent_with_fallback(create_deep_agent, repair_model, tools, repair_prompt, backend)
-        repair_input = "\n".join(
-            [
-                "Required skeleton:",
-                report_skeleton,
-                "",
-                "Missing sections:",
-                ", ".join(missing_sections),
-                "",
-                "Evidence notes:",
-                truncate_text(evidence_notes, args.quality_max_chars),
-                "",
-                "Report focus prompt:",
-                report_prompt or "(none)",
-                "",
-                "Current report:",
-                truncate_text(report, args.quality_max_chars),
-            ]
-        )
-        repair_result = repair_agent.invoke({"messages": [{"role": "user", "content": repair_input}]})
-        report = extract_agent_text(repair_result)
         report = normalize_report_paths(report, run_dir)
+        report = coerce_required_headings(report, required_sections)
+    missing_sections = find_missing_sections(report, required_sections, output_format)
+    report = run_structural_repair(report, missing_sections, "Structural Repair")
     align_draft = run_alignment_check("draft", report)
     candidates = [{"label": "draft", "text": report}]
-    quality_model = args.quality_model or args.model
+    quality_model = args.quality_model or check_model or args.model
     if args.quality_iterations > 0:
         for idx in range(args.quality_iterations):
             critic_prompt = resolve_agent_prompt(
@@ -5901,9 +6414,12 @@ def main() -> int:
                     align_draft or "(none)",
                 ]
             )
-            critic_result = critic_agent.invoke({"messages": [{"role": "user", "content": critic_input}]})
-            critique = extract_agent_text(critic_result)
-            print_progress(f"Critique Pass {idx + 1}", critique, args.progress, args.progress_chars)
+            critique = run_agent(
+                f"Critique Pass {idx + 1}",
+                critic_agent,
+                {"messages": [{"role": "user", "content": critic_input}]},
+                show_progress=True,
+            )
             if "no_changes" in critique.lower():
                 break
 
@@ -5932,9 +6448,12 @@ def main() -> int:
                     align_draft or "(none)",
                 ]
             )
-            revise_result = revise_agent.invoke({"messages": [{"role": "user", "content": revise_input}]})
-            report = extract_agent_text(revise_result)
-            print_progress(f"Revision Pass {idx + 1}", report, args.progress, args.progress_chars)
+            report = run_agent(
+                f"Revision Pass {idx + 1}",
+                revise_agent,
+                {"messages": [{"role": "user", "content": revise_input}]},
+                show_progress=True,
+            )
             candidates.append({"label": f"rev_{idx + 1}", "text": report})
     if args.quality_iterations > 0 and len(candidates) > 1:
         eval_path = notes_dir / "quality_evals.jsonl"
@@ -6025,35 +6544,7 @@ def main() -> int:
             best_idx = max(range(len(candidates)), key=lambda idx: evaluations[idx].get("overall", 0.0))
             report = candidates[best_idx]["text"]
     missing_sections = find_missing_sections(report, required_sections, output_format)
-    if missing_sections:
-        repair_prompt = resolve_agent_prompt(
-            "structural_editor",
-            build_repair_prompt(format_instructions, output_format, language),
-            agent_overrides,
-        )
-        repair_model = resolve_agent_model("structural_editor", args.model, agent_overrides)
-        repair_agent = create_agent_with_fallback(create_deep_agent, repair_model, tools, repair_prompt, backend)
-        repair_input = "\n".join(
-            [
-                "Required skeleton:",
-                report_skeleton,
-                "",
-                "Missing sections:",
-                ", ".join(missing_sections),
-                "",
-                "Evidence notes:",
-                truncate_text(evidence_notes, args.quality_max_chars),
-                "",
-                "Report focus prompt:",
-                report_prompt or "(none)",
-                "",
-                "Current report:",
-                truncate_text(report, args.quality_max_chars),
-            ]
-        )
-        repair_result = repair_agent.invoke({"messages": [{"role": "user", "content": repair_input}]})
-        report = extract_agent_text(repair_result)
-        report = normalize_report_paths(report, run_dir)
+    report = run_structural_repair(report, missing_sections, "Structural Repair (final)")
     align_final = run_alignment_check("final", report)
     author_name = resolve_author_name(args.author, report_prompt)
     byline = build_byline(author_name)
@@ -6145,6 +6636,7 @@ def main() -> int:
         "quality_strategy": args.quality_strategy if args.quality_iterations > 0 else "none",
         "template": template_spec.name,
         "output_format": output_format,
+        "free_format": args.free_format,
         "pdf_status": "enabled" if output_format == "tex" and args.pdf else "disabled",
     }
     if overview_path:
@@ -6170,7 +6662,7 @@ def main() -> int:
         f"Source: {template_spec.source or 'builtin/default'}",
         f"Latex: {template_spec.latex or 'default.tex'}",
         "Sections:",
-        *[f"- {section}" for section in required_sections],
+        *([f"- {section}" for section in required_sections] if required_sections else ["- (free-form)"]),
     ]
     if template_adjustment_path:
         template_lines.extend(["", f"Adjustment: {rel_path_or_abs(template_adjustment_path, run_dir)}"])
@@ -6219,6 +6711,8 @@ def main() -> int:
             raise RuntimeError("Output path resolution failed.")
         final_path.write_text(rendered, encoding="utf-8")
         print(f"Wrote report: {final_path}")
+        if args.echo_markdown:
+            print(report)
         if output_format == "tex" and args.pdf:
             ok, message = compile_latex_to_pdf(final_path)
             pdf_path = final_path.with_suffix(".pdf")

@@ -1,16 +1,20 @@
 {
-  "generated_at": "2026-01-18 23:32:45",
-  "started_at": "2026-01-18 23:27:56",
-  "duration_seconds": 288.8,
-  "duration_hms": "00:04:48",
+  "generated_at": "2026-01-20 06:56:18",
+  "started_at": "2026-01-20 06:48:49",
+  "duration_seconds": 449.5,
+  "duration_hms": "00:07:29",
   "model": "gpt-5.2",
+  "model_vision": null,
   "quality_model": null,
   "quality_iterations": 0,
   "quality_strategy": "none",
-  "template": "default",
+  "template": "review_of_modern_physics",
   "output_format": "html",
+  "free_format": false,
   "pdf_status": "disabled",
   "run_overview_path": "./report/run_overview.md",
+  "report_overview_path": "./report/run_overview_report_full_19.md",
   "archive_index_path": "./archive/20260110_qc-oled-index.md",
-  "instruction_path": "./instruction/20260110_qc-oled.txt"
+  "instruction_path": "./instruction/20260110_qc-oled.txt",
+  "report_prompt_path": "./instruction/report_prompt_report_full_19.txt"
 }

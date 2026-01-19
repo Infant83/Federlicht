@@ -10,12 +10,14 @@ section: Signal Landscape
 section: Trend Themes
 section: Scenarios & Implications
 section: Risks & Gaps
+section: Critics
 section: Appendix
 guide Executive Summary: 5-7 sentences; include 1-2 signal highlights.
 guide Signal Landscape: group signals by source type; note strength.
 guide Trend Themes: 3-5 themes with evidence and counter-signals.
 guide Scenarios & Implications: 2-3 scenarios with triggers and impacts.
-guide Risks & Gaps: data gaps and false-positive risks.
+guide Risks & Gaps: data gaps and false-positive risks. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
+guide Critics: short headline + brief paragraphs + bullets; include contrarian views. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
 writer_guidance: Separate weak signals from established findings.
 writer_guidance: Note uncertainty and confidence levels explicitly.
 ---

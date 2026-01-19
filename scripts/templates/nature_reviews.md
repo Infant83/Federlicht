@@ -13,6 +13,8 @@ section: Comparative Evidence
 section: Key Points
 section: Challenges & Limitations
 section: Outlook
+section: Risks & Gaps
+section: Critics
 section: Appendix
 guide Abstract: short summary of scope, key findings, and gaps.
 guide Introduction: define scope, terms, and historical context.
@@ -22,6 +24,8 @@ guide Comparative Evidence: contrast methods with pros/cons and data quality.
 guide Key Points: 4-6 bullet highlights (consensus + caveats).
 guide Challenges & Limitations: reproducibility, data limits, scaling issues.
 guide Outlook: near- and mid-term trajectories with decision questions.
+guide Risks & Gaps: highlight missing evidence, constraints, unknowns, and validation needs. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
+guide Critics: short headline + brief paragraphs + bullets; include contrarian views. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
 writer_guidance: Use precise citations and clarify uncertainty.
 writer_guidance: Separate consensus findings from speculative signals.
 ---

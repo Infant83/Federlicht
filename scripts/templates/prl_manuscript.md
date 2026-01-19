@@ -11,6 +11,8 @@ section: Methods
 section: Results
 section: Discussion
 section: Conclusion
+section: Risks & Gaps
+section: Critics
 section: Appendix
 guide Abstract: 5-7 sentences; scope, key result, evidence base.
 guide Introduction: 2-4 paragraphs; motivation and scope.
@@ -18,6 +20,8 @@ guide Methods: summarize experimental/computational setup.
 guide Results: highlight main findings with evidence.
 guide Discussion: interpret results; compare with prior work.
 guide Conclusion: 4-6 sentences; implications and next steps.
+guide Risks & Gaps: highlight missing evidence, constraints, unknowns, and validation needs. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
+guide Critics: short headline + brief paragraphs + bullets; include contrarian views. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
 writer_guidance: Keep sections tight; emphasize the central result.
 writer_guidance: Avoid long lists; prefer short paragraphs.
 ---

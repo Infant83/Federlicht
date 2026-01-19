@@ -9,11 +9,13 @@ section: Executive Summary
 section: Key Findings
 section: Decision Implications
 section: Risks & Gaps
+section: Critics
 section: Appendix
 guide Executive Summary: 4-6 sentences, no bullets; emphasize stakes.
 guide Key Findings: 3-5 bullets, each with evidence and impact.
 guide Decision Implications: 2-4 action recommendations with rationale.
-guide Risks & Gaps: top 3 risks and what to validate next.
+guide Risks & Gaps: top 3 risks and what to validate next. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
+guide Critics: short headline + brief paragraphs + bullets; include contrarian views. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
 writer_guidance: Keep jargon minimal; define essential terms inline.
 writer_guidance: Emphasize business impact and time horizons.
 ---
