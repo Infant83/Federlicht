@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>양자 컴퓨팅 기반 OLED 재료 연구 현황</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root {
+      --ink: #1d1c1a;
+      --muted: #5a5956;
+      --accent: #b24a2f;
+      --paper: #ffffff;
+      --paper-alt: #f6f1e8;
+      --rule: #e7dfd2;
+      --shadow: rgba(0, 0, 0, 0.08);
+      --link: #1d4e89;
+      --link-hover: #0d2b4a;
+      --page-bg: radial-gradient(1200px 600px at 20% -10%, #f2efe8 0%, #f7f4ee 45%, #fdfcf9 100%);
+      --body-font: "Iowan Old Style", "Charter", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      --heading-font: "Avenir Next", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+      --ui-font: "Avenir Next", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+      --mono-font: "SFMono-Regular", "Consolas", "Liberation Mono", "Courier New", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--page-bg);
+      font-family: var(--body-font);
+      line-height: 1.6;
+    }
+    .page {
+      max-width: 980px;
+      margin: 48px auto 80px;
+      padding: 0 24px;
+    }
+    .masthead {
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 16px;
+      margin-bottom: 32px;
+    }
+    .kicker {
+      font-family: var(--ui-font);
+      font-size: 0.82rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .report-title {
+      font-family: var(--heading-font);
+      font-size: 2.4rem;
+      margin: 8px 0 6px;
+    }
+    .report-deck {
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+    .article {
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      border-radius: 16px;
+      padding: 36px 40px;
+      box-shadow: 0 18px 45px var(--shadow);
+    }
+    .article h1, .article h2, .article h3, .article h4 {
+      font-family: var(--heading-font);
+      color: var(--ink);
+    }
+    .article h1 { font-size: 2rem; margin-top: 0; }
+    .article h2 {
+      font-size: 1.5rem;
+      margin-top: 2.4rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid var(--rule);
+    }
+    .article h3 { font-size: 1.2rem; margin-top: 1.6rem; }
+    .article p { font-size: 1.05rem; }
+    .article ul, .article ol { padding-left: 1.4rem; }
+    .article blockquote {
+      border-left: 3px solid var(--accent);
+      margin: 1.6rem 0;
+      padding: 0.5rem 1.2rem;
+      background: var(--paper-alt);
+      color: var(--muted);
+      font-style: italic;
+    }
+    .article a {
+      color: var(--link);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(29, 78, 137, 0.35);
+    }
+    .article a:hover { color: var(--link-hover); border-bottom-color: var(--link-hover); }
+    .article code {
+      background: #f7f6f3;
+      padding: 2px 4px;
+      border-radius: 6px;
+      font-family: var(--mono-font);
+      font-size: 0.95em;
+    }
+    .article pre {
+      background: #f7f6f3;
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      padding: 14px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      font-family: var(--mono-font);
+    }
+    .article table { border-collapse: collapse; width: 100%; margin: 1.2rem 0; }
+    .article th, .article td { border: 1px solid var(--rule); padding: 8px 10px; }
+    .article th { background: var(--paper-alt); text-align: left; }
+    .article hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+    .misc-block {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.6rem;
+    }
+    .misc-block ul { margin: 0.6rem 0 0.8rem 1.2rem; }
+    .misc-block li { margin: 0.2rem 0; }
+    .report-figure {
+      margin: 1.4rem 0;
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      background: var(--paper-alt);
+    }
+    .report-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+    .report-figure figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.4rem; }
+    .figure-callout { font-size: 0.95rem; color: var(--muted); margin: 0.8rem 0 1rem; font-style: italic; }
+    .viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(19, 18, 16, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .viewer-overlay.open { opacity: 1; pointer-events: auto; }
+    .viewer-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: min(560px, 92vw);
+      height: calc(100% - 40px);
+      background: #ffffff;
+      border: 1px solid var(--rule);
+      border-radius: 16px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+      transform: translateX(120%);
+      transition: transform 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+    }
+    .viewer-panel.open { transform: translateX(0); }
+    .viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--rule);
+      font-family: var(--ui-font);
+      gap: 12px;
+    }
+    .viewer-title { font-size: 0.95rem; color: var(--ink); flex: 1; }
+    .viewer-actions { display: flex; gap: 8px; align-items: center; }
+    .viewer-actions a {
+      font-size: 0.85rem;
+      color: var(--link);
+      text-decoration: none;
+    }
+    .viewer-close {
+      border: none;
+      background: #f4efe6;
+      color: var(--ink);
+      border-radius: 999px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+    }
+    .viewer-frame { flex: 1; border: none; width: 100%; border-radius: 0 0 16px 16px; }
+    @media (max-width: 720px) {
+      .page { margin: 32px auto 56px; }
+      .article { padding: 24px; }
+      .report-title { font-size: 1.9rem; }
+    }
+body.template-review_of_modern_physics {
+  --ink: #171717;
+  --muted: #4b4b4b;
+  --accent: #111111;
+  --link: #1b4b73;
+  --paper-alt: #f1f1f1;
+  --page-bg: linear-gradient(180deg, #f3f3f3 0%, #ffffff 100%);
+  --body-font: "Garamond", "Palatino Linotype", "Book Antiqua", "Iowan Old Style", Georgia, serif;
+  --heading-font: "Palatino Linotype", "Book Antiqua", "Garamond", serif;
+  --ui-font: "Gill Sans", "Trebuchet MS", "Avenir Next", sans-serif;
+}
+
+body.template-review_of_modern_physics .article {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid #d7d7d7;
+}
+
+body.template-review_of_modern_physics .article h2 {
+  border-top: 1px solid #222222;
+  letter-spacing: 0.03em;
+}
+
+body.template-review_of_modern_physics .kicker {
+  color: #222222;
+}
+
+  </style>
+</head>
+<body class="template-review_of_modern_physics">
+  <div class="page">
+    <header class="masthead">
+      <div class="kicker">Federlicht</div>
+      <div class="report-title">양자 컴퓨팅 기반 OLED 재료 연구 현황</div>
+      <div class="report-deck">Research review and tech survey</div>
+    </header>
+    <main class="article">
+<h1>양자 컴퓨팅 기반 OLED 재료 연구 현황</h1>
+<p>Federlicht assisted and prompted by "Hyun-Jung Kim / AI Governance Team" — 2026-01-25 19:20</p>
+<h1>수정된 보고서</h1>
+<h2>Abstract</h2>
+<p>본 보고서는 양자 컴퓨팅을 기반으로 한 재료 연구 및 OLED 발광 재료 개발 현황을 분석한다. 특히 양자 컴퓨팅의 재료 탐색에서의 알고리즘과 데이터 파이프라인, OLED 재료 탐색을 위한 접근 방식, 그리고 산업계에서의 주요 사례(삼성디스플레이, LG디스플레이, UDC 등)를 다룬다. 또한, 학계와 산업 간의 연구 흐름의 간극, 병목 현상, 그리고 향후 방향성을 제시한다. 본 연구는 양자 컴퓨팅 기술의 발전이 OLED 발광 재료 설계 및 최적화에 긍정적인 기여를 할 수 있음을 시사한다.</p>
+<h2>Introduction</h2>
+<p>양자 컴퓨팅은 매우 복잡한 계산을 빠르게 수행할 수 있는 가능성으로 인해 재료 과학 분야에서 점차 주목받고 있다. OLED(Organic Light Emitting Diode) 기술은 에너지 효율성이 뛰어난 발광 재료 개발에 혁신적인 기여를 하고 있으며, 양자 컴퓨팅과 결합될 경우 그 가능성을 더욱 확대할 수 있다. 본 보고서는 최근 12개월간의 양자 컴퓨팅 기반 재료 연구와 산업 적용 동향 분석을 통해 OLED 발전에 관한 문헌과 기술적 흐름을 정리한다.</p>
+<h2>Theory &amp; Foundations</h2>
+<p>양자 컴퓨팅에서 주요 개념은 양자 비트(큐비트)와 게이트 연산이다. 큐비트는 이진 상태(0과 1)를 동시에 표현할 수 있는 특성을 가지며, 이는 병렬 처리를 가능하게 한다. 기본적인 게이트 연산인 Hadamard 및 CNOT을 통해 큐비트 간의 상호작용이 이루어진다. 이러한 원리는 재료 탐색 알고리즘에 적용되어 유망한 OLED 재료 후보를 발굴하는 데 사용된다.</p>
+<p>$$ H |0\rangle = \frac{1}{\sqrt{2}} (|0\rangle + |1\rangle) $$</p>
+<p>이 수식은 Hadamard 게이트를 적용한 큐비트의 상태를 나타낸다. 이러한 기초 원리에 따라 최적화 알고리즘이 다양한 물질 조합을 탐색하게 된다.</p>
+<h2>Methods &amp; Experimental Evidence</h2>
+<p>최근의 연구에서는 양자 컴퓨팅을 활용하여 OLED 재료를 탐색하기 위한 다양한 실험적 방법론이 제안되었다. 예로, GNN(그래프 신경망) 기반의 접근 방식이 물질의 성질을 예측하고, 최적화된 구조를 생성하는 데 기여하고 있다 [1]. 이러한 방법은 기존의 실험적 접근 방식보다 빠르고 효율적인 물질 탐색을 가능하게 한다. 실험 데이터는 데이터 파이프라인을 통해 수집하고 처리되며, 이 과정에서 큐비트를 통한 최적화 및 시뮬레이션이 포함된다.</p>
+<h2>Applications &amp; Benchmarks</h2>
+<p>삼성디스플레이는 Quantum Dot OLED 기술을 기반으로 상업화에 성공하였으며, LG디스플레이는 다양한 OLED 재료 개발을 위한 연구 성과를 발표하였다. Universal Display Corporation(UDC)은 혁신적인 OLED 기술 개발에 적극적으로 참여하고 있으며, 현재까지의 연구 결과는 이러한 시스템들이 실제 상용화에 성공하고 있음을 나타낸다. 이들 기업의 사례는 양자 컴퓨팅의 이점을 극대화하여 효율적인 OLED 소재 탐색을 이끌어낸다.</p>
+<h2>Synthesis &amp; Outlook</h2>
+<p>양자 컴퓨팅의 발전은 OLED 재료 설계 및 최적화를 혁신적으로 변화시킬 가능성을 지니고 있다. 향후 12~24개월 내에 산업계에서의 양자 컴퓨팅 적용은 더욱 강화될 것으로 예상되며, 이 과정에서 연구자들은 큐비트 오류나 스케일링 문제와 같은 해결되지 않은 문제들에 대해 노력을 기울일 것이다. 학계와 산업계의 협력은 이러한 기술 접목을 가속화할 수 있을 것이다.</p>
+<h2>Risks &amp; Gaps</h2>
+<p>양자 컴퓨팅을 활용한 OLED 재료 연구의 주요 리스크 중 하나는 기술적 불확실성으로, 기존 방법론에 비해 재현성과 신뢰성 측면에서 약점이 있을 수 있다. 또한 산출물의 상용화 과정에서 발생하는 비용과 수익성 문제는 해결되지 않은 큰 과제이다. 현재까지의 연구는 이러한 측면에서도 충분한 검증이 필요하다.</p>
+<h2>Critics</h2>
+<p>양자 컴퓨팅과 OLED 연구에 대한 비판적 시각은 다음과 같다:
+- <strong>효율성 의문</strong>: 기존 기술에 비해 양자 컴퓨팅이 과연 시간과 비용 면에서 이점이 있는가에 대한 논의가 있다.
+- <strong>적용 제한</strong>: 양자 기술이 모든 OLED 재료 개발에 효율적인 해결책이 될 수 없다는 점, 특정 분야에 한정적인 적용이 우려된다.
+- <strong>산업 적용의 간극</strong>: 학계의 연구가 산업적 응용으로 제대로 융합되지 않고 있는 점이 한계로 지적된다.</p>
+<h2>Appendix</h2>
+<p>본 보고서에서 언급된 주요 연구 자료 및 데이터는 다음의 문서에서 확인할 수 있다.</p>
+<h2>1. 요약</h2>
+<p>양자 컴퓨팅 기반 재료 연구 및 산업 응용 현황을 간결하게 정리하며, 주요 목표와 결과를 강조한다.</p>
+<h2>2. 소개</h2>
+<p>양자 컴퓨팅과 OLED 발광 재료 개발의 관계를 정의하고, 관련 문헌의 위치를 지정한다.</p>
+<h2>3. 이론 및 기초</h2>
+<p>양자 비트 및 게이트 연산 등 OLED 개발에 필요한 이론적 배경을 기술한다.</p>
+<h2>4. 방법 및 실험적 증거</h2>
+<p>양자 컴퓨팅이 OLED 재료 탐색에 활용된 실험적 증거와 방법론을 상세히 설명한다.</p>
+<h2>5. 응용 및 벤치마크</h2>
+<p>대표적인 시스템과 성과를 비교하여 양자 컴퓨팅의 적용 사례를 논의한다.</p>
+<h2>6. 종합 및 전망</h2>
+<p>연구 결과를 종합하고 향후 발전 방향을 제시하며, 산업 적용 간의 차이점도 언급한다.</p>
+<h2>7. 리스크 및 간극</h2>
+<p>양자 컴퓨팅의 한계와 불확실성을 강조하며, 진행 중인 연구에 대한 비판과 제안을 포함한다.</p>
+<h2>8. 비평</h2>
+<p>양자 컴퓨팅과 OLED 연구에 대한 다양한 비판적 시각을 제시하며, 반론을 포함한다.</p>
+<h2>9. 부록</h2>
+<p>보고서와 관련된 추가 자료와 연구를 제공한다.</p>
+<hr />
+<h2>근거 강도 명시 및 시나리오 제시</h2>
+<p>보고서의 각 주장을 뒷받침할 근거의 신뢰성을 명시하고, 다음과 같은 대표적 연구 및 산업 시나리오를 포함시킬 필요가 있다.</p>
+<ol>
+<li>
+<p><strong>대표적 연구 시나리오</strong>: GNN 기반의 OLED 재료 최적화 연구는 물성 예측 및 구조 생성을 통해 시간을 절약하고 효과적인 조합을 찾는 데 기여하고 있다. (근거 강도: 높음).</p>
+</li>
+<li>
+<p><strong>산업 적용 사례</strong>: 삼성디스플레이의 Quantum Dot OLED 기술은 상업적 성공을 거두었으며, LG디스플레이는 다수의 신규 OLED 재료 개발을 통해 선도적인 기술로 자리매김하고 있다. 이들 사례는 양자 컴퓨팅 기술의 실질적인 적용성과 한계를 보여준다. (근거 강도: 중간).</p>
+</li>
+<li>
+<p><strong>학계 및 산업 간의 간극</strong>: 학계에서의 연구 결과는 종종 산업 적용에 어려움을 겪고 있으며, 기술적/경제적 장벽으로 인해 재현성과 수익성이 부족하다. 이는 추가 데이터와 사례를 통해 보다 명확히 설명할 필요가 있다. (근거 강도: 높음).</p>
+</li>
+</ol>
+<hr />
+<h2>향후 12~24개월 내 기대되는 변화</h2>
+<p>양자 컴퓨팅의 발전 및 OLED 발광 재료 개발에 대한 연구가 더욱 강화될 것으로 예상된다. 이 과정에서 기술적 문제 해결을 위한 적극적인 노력이 요구되며, 관련 산업계와 학계의 협력이 필수적이다. 앞으로 의사결정자들은 다음과 같은 질문을 고려해야 한다:
+- 양자 컴퓨팅 기술의 발전이 구체적으로 어떤 방식으로 OLED 재료 개발에 기여할 것인가?
+- 현재의 비용 및 신뢰성 문제를 해결하기 위한 구체적인 방안은 무엇인가?</p>
+<p>이 같은 질문들은 향후 양자 컴퓨팅 기반 재료 연구의 방향성을 결정짓는 중요한 요소가 될 것이다.</p>
+<h2>Report Prompt</h2>
+<p>지난 12개월 동안의 양자컴퓨팅 기반 재료 연구 및 산업 적용 동향을 OLED 발광재료 개발 관점에서 분석해줘.
+특히 다음을 포함해 정리해줘:
+- 양자컴퓨팅이 재료 탐색/설계에 쓰이는 주요 흐름(알고리즘, 워크플로, 데이터 파이프라인)
+- OLED 발광재료(형광/인광/TADF/CP-OLED 등) 탐색에 적용된 접근과 성과
+- 삼성디스플레이, LG디스플레이, UDC 등 산업계의 시도와 공개 정보의 한계
+- 학계 연구 흐름과 산업 적용 간의 간극, 가장 큰 병목과 해결 과제
+- 2~3개의 대표적 연구/산업 시나리오를 근거와 함께 제시
+- 향후 12~24개월 내 기대되는 변화와 의사결정자용 후속 질문</p>
+<p>출처는 논문/리뷰/공식 발표/신뢰 가능한 업계 자료를 우선으로 하고, 웹 검색으로 보강한 내용은 “supporting”으로 구분해 활용해줘.</p>
+<p>작성 스타일/톤:
+- 학술/기술 전문가 리뷰 논문 수준의 엄밀한 서술체로 작성해줘. (교수식 서술, 과장/마케팅 톤 금지)
+- 각 핵심 주장마다 “주장 → 근거(출처) → 한계/불확실성 → 해석/의미” 흐름으로 구성해줘.
+- 근거의 강도를 짧게 표기해줘(예: 근거 강도: 높음/중간/낮음).
+- 기술적 메커니즘(알고리즘·실험 조건·데이터/공정 조건)을 가능한 한 명시하고, 재현성/스케일링 가능성도 평가해줘.
+- 학계 결과와 산업 적용의 간극(수율, 비용, 수명, 신뢰성, 공정 호환성 등)을 비판적으로 다뤄줘.
+- 핵심 용어는 짧게 정의하고, 유사 개념은 비교·대조해줘.
+- 인용은 “실제 출처” 기준으로 하며, 추론/의견은 명확히 구분해줘.</p>
+<h2>Miscellaneous</h2>
+<div class="misc-block">
+<ul>
+<li>Generated at: 2026-01-25 19:20:16</li>
+<li>Duration: 00:42:55 (2575.98s)</li>
+<li>Model: gpt-4o-mini</li>
+<li>Quality model: gpt-4o-mini</li>
+<li>Quality strategy: pairwise</li>
+<li>Quality iterations: 1</li>
+<li>Template: review_of_modern_physics</li>
+<li>Output format: html</li>
+<li>Stage workflow:</li>
+<li>  1. scout: cached</li>
+<li>  2. clarifier: skipped (no_questions)</li>
+<li>  3. template_adjust: ran</li>
+<li>  4. plan: ran</li>
+<li>  5. web: skipped (policy)</li>
+<li>  6. evidence: ran</li>
+<li>  7. plan_check: ran</li>
+<li>  8. writer: ran</li>
+<li>  9. quality: ran (iterations=1)</li>
+<li>PDF compile: disabled</li>
+<li>Run overview: <a href="report_views/report_run_overview.md-40ef65a9.html" data-viewer="report_views/report_run_overview.md-40ef65a9.html" data-raw="report/run_overview.md" class="viewer-link">./report/run_overview.md</a></li>
+<li>Report overview: <a href="report_views/report_run_overview_report_full_29.md-7fbde5a7.html" data-viewer="report_views/report_run_overview_report_full_29.md-7fbde5a7.html" data-raw="report/run_overview_report_full_29.md" class="viewer-link">./report/run_overview_report_full_29.md</a></li>
+<li>Report workflow: <a href="report_views/report_notes_report_workflow.md-bd2306de.html" data-viewer="report_views/report_notes_report_workflow.md-bd2306de.html" data-raw="report_notes/report_workflow.md" class="viewer-link">./report_notes/report_workflow.md</a></li>
+<li>Archive index: <a href="report_views/archive_20260110_qc-oled-index.md-b8193549.html" data-viewer="report_views/archive_20260110_qc-oled-index.md-b8193549.html" data-raw="archive/20260110_qc-oled-index.md" class="viewer-link">./archive/20260110_qc-oled-index.md</a></li>
+<li>Instruction file: <a href="report_views/instruction_20260110_qc-oled.txt-aeb2ebd7.html" data-viewer="report_views/instruction_20260110_qc-oled.txt-aeb2ebd7.html" data-raw="instruction/20260110_qc-oled.txt" class="viewer-link">./instruction/20260110_qc-oled.txt</a></li>
+<li>Report prompt: <a href="report_views/instruction_report_prompt_report_full_29.txt-b4bdb30f.html" data-viewer="report_views/instruction_report_prompt_report_full_29.txt-b4bdb30f.html" data-raw="instruction/report_prompt_report_full_29.txt" class="viewer-link">./instruction/report_prompt_report_full_29.txt</a></li>
+</ul>
+</div>
+    </main>
+  </div>
+  <div id="viewer-overlay" class="viewer-overlay"></div>
+  <aside id="viewer-panel" class="viewer-panel" aria-hidden="true">
+    <div class="viewer-header">
+      <div class="viewer-title" id="viewer-title">Source preview</div>
+      <div class="viewer-actions">
+        <a id="viewer-raw" href="#" target="_blank" rel="noopener">Open raw</a>
+        <button class="viewer-close" id="viewer-close" aria-label="Close">x</button>
+      </div>
+    </div>
+    <iframe id="viewer-frame" class="viewer-frame" title="Source preview"></iframe>
+  </aside>
+  <script>
+    (function() {
+      const panel = document.getElementById('viewer-panel');
+      const overlay = document.getElementById('viewer-overlay');
+      const frame = document.getElementById('viewer-frame');
+      const rawLink = document.getElementById('viewer-raw');
+      const title = document.getElementById('viewer-title');
+      const closeBtn = document.getElementById('viewer-close');
+      function closeViewer() {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        frame.src = 'about:blank';
+      }
+      function openViewer(viewer, raw, label) {
+        frame.src = viewer;
+        rawLink.href = raw || viewer;
+        title.textContent = label || 'Source preview';
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+      }
+      document.querySelectorAll('a').forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          link.setAttribute('target', '_blank');
+          link.setAttribute('rel', 'noopener');
+        }
+        const viewer = link.getAttribute('data-viewer');
+        if (viewer) {
+          link.addEventListener('click', (event) => {
+            if (event.metaKey || event.ctrlKey) { return; }
+            event.preventDefault();
+            openViewer(viewer, link.getAttribute('data-raw'), link.textContent.trim());
+          });
+        }
+      });
+      overlay.addEventListener('click', closeViewer);
+      closeBtn.addEventListener('click', closeViewer);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { closeViewer(); }
+      });
+    })();
+  </script>
+</body>
+</html>

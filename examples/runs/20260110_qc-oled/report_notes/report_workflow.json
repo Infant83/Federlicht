@@ -1,0 +1,52 @@
+{
+  "created_at": "2026-01-25T21:38:17.058434",
+  "stages": {
+    "scout": {
+      "status": "cached",
+      "detail": ""
+    },
+    "clarifier": {
+      "status": "skipped",
+      "detail": "no_questions"
+    },
+    "template_adjust": {
+      "status": "ran",
+      "detail": ""
+    },
+    "plan": {
+      "status": "cached",
+      "detail": ""
+    },
+    "web": {
+      "status": "skipped",
+      "detail": "policy"
+    },
+    "evidence": {
+      "status": "cached",
+      "detail": ""
+    },
+    "plan_check": {
+      "status": "cached",
+      "detail": ""
+    },
+    "writer": {
+      "status": "ran",
+      "detail": ""
+    },
+    "quality": {
+      "status": "ran",
+      "detail": "iterations=1"
+    }
+  },
+  "order": [
+    "scout",
+    "clarifier",
+    "template_adjust",
+    "plan",
+    "web",
+    "evidence",
+    "plan_check",
+    "writer",
+    "quality"
+  ]
+}

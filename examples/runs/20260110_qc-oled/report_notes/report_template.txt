@@ -2,8 +2,15 @@ Template: review_of_modern_physics
 Source: C:\Users\angpa\myProjects\FEATHER\scripts\templates\review_of_modern_physics.md
 Latex: default.tex
 Sections:
+- Abstract
+- Introduction
+- Theory & Foundations
+- Methods & Experimental Evidence
+- Applications & Benchmarks
+- Synthesis & Outlook
 - Risks & Gaps
 - Critics
+- Appendix
 
 Guidance:
 Template description: Review of Modern Physics-style deep technical survey.

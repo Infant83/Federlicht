@@ -1,0 +1,3 @@
+Web research queries: 2
+Web search results stored: web_search.jsonl
+Web extracts stored: web_extract

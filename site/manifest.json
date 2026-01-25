@@ -1,0 +1,20 @@
+{
+  "revision": "2026-01-25T21:38:18.472033",
+  "generated_at": "2026-01-25T21:38:18.472033",
+  "items": [
+    {
+      "id": "20260110_qc-oled",
+      "title": "양자 컴퓨팅과 OLED 재료 연구 동향 분석",
+      "author": "Hyun-Jung Kim / AI Governance Team",
+      "summary": "양자 컴퓨팅과 OLED 재료 연구 동향 분석 Federlicht assisted and prompted by \"Hyun-Jung Kim / AI Governance Team\" — 2026-01-25 21:38 Abstract 본 보고서는 최근 12개월 동안의 양자 컴퓨팅 기반 재료 연구 및 산업 적용 동향을 OLED 발광 재료 개발의 관점에서 분석한다. 양자 컴퓨팅의 적용이 물질 탐색 및…",
+      "lang": "Korean",
+      "template": "review_of_modern_physics",
+      "format": "html",
+      "date": "2026-01-25",
+      "timestamp": "2026-01-25T21:38:18.218690",
+      "paths": {
+        "report": "runs/20260110_qc-oled/report_full_1.html"
+      }
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+ 
+May 26, 2021 
+ 
+A Joint Paper on Prediction of Optical Properties of OLED Materials was Published  
+in a Nature Research Journal 
+– The World-First Calculation of the Excited States of OLED Materials on Quantum Computers – 
+ 
+Mitsubishi Chemical Corporation 
+IBM Japan, Ltd. 
+JSR Corporation 
+Keio University 
+ 
+Mitsubishi Chemical Corporation (headquartered in Chiyoda, Tokyo, President & CEO Masayuki Waga), IBM Japan, 
+Ltd. (headquartered in Chuo, Tokyo, General Manager Akio Yamaguchi), JSR Corporation (headquartered in Minato, 
+Tokyo, CEO Eric Johnson) and Keio University (headquartered in Minato, Tokyo, President Akira Haseyama) are 
+pleased to announce that a paper describing the research results of “Predicting Optical Properties of OLED Materials 
+on Quantum Computers,” a joint project from IBM Quantum Network Hub at Keio University,* has been published in 
+“npj Computational Materials,” a world-renowned Nature Research Journal. 
+ 
+Scientist at Mitsubishi Chemical and IBM initiated a joint research project with collaborators at JSR and Keio 
+University to calculate the excited states of thermally activated delayed fluorescence (TADF) emitters which are 
+applied to the fabrication of efficient OLEDs. The parties have developed a new scheme to mitigate the error from 
+current noisy quantum computers and succeeded in improving the calculation accuracy. This is the world-first 
+research case of applying quantum computers to excited states calculations of commercial materials. 
+ 
+We expect the proposed error mitigation scheme, together with the improvements of the performance of quantum 
+computers will provide ever more accurate quantum chemistry calculation results for designing OLED emitters with 
+high quantum efficiency in the near term.  
+ 
+We continue research in the area of using quantum computers to accelerate the development of a wide range of new 
+materials. 
+ 
+*About the IBM Quantum Network Hub at Keio University  
+Opened in May 2018 by Keio University and IBM Japan on the Yagami Campus of the university’s Faculty of 
+Science and Technology, the IBM Quantum Network Hub at Keio University brings together academia and industry, 
+with Mitsubishi Chemical and JSR as founding members. It is also the first IBM Quantum Hub in Asia leveraging 
+IBM Quantum Systems, the most advanced quantum computers developed by IBM and delivered via the cloud.  
+For further information, please contact:  
+Communication Division, Mitsubishi Chemical Corporation Tel: [+81] (0)3-6748-7161   
+External Relations, IBM Japan, Ltd. Tel: [+81] (0)3-3808-5120 
+Corporate Communications Dept., JSR Corporation Tel: [+81] (0)3-6218-3517 
+Office of Communications and Public Relations, Keio University Tel: [+81] (0)3-5427-1541 
+
+[Content of this research project] 
+ 
+The ab initio calculation of excited states of large size molecules on classical computer is rather demanding as far 
+as computer time is concerned. In recent year, some quantum algorithms for exponential speedup of excited state 
+calculations with the use of quantum computers have been proposed. These algorithms are expected to be useful to 
+perform calculations of large systems that have not been possible on classical computers. On the other hand, most 
+benchmark calculation for the validation of these algorithms in the literature were only applied to simple molecular 
+systems such as H2, LiH and for the complicated chemical systems few surveys of the ability of these algorithms has 
+been carried out. Moreover, due to the error in quantum computer, it is difficult to achieve chemical accuracy for the 
+calculations on current device. 
+The goal of the work is to use two quantum algorithms (qEOM-VQE and VQD algorithms) to reliably predict 
+excited states energies of TADF materials which is used as a kind of OLED emitters. The feature of TADF materials is 
+that the first triplet state (T1) is sufficiently close to the first singlet state (S1) in energy (normally within several 
+kcal/mol) that non-emissive T1 excitons can be thermally excited to an emissive S1 state. The mechanism enables the 
+performance of TADF emitters for OLED device with potentially 100% internal quantum efficiency, in contrast to the 
+OLED device using conventional fluorophores which efficiency is inherently limited to 25%. Thus, theoretical 
+approaches to accurately predict S1 and T1 states can make a contribution to the development of TADF materials.  
+In this work, three TADF molecules (PSPCz, 2F-PSPCz, and 4F-PSPCZ) were selected from Mitsubishi 
+Chemical’s patent and their molecular orbitals of HOMO and LUMO (Fig. 1) were used as an active space to 
+calculate the S1 and T1 excited states on noise-free quantum computer simulator and IBM quantum computers. 
+Excellent agreement (correlation coefficient of 0.99) between S1-T1 gap predicted by calculations on simulator and 
+spectra experiments were found, as shown in Fig 1. Fig 1 also indicates that the calculations on IBM quantum 
+computers can not accurately calculate the S1 and T1 states, suggesting the noise from quantum computers is the main 
+culprit of deviation of S1-T1 gap from the experimental data. To mitigate the error from the noisy quantum computers, 
+a new error mitigation scheme using quantum tomography techniques was proposed. In the scheme, the 
+corresponding quantum state of the calculation result is firstly measured by quantum tomography techniques. The 
+measured quantum state is then used to estimate the error of the calculation and finally correct the calculation results. 
+By utilizing the scheme, a maximum difference of 88 mHa from quantum computers to the exact eigenvalues was 
+improved to approximately 4 mHa. Consequently, good agreement was achieved between calculations on quantum 
+computers and experiment data. Going forward, we plan to extend the proposed approach to much larger size systems 
+so that quantum computers can be utilized for the applications of the development of a wider range of new 
+commercial materials.       
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Reference 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+<Co-authors> 
+- Qi Gao, Takao Kobayashi, and Eriko Watanabe, Mitsubishi Chemical Corporation Science & Innovation Center 
+- Hajime Nakamura, IBM Research-Tokyo 
+- Gavin O. Jones and Mario Motta, IBM Research-Almaden 
+- Yu-ya Ohnishi, JSR Corporation 
+- Michihiko Sugawara, Hiroshi Watanabe, and Naoki Yamamoto, Keio University 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Fig. 1:Molecular structures and orbitals of TADF materials (PSPCz, 2F-PSPCz, and 4F-PSPCZ) 
+and correlations between calculation  results and experiment data 
+IBM Quantum Computer 

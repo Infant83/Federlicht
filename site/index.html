@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Federlicht Report Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@300;600;700&family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --bg-2: #121821;
+        --card: rgba(255, 255, 255, 0.06);
+        --ink: #f5f7fb;
+        --muted: rgba(245, 247, 251, 0.65);
+        --accent: #4ee0b5;
+        --accent-2: #6bd3ff;
+        --edge: rgba(255, 255, 255, 0.15);
+        --glow: rgba(78, 224, 181, 0.25);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Noto Sans KR", "Space Grotesk", sans-serif;
+        color: var(--ink);
+        background: radial-gradient(circle at 20% 20%, rgba(78, 224, 181, 0.18), transparent 42%),
+                    radial-gradient(circle at 80% 0%, rgba(107, 211, 255, 0.2), transparent 36%),
+                    linear-gradient(160deg, #0a0d12 10%, #0f1622 60%, #0b0f14 100%);
+        min-height: 100vh;
+      }
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 48px 28px 120px;
+      }
+      header.hero {
+        position: relative;
+        border: 1px solid var(--edge);
+        border-radius: 28px;
+        padding: 48px;
+        background: linear-gradient(140deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        box-shadow: 0 40px 120px rgba(0,0,0,0.4);
+        overflow: hidden;
+      }
+      header.hero::after {
+        content: "";
+        position: absolute;
+        inset: -40% -20%;
+        background: radial-gradient(circle, rgba(78, 224, 181, 0.12), transparent 60%);
+        opacity: 0.8;
+        pointer-events: none;
+      }
+      .nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: "Space Grotesk", sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .nav .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .pulse {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 12px var(--glow);
+      }
+      .hero-grid {
+        display: grid;
+        gap: 32px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        margin-top: 36px;
+      }
+      .hero h1 {
+        font-family: "Fraunces", serif;
+        font-weight: 700;
+        font-size: clamp(32px, 4.8vw, 56px);
+        margin: 0 0 14px;
+      }
+      .hero p {
+        margin: 0;
+        font-size: 16px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .cta {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        background: var(--accent);
+        color: #071016;
+        font-weight: 600;
+        padding: 12px 18px;
+        border-radius: 999px;
+        text-decoration: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      .btn.secondary {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--edge);
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 32px rgba(78, 224, 181, 0.25);
+      }
+      .stats {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-top: 22px;
+      }
+      .stat {
+        padding: 14px 18px;
+        border-radius: 14px;
+        border: 1px solid var(--edge);
+        background: rgba(0, 0, 0, 0.25);
+        min-width: 140px;
+      }
+      .stat span {
+        display: block;
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: 20px;
+      }
+      .section {
+        margin-top: 52px;
+      }
+      .section h2 {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: 22px;
+        margin: 0 0 10px;
+      }
+      .section p {
+        margin: 0 0 24px;
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .card {
+        padding: 20px;
+        border-radius: 18px;
+        border: 1px solid var(--edge);
+        background: var(--card);
+        backdrop-filter: blur(6px);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        animation: floatIn 0.6s ease both;
+      }
+      .card h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .tag {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: var(--muted);
+      }
+      .card .summary {
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 14px;
+        min-height: 60px;
+      }
+      .card .meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .links a {
+        font-size: 12px;
+        color: var(--accent-2);
+        text-decoration: none;
+      }
+      .banner {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        background: #0d131c;
+        border: 1px solid var(--edge);
+        border-radius: 16px;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+        z-index: 50;
+      }
+      .banner strong {
+        font-family: "Space Grotesk", sans-serif;
+      }
+      .banner button {
+        border: none;
+        background: var(--accent);
+        color: #071016;
+        font-weight: 600;
+        padding: 8px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .empty {
+        border: 1px dashed var(--edge);
+        border-radius: 18px;
+        padding: 26px;
+        color: var(--muted);
+      }
+      @keyframes floatIn {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @media (max-width: 720px) {
+        header.hero { padding: 32px; }
+        .wrap { padding: 32px 20px 90px; }
+      }
+    </style>
+  </head>
+  <body>
+    <script id="manifest-data" type="application/json">{"revision": "2026-01-25T21:38:18.472033", "generated_at": "2026-01-25T21:38:18.472033", "items": [{"id": "20260110_qc-oled", "title": "양자 컴퓨팅과 OLED 재료 연구 동향 분석", "author": "Hyun-Jung Kim / AI Governance Team", "summary": "양자 컴퓨팅과 OLED 재료 연구 동향 분석 Federlicht assisted and prompted by \"Hyun-Jung Kim / AI Governance Team\" — 2026-01-25 21:38 Abstract 본 보고서는 최근 12개월 동안의 양자 컴퓨팅 기반 재료 연구 및 산업 적용 동향을 OLED 발광 재료 개발의 관점에서 분석한다. 양자 컴퓨팅의 적용이 물질 탐색 및…", "lang": "Korean", "template": "review_of_modern_physics", "format": "html", "date": "2026-01-25", "timestamp": "2026-01-25T21:38:18.218690", "paths": {"report": "runs/20260110_qc-oled/report_full_1.html"}}]}</script>
+    <div class="wrap">
+      <header class="hero">
+        <div class="nav">
+          <div class="brand"><span class="pulse"></span> Federlicht Report Hub</div>
+          <div id="last-updated"></div>
+        </div>
+        <div class="hero-grid">
+          <div>
+            <h1>연구 리포트, 매 런마다 정제.</h1>
+            <p>Federlicht가 생성한 기술 리포트를 모아둔 허브입니다. 최신 실행 결과를 자동으로 받아오며, 공유 가능한 HTML 리포트를 바로 열람할 수 있습니다.</p>
+            <div class="cta">
+              <a class="btn" href="#latest">최신 리포트 보기</a>
+              <a class="btn secondary" href="#archive">전체 목록</a>
+            </div>
+            <div class="stats">
+              <div class="stat"><small>Reports</small><span id="stat-reports">0</span></div>
+              <div class="stat"><small>Languages</small><span id="stat-langs">0</span></div>
+              <div class="stat"><small>Templates</small><span id="stat-templates">0</span></div>
+            </div>
+          </div>
+          <div class="card" id="latest-card">
+            <div class="tags" id="latest-tags"></div>
+            <h3 id="latest-title">보고서를 기다리는 중</h3>
+            <p class="summary" id="latest-summary">manifest.json에서 최신 리포트를 불러옵니다.</p>
+            <div class="meta" id="latest-meta"></div>
+            <div class="links" id="latest-links"></div>
+          </div>
+        </div>
+      </header>
+
+      <section class="section" id="latest">
+        <h2>Latest Reports</h2>
+        <p>최근 생성된 리포트부터 순서대로 정렬됩니다. 새 리포트가 감지되면 배너로 알려드립니다.</p>
+        <div class="grid" id="report-grid"></div>
+      </section>
+
+      <section class="section" id="archive">
+        <h2>Archive</h2>
+        <p>모든 리포트를 한 번에 탐색하거나, 템플릿/언어/형식을 기준으로 비교할 수 있습니다.</p>
+        <div class="grid" id="archive-grid"></div>
+      </section>
+    </div>
+
+    <div class="banner" id="update-banner" style="display:none;">
+      <div>
+        <strong>새 보고서 있음</strong>
+        <div id="update-detail" style="font-size:12px;color:var(--muted);"></div>
+      </div>
+      <button id="apply-update">새로고침</button>
+    </div>
+
+    <script>
+      const bootstrap = document.getElementById('manifest-data');
+      let currentManifest = bootstrap ? JSON.parse(bootstrap.textContent || '{}') : { items: [] };
+      let pendingManifest = null;
+      const REFRESH_MS = 600000;
+
+      const escapeHtml = (value) => String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+      const sortItems = (items) => items.slice().sort((a, b) => {
+        const ta = Date.parse(a.timestamp || a.date || 0) || 0;
+        const tb = Date.parse(b.timestamp || b.date || 0) || 0;
+        return tb - ta;
+      });
+
+      const buildLinks = (paths = {}) => {
+        const entries = [];
+        if (paths.report) entries.push(['Report', paths.report]);
+        if (paths.overview) entries.push(['Overview', paths.overview]);
+        if (paths.workflow) entries.push(['Workflow', paths.workflow]);
+        if (paths.run) entries.push(['Run Folder', paths.run]);
+        return entries.map(([label, href]) => `<a href="${escapeHtml(href)}">${label}</a>`).join('');
+      };
+
+      const renderLatest = (item) => {
+        if (!item) return;
+        document.getElementById('latest-title').textContent = item.title || 'Untitled report';
+        document.getElementById('latest-summary').textContent = item.summary || '요약 정보가 없습니다.';
+        document.getElementById('latest-meta').textContent = `${item.date || ''} · ${item.author || 'Unknown'}`;
+        const tags = [item.lang, item.template, item.format].filter(Boolean).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+        document.getElementById('latest-tags').innerHTML = tags;
+        document.getElementById('latest-links').innerHTML = buildLinks(item.paths);
+      };
+
+      const renderGrid = (targetId, items) => {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        if (!items.length) {
+          target.innerHTML = '<div class="empty">아직 등록된 리포트가 없습니다.</div>';
+          return;
+        }
+        target.innerHTML = items.map((item, idx) => {
+          const delay = (idx % 6) * 0.05;
+          const tags = [item.lang, item.template, item.format].filter(Boolean)
+            .map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+          const summary = escapeHtml(item.summary || '');
+          const meta = `${escapeHtml(item.date || '')} · ${escapeHtml(item.author || 'Unknown')}`;
+          return `
+            <article class="card" style="animation-delay:${delay}s">
+              <div class="tags">${tags}</div>
+              <h3>${escapeHtml(item.title || 'Untitled')}</h3>
+              <p class="summary">${summary || '요약 정보가 없습니다.'}</p>
+              <div class="meta">${meta}</div>
+              <div class="links">${buildLinks(item.paths)}</div>
+            </article>
+          `;
+        }).join('');
+      };
+
+      const renderStats = (items) => {
+        const langCount = new Set(items.map(item => item.lang).filter(Boolean)).size;
+        const templateCount = new Set(items.map(item => item.template).filter(Boolean)).size;
+        document.getElementById('stat-reports').textContent = items.length;
+        document.getElementById('stat-langs').textContent = langCount;
+        document.getElementById('stat-templates').textContent = templateCount;
+      };
+
+      const renderAll = (manifest) => {
+        const items = sortItems(manifest.items || []);
+        renderLatest(items[0]);
+        renderGrid('report-grid', items.slice(0, 6));
+        renderGrid('archive-grid', items);
+        renderStats(items);
+        const updated = manifest.generated_at ? new Date(manifest.generated_at).toLocaleString() : '';
+        document.getElementById('last-updated').textContent = updated ? `Updated ${updated}` : '';
+      };
+
+      const showUpdateBanner = (manifest) => {
+        const banner = document.getElementById('update-banner');
+        const detail = document.getElementById('update-detail');
+        const items = sortItems(manifest.items || []);
+        const latest = items[0];
+        if (!latest) return;
+        detail.textContent = `${latest.title || 'Untitled'} · ${latest.author || 'Unknown'}`;
+        banner.style.display = 'flex';
+      };
+
+      const applyUpdate = () => {
+        if (!pendingManifest) return;
+        currentManifest = pendingManifest;
+        pendingManifest = null;
+        renderAll(currentManifest);
+        document.getElementById('update-banner').style.display = 'none';
+        try {
+          localStorage.setItem('federlicht.manifest.revision', currentManifest.revision || '');
+        } catch (err) {}
+      };
+
+      document.getElementById('apply-update').addEventListener('click', applyUpdate);
+
+      const pollManifest = () => {
+        fetch(`manifest.json?ts=${Date.now()}`, { cache: 'no-store' })
+          .then((resp) => resp.json())
+          .then((data) => {
+            if (!data || !data.revision) return;
+            if (currentManifest.revision && data.revision === currentManifest.revision) return;
+            pendingManifest = data;
+            showUpdateBanner(data);
+          })
+          .catch(() => {});
+      };
+
+      renderAll(currentManifest);
+      try {
+        localStorage.setItem('federlicht.manifest.revision', currentManifest.revision || '');
+      } catch (err) {}
+      setInterval(pollManifest, REFRESH_MS);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,88 @@
+[truncated]
+You are currently on the new version of our website. Access the old version .
+
+Search all articles
+
+29 March 2024
+
+# Overcoming Challenges in OLED Technology for Lighting Solutions
+
+,
+
+,
+
+and
+
+1
+
+Department of Industrial Engineering, University of Salerno, 84084 Fisciano, SA, Italy
+
+2
+
+MATERIAS s.r.l., 80146 Napoli, NA, Italy
+
+3
+
+Laboratory of Nanomaterials and Devices, ENEA Research Center, 80055 Portici, NA, Italy
+
+\*
+
+Author to whom correspondence should be addressed.
+
+[Electronics](/journal/electronics)**2024**, *13*(7), 1299;<https://doi.org/10.3390/electronics13071299>
+
+ This article belongs to the Special Issue [Section Collection Series: Recent Advances in Optoelectronics from Lab to Industry](/journal/electronics/special_issues/51SNGVM53S)
+
+[Version Notes](/2079-9292/13/7/1299/notes)
+
+[Order Reprints](/2079-9292/13/7/1299/reprints)
+
+## Abstract
+
+In academic research, OLEDs have exhibited rapid evolution thanks to the development of innovative materials, new device architectures, and optimized fabrication methods, achieving high performance in recent years. The numerous advantages that increasingly distinguish them from traditional light sources, such as a large and customizable emission area, color tunability, flexibility, and transparency, have positioned them as a promising candidate for various applications in the lighting market, including the residential, automotive, industrial, and agricultural sectors. However, despite these promising attributes, the widespread industrial production of OLEDs encounters significant challenges. Key considerations center around efficiency and lifetime. In the present review, after introducing the theoretical basis of OLEDs and summarizing the main performance developments in the industrial field, three crucial aspects enabling OLEDs to establish a competitive advantage in terms of performance and versatility are critically discussed: the quality and stability of the emitted light, with a specific focus on white light and its tunability; the transparency of both electrodes for the development of fully transparent and integrable devices; and the uniformity of emission over a large area.
+
+Keywords:
+
+[large area](/search?q=large+area); [lighting applications](/search?q=lighting+applications); [OLED](/search?q=OLED); [transparent electrode](/search?q=transparent+electrode); [white OLED](/search?q=white+OLED)
+
+## 1. Introduction
+
+Currently, light emitting diode (LED) technology dominates the lighting industry, largely due to the numerous initiatives aimed at replacing outdated lighting systems reliant on incandescent bulbs. This transition is driven by the demand for enhanced energy efficiency, which, in solid-state lighting technology, is up to ten times greater thanks to the direct energy conversion phenomenon of electroluminescence and rapid switching. LED technology offers high-quality illumination, providing the flexibility to adjust the luminous flux, compact dimensions, and economic advantages, including an extended life cycle [1].
+
+Meanwhile, significant advancements in the field of organic materials have paved the way for the introduction of a new lighting technology: organic light emitting diodes (OLEDs) [2,3]. Following initial research focused on improving the reliability of materials, monochromatic devices were first developed. After about a decade, the first white OLEDs were created, initially based on small molecules [4] in 1994 and later on polymers [5].
+
+OLEDs are under active development as a prospective solid-state lighting technology [6,7,8,9]. They have attracted considerable attention in research over the past several decades, resulting in notable advancements, also thanks to support from initiatives within the industrial sector. Recent achievements in terms of efficiency and lifetime have favored the initial stages of commercialization, shifting the focus to aspects such as the production cost, yield, and exploration of aesthetic features, which emphasize their uniqueness compared to their inorganic counterparts [10,11]. Indeed, OLEDs can be designed as thin panels that, thanks to their flexibility and slim profile, can be integrated in various applications, such as seamless luminaires, architectural building materials, and furniture, contributing to enhancing the functional but also the aesthetic aspects of spaces ([Figure 1](#electronics-13-01299-f001)) [12,13].
+
+**Figure 1.**
+Examples of recent installations of OLED illuminaries. (**a**) OLED chandeliers composed of 226 Brite 2 FL300 nw OLED lighting panels, installed in New York in the reception area of a dentist’s office. Reproduced with the permission of [12]. (**b**) Dynamic OLED light installation designed by Hugo Timmermanns, which consists of 500 Brite FL300 OLED panels by Lumiblade, built into lamps in the shape of a pyramid. It creates light patterns that aim to attract visitors at the Theater an der Elbe (Hamburg, Germany), with variations on the theme of light in darkness. Reproduced with the permission of [13]. (**c**) Sumitomo colored polymeric OLED lighting panel installation. Reproduced with the permission of [13].
+
+The uniqueness of OLEDs in emitting light directly from a surface, which can be quite extensive, as opposed to other lighting sources that are point-like, results not only in the potential for the complete customization of shapes [14] but also in the ability to operate at a reduced light intensity to achieve the same luminous flux. This feature minimizes heat generation, making OLEDs highly efficient. As for the characteristics of light, OLEDs emit a softly diffused light that replicates natural daylight, resembling the warmth of traditional incandescent lamps and contributing to creating a visually comfortable ambiance, with the additional benefit of energy efficiency [15,16]. The panels can also be transparent when turned off and offer the capacity for color tunability [17,18]. In addition, the fabrication techniques are compatible with flexible substrates requiring low temperatures; besides glass or metal substrates, OLEDs can be deposited on thin plastic sheets, ceramics, and fabrics, adding a further innovative aspect of versatility [19,20,21]. These qualities position them as a promising option for diverse applications in the lighting market, spanning the residential, industrial, automotive, and agriculture sectors, especially in scenarios where design innovation, energy efficiency, transparency, and reduced heat generation are crucial requirements.
+
+An OLED device consists of a multilayer structure ([Figure 2](#electronics-13-01299-f002)) [22,23,24], traditionally emitting through a substrate (bottom-emitting OLED), primarily composed of an emissive layer (EML) sandwiched between a transparent anode (commonly based on indium tin oxide, ITO), deposited on a transparent substrate, and an opaque metal cathode. In the emissive layer, the injected charges, electrons, and holes meet to form excitons, which are excited molecule states. A top-emitting device has the same structure but with a transparent top electrode, and the substrate can also be opaque. The third possible configuration, particularly interesting for lighting applications, is that of a transparent OLED (TrOLED), where emission occurs through both electrodes, which must therefore be transparent. These can be integrated into transparent surfaces, such as windows and glass walls, adding new functionalities to lighting [25].
+
+**Figure 2.**
+Structure of a (**a**) bottom-emitting OLED device, (**b**) top-Emitting OLED device, and (**c**) transparent OLED device, emitting from both sides.
+
+The light is generated by the recombination in the emissive layer of electrons and holes; therefore, an OLED can be designed to emit any color by carefully choosing the materials forming the emissive layers, including white with various color temperatures. The OLED structure has been gradually made more complex to enhance its efficiency, with the addition of layers serving specific functions ([Figure 3](#electronics-13-01299-f003)): between the anode and EML, a hole injection layer (HIL), a hole transport layer (HTL), and an electron blocking layer (EBL) can be inserted, while, between the cathode and EML, an electron injection layer (EIL), an electron transport layer (ETL), and a hole blocking layer (HBL) can be included. While the injection and transport layers improve the injection from the contacts and the transport of charges to the emissive layer, the blocking layers prevent the loss of charges in the opposite direction and confine the excitons. All layers are ultimately protected from the environment by a cover, due to the high sensitivity of many of the materials used to moisture and oxygen [26], which can reduce the lifespan of the panels [27,28]. The cover is sealed to the substrate using an epoxy adhesive, and, often, a desiccant is included inside to capture moisture and oxygen that may permeate the panel over time through the sealant ([Figure 3](#electronics-13-01299-f003)) [29].
+
+**Figure 3.**
+(**a**) Schematic cross-section of an encapsulated bottom-emitting OLED. (**b**) Energy diagram of a typical multilayer OLED, highlighting the functions of all possible layers: generally, not all are present as multiple functions are combined in a single layer.
+
+Certainly, compared to a traditional glass substrate, a plastic substrate is more susceptible to moisture permeability issues and requires the introduction of alternative solutions. Among these, a recent trend is to use thin and flexible glass substrates [30]. Equally important is the light extraction layer, which significantly contributes to the total efficiency [31,32].
+
+OLED panels also require driver circuits that convert the line voltage into a DC current. These driver circuits can also impact the final product efficiency. A constant-voltage driving circuit is not advisable, as it would allow the current to change based on various external parameters and reduce the panel’s lifespan. Alternatively, it is desirable to have a driver circuit that allows for light dimming by adjusting the driving current and is capable of adjusting the driving voltage to compensate for the reduction in current over time [33,34].
+
+OLEDs, to be employed in lighting applications, must meet specific requirements, such as high brightness, high efficiency, low costs, low power consumption, and a long lifetime [35]. The performance of an OLED device is typically evaluated based on three types of efficiency [23]: the external quantum efficiency (𝜂𝐸⁢𝑄⁢𝐸), the current efficiency (𝜂𝑐), and the luminous efficacy (𝜂𝐿), often referred to as the power efficiency or lighting efficiency [36]. The first figure of merit, the external quantum efficiency (%), describes the number of outcoupled photons per injected charge and includes the charge balance, singlet-triplet factor, radiative quantum efficiency, and light coupling efficiency. The current efficiency (cd/A) and luminous efficacy (lm/W) are photometric parameters that consider the sensitivity of the human eye. The current efficiency is calculated from the luminance and is defined as the ratio between the luminance obtained in the forward direction and the current density passing through the device. The luminous efficacy is defined by the ratio of the luminous flux to the electrical power.
+
+In addition to those described above, OLED manufacturers need to optimize other two parameters: the luminance and lifetime. The luminance (cd/m2) determines the brightness of the light emitted. The lifetime of OLEDs is an important indicator in evaluating the stability of these devices, and a longer device lifetime is vital for their successful commercial use [37]. The intrinsic qualities of the materials and device architectures mostly influence the operational lifetime, which can be quantified in terms of the lumen maintenance life 𝐿⁢𝑝 (hours), which is defined as the elapsed operating time over which the light source will maintain a percentage p of its initial light output: the 50% lumen maintenance value (L50) is used for lighting and display purposes, while L70 (70% lumen maintenance) is required for architectural lighting [22]. [Table 1](#electronics-13-01299-t001) shows a comparison of the luminous efficacy and lifetime values of OLEDs, with corresponding metrics for other lighting technologies.
+
+**Table 1.**
+Comparison of OLED lighting’s luminous efficacy and lifetime with those of other commercially available lamps [38,39,40].
+
+The characteristics of light can be indicated through three parameters: the Commission Internationale de L’Eclairage (CIE) coordinates, the color rendering index (CRI), and the correlated color temperature (CCT) [41]. For lighting applications, to ensure color purity, the light should have CIE coordinates close to the ideal white point, which is (0.33, 0.33), but they can fall within a much broader range. The CRI, namely the ability to reproduce the color of the illuminated object, ranges from 0 to 100, but it must be greater than 80 for lighting applications. It is excellent in OLEDs and is one of the aspects that make them interesting not only for indoor illumination but also in professional video and photographic applications. This is because organic materials inherently have a broad luminescence spectrum, and by opportunely combining materials with different emission colors, it is possible to achieve an extension across the entire visible spectrum. Finally, there is the CCT, which, in the case of white light for illumination, takes values ranging from 2500 K (warm light) to 6500 K (cool light).
+
+Currently, OLEDs are primarily used for indoor architectural applications due to their sensitivity to moisture and air, although proposals have been presented in the automotive sector [42]. Current projects involve the combination of LEDs and OLEDs in lighting systems, where the former generates directional light while the latter diffuses it. OLEDs are utilized in wall coverings such as ceramic tiles, with the addition of digital control to create changing effects in brightness or decoration. They are also employed in very large ceiling panels or as backlighting for shelves and niches. Additionally, OLEDs find use as signaling lights for aircraft cabins, exit paths in buildings, decorative signage for company logos, and similar purposes [10].
+
+## 2. OLED Lighting Market: Evolving Trends and Current Hurdles
+
+While, in the field of academic research, tremendous advancements have been made in terms of luminous efficacy, one of the key factors for lighting applications, reaching values as high as 160 lm/W in recent years [43], in the industry, field OLEDs have to compete with their inorganic counterparts. Certainly, they are competitive regarding the ability to obtain large-area and flexible panels with a customizable design and tunable chromaticity in a wide range, but further efforts are needed to narrow the gap in terms of efficiency. The first meaningful results in terms of area and efficiency were achieved by GE Global Research, which, in 2004, fabricated a 2 ft × 2 ft white OLED panel with a CCT of 4400 K, a CRI of 88, and efficacy of 15 lm/W [44]. In 2008, Osram researchers demonstrated the possibility of improving two crucial characteristics simultaneously, namely the efficacy and lifetime, reaching 46 lm/W with a CIE of (0.46, 0.42) and 5000 h, respectively, with a prototype of almost 100 cm2, at a brightness of 1000 cd/m2 and a CRI of 80 [22]. The following year, a dimmable round panel generating a warm white color (2800 K), emitting no UV or IR radiation, was released with the name ORBEOS ([Figure 4](#electronics-13-01299-f004)a) [45]. It was the result of rapid advancements reached in the context of the project OPAL 2008, which had the aim of developing an OLED production technology capable of achieving the cost target of a few Euro cents per cm2 for a-high performance white OLED device. The project, us

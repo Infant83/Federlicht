@@ -1,14 +1,33 @@
 Claim | Evidence | Strength | Flags
 --- | --- | --- | ---
-**소스**: (https://doi.org/10.1186/s40712-024-00202-7) | Exploring quantum materials and applications: a review; https://doi.org/10.1186/s40712-024-00202-7 | high | -
-**요약**: 양자 재료의 속성과 응용 가능성에 대해 설명하며, 새로운 기술로서의 잠재력을 논의합니다. | (none) | none | no_evidence
-**주요 포인트**: 양자 구속, 강한 상관관계 및 새로운 현상이 강조되며, 양자 재료(QMs)가 첨단 기술에 오르는 중요성을 나타냅니다. | (none) | none | no_evidence
-**소스**: (https://doi.org/10.1007/s10904-024-03567-6) | Electrospinning vs Fluorescent Organic Nano-Dots: A Comparative Review of Nanotechnologies in Organoluminophores Utilization; https://doi.org/10.1007/s10904-024-03567-6 | high | -
-**요약**: Electrospinning과 FONs의 기술적 차이를 분석하고 각각의 장단점을 비교합니다. 양자 컴퓨팅과 OLED에서의 활용 가능성에 대해 논의합니다. | (none) | none | no_evidence
-**주요 포인트**: Electrospinning(ES)은 재료 구조 제어에 탁월하고, FONs는 광학적 성질 최적화에 유리합니다. 두 기술 모두 신뢰성 있는 OL 시스템 개발에 기여할 수 있습니다. | (none) | none | no_evidence
-**소스**: (https://doi.org/10.1038/s41467-025-59439-1) | Using GNN property predictors as molecule generators; https://doi.org/10.1038/s41467-025-59439-1 | high | -
-**요약**: Graph neural networks(GNN)을 이용하여 전자적 성질을 가진 분자를 생성하는 방법론을 제시합니다. | (none) | none | no_evidence
-**주요 포인트**: GNN 사이클을 활용한 최적화 방식이 분자 설계에 효과적이며, 다양한 물질의 특성을 탐색할 수 있는 가능성을 열어줍니다. | (none) | none | no_evidence
-**소스**: (https://research.ibm.com/blog/quantum-for-oled) | Quantum Computing for Investigations of Electronic Transitions in Phenylsulfonyl-carbazole TADF Emitters; https://research.ibm.com/blog/quantum-for-oled | low | -
-**요약**: TADF 발광재료의 전자 전이를 탐구하며, 양자 컴퓨팅 기술의 적용 가능성을 제시합니다. | (none) | none | no_evidence
-**주요 포인트**: TADF 메커니즘 이해를 통한 양자 샘플링이 OLED 기술의 진보를 이끌 수 있음을 설명합니다. | (none) | none | no_evidence
+**Exploring quantum materials and applications: a review** | (none) | none | no_evidence
+저자: Rajat Goyal et al. | (none) | none | no_evidence
+출판일: 2025-01-16 | (none) | none | no_evidence
+DOI: (https://doi.org/10.1186/s40712-024-00202-7) | 10.1186/s40712-024-00202-7; https://doi.org/10.1186/s40712-024-00202-7 | high | -
+요약: 최신 양자 물질 연구 및 응용에 대한 포괄적 개요를 제공. | (none) | none | no_evidence
+근거 강도: 높음 | (none) | none | no_evidence
+**Using GNN property predictors as molecule generators** | (none) | none | no_evidence
+저자: Félix Therrien et al. | (none) | none | no_evidence
+출판일: 2025-05-08 | (none) | none | no_evidence
+DOI: (https://doi.org/10.1038/s41467-025-59439-1) | 10.1038/s41467-025-59439-1; https://doi.org/10.1038/s41467-025-59439-1 | high | -
+요약: 그래프 신경망을 활용하여 물질의 구조 최적화와 생성을 설명. | (none) | none | no_evidence
+근거 강도: 중간 | (none) | none | no_evidence
+**Quantum-AI Synergy and the Framework for Assessing Quantum Advantage** | (none) | none | no_evidence
+저자: Amit Kumar Singh et al. | (none) | none | no_evidence
+출판일: 2025-10-01 | (none) | none | no_evidence
+DOI: (https://doi.org/10.63721/25jpair0118) | 10.63721/25jpair0118; https://doi.org/10.63721/25jpair0118 | high | -
+요약: AI와 양자 컴퓨팅의 상호 작용이 OLED 재료 개발에 미치는 긍정적 영향 탐구. | (none) | none | no_evidence
+**Diindolocarbazole as a Core Structure for Narrow-Emitting and Highly Efficient Blue Organic Light-Emitting Diodes** | (none) | none | no_evidence
+저자: Jihoon Kang et al. | (none) | none | no_evidence
+출판일: 2025-06-10 | (none) | none | no_evidence
+DOI: (https://doi.org/10.1002/advs.202504625) | 10.1002/advs.202504625; https://doi.org/10.1002/advs.202504625 | high | -
+요약: 최신 OLED 기술에서의 효율적이고 좁은 발광 스펙트럼을 가진 재료에 대한 정보. | (none) | none | no_evidence
+**삼성디스플레이** | (none) | none | no_evidence
+최근 QD-OLED 기술이 상업화되고 있으며 성능이 향상되고 있음. | (none) | none | no_evidence
+링크: (https://www.samsung.com/nz/news/local/the-nobel-winning-material-at-the-heart-of-samsung-qleds-interview-on-real-quantum-dots-part-1) | Samsung Innovations; https://www.samsung.com/nz/news/local/the-nobel-winning-material-at-the-heart-of-samsung-qleds-interview-on-real-quantum-dots-part-1 | low | -
+**LG디스플레이** | (none) | none | no_evidence
+OLED 재료 개발과 관련한 협력 및 연구 성과를 통해 지속 가능성을 증진하고 있음. | (none) | none | no_evidence
+링크: (https://www.lgcorp.com/media/release/26853) | Remodeling OLED with LG Chem; https://www.lgcorp.com/media/release/26853 | low | -
+**UDC(Universal Display Corporation)** | (none) | none | no_evidence
+혁신적인 발광 다이오드 기술 개발 및 산업에 기여. | (none) | none | no_evidence
+링크: (https://en.wikipedia.org/wiki/Universal_Display_Corporation) | UDC Overview; https://en.wikipedia.org/wiki/Universal_Display_Corporation | low | -

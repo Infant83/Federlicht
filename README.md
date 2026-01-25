@@ -2,7 +2,7 @@
 
 Author: Hyun-Jung Kim (angpangmokjang@gmail.com, Infant@kias.re.kr)
 
-Version: 0.5.1
+Version: 0.6.0
 
 Feather-light knowledge intake. This CLI ingests text instructions (`.txt` files), runs Tavily search/extract, fetches arXiv papers, and builds an offline-friendly archive of everything it collected. Input can be a single `.txt` file or a folder of `.txt` files.
 
@@ -103,6 +103,33 @@ federlicht --run ./examples/runs/20260104_oled --output ./examples/runs/20260104
 # Windows wrappers (no install):
 # .\feather.ps1 --input .\instructions --output .\archive --max-results 8
 # .\feather.cmd --input .\instructions --output .\archive --max-results 8
+```
+
+### Python API (Federlicht)
+```python
+from federlicht import create_reporter
+
+reporter = create_reporter(
+    run="./examples/runs/20260110_qc-oled",
+    output="./examples/runs/20260110_qc-oled/report_full.html",
+    template="review_of_modern_physics",
+    lang="ko",
+    prompt_file="./examples/instructions/20260110_prompt_qc-oled.txt",
+    no_figures=True,
+)
+
+# Full run (ReportOutput)
+result = reporter.run()
+print(result.output_path)
+
+# Partial run -> state -> finish
+state = reporter.run(stages="scout,plan,evidence")
+final = reporter.write(state, output="./examples/runs/20260110_qc-oled/report_full.html")
+print(final.output_path)
+
+# Stage registry
+print(reporter.stage_info())                # all stages
+print(reporter.stage_info(["scout", "web"]))  # subset
 ```
 
 ## Workflow (Feather -> Federlicht)

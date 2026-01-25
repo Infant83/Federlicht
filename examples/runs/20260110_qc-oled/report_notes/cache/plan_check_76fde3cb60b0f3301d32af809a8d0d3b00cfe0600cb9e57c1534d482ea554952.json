@@ -1,0 +1,10 @@
+{
+  "content": "\ubcf4\uace0\uc11c \ucd08\uc548 \uc791\uc131\uc744 \uc704\ud55c \uacc4\ud68d\uc744 \uc138\uc6e0\uc2b5\ub2c8\ub2e4. \ud604\uc7ac \uc0c1\ud0dc\ub294 \ub2e4\uc74c\uacfc \uac19\uc2b5\ub2c8\ub2e4:\n\n1. **\ubcf4\uace0\uc11c \ucd08\uc548 \uac1c\uc694 \uc791\uc131** - [x]\n2. **Abstract \uc791\uc131** - [\uc9c4\ud589 \uc911]\n3. **Introduction \uc791\uc131** - [\ub300\uae30 \uc911]\n4. **Theory & Foundations \uc791\uc131** - [\ub300\uae30 \uc911]\n5. **Methods & Experimental Evidence \uc791\uc131** - [\ub300\uae30 \uc911]\n6. **Applications & Benchmarks \uc791\uc131** - [\ub300\uae30 \uc911]\n7. **Synthesis & Outlook \uc791\uc131** - [\ub300\uae30 \uc911]\n8. **Risks & Gaps \uc791\uc131** - [\ub300\uae30 \uc911]\n9. **Critics \uc791\uc131** - [\ub300\uae30 \uc911]\n\n\ud604\uc7ac \"Abstract\" \uc791\uc131\uc744 \uc9c4\ud589\ud558\uaca0\uc2b5\ub2c8\ub2e4. \uc774\ud6c4 \ub2e8\uacc4\ub85c \ub118\uc5b4\uac08 \uc218 \uc788\ub3c4\ub85d \uc138\ubd80 \ub0b4\uc6a9\uc744 \uc791\uc131\ud558\uaca0\uc2b5\ub2c8\ub2e4. \ucd94\uac00\ub85c \ud544\uc694\ud55c \uc790\ub8cc\ub098 \uc218\uc815 \uc0ac\ud56d\uc774 \uc788\uc73c\uc2dc\uba74 \ub9d0\uc500\ud574 \uc8fc\uc138\uc694!",
+  "meta": {
+    "stage": "plan_check",
+    "model": "gpt-4o-mini",
+    "prompt_hash": "ce267b74acba52fe3ef81e6ad41c8a47eecd74bae49d15bd4890755add6d3f5a",
+    "input_hash": "3d8234d797f1c71384de46d1c54356cd4cde7605f1b9442eb482040b7ca05c57"
+  },
+  "created_at": "2026-01-25T20:48:41.049037"
+}

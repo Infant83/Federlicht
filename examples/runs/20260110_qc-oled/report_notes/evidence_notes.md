@@ -1,26 +1,45 @@
-다음은 양자 컴퓨팅 기반 재료 연구 및 OLED 발광 재료 개발에 관한 정보 수집 및 요약입니다. 각 연구의 주요 내용은 다음과 같습니다:
+다음은 양자 컴퓨팅 및 OLED 발광 재료와 관련된 주요 문헌 및 산업 정보를 설명하는 핵심 근거들입니다:
 
-### 1. Quantum Materials and Applications Overview
-- **소스**: [Exploring quantum materials and applications: a review](https://doi.org/10.1186/s40712-024-00202-7)
-  - **요약**: 양자 재료의 속성과 응용 가능성에 대해 설명하며, 새로운 기술로서의 잠재력을 논의합니다.
-  - **주요 포인트**: 양자 구속, 강한 상관관계 및 새로운 현상이 강조되며, 양자 재료(QMs)가 첨단 기술에 오르는 중요성을 나타냅니다.
+### 문헌 및 논문
+- **Exploring quantum materials and applications: a review**
+  - 저자: Rajat Goyal et al.
+  - 출판일: 2025-01-16
+  - DOI: [10.1186/s40712-024-00202-7](https://doi.org/10.1186/s40712-024-00202-7)
+  - 요약: 최신 양자 물질 연구 및 응용에 대한 포괄적 개요를 제공. 
+  - 근거 강도: 높음
 
-### 2. Electrospinning and Fluorescent Organic Nano-Dots
-- **소스**: [Electrospinning vs Fluorescent Organic Nano-Dots: A Comparative Review of Nanotechnologies in Organoluminophores Utilization](https://doi.org/10.1007/s10904-024-03567-6)
-  - **요약**: Electrospinning과 FONs의 기술적 차이를 분석하고 각각의 장단점을 비교합니다. 양자 컴퓨팅과 OLED에서의 활용 가능성에 대해 논의합니다.
-  - **주요 포인트**: Electrospinning(ES)은 재료 구조 제어에 탁월하고, FONs는 광학적 성질 최적화에 유리합니다. 두 기술 모두 신뢰성 있는 OL 시스템 개발에 기여할 수 있습니다.
+- **Using GNN property predictors as molecule generators**
+  - 저자: Félix Therrien et al.
+  - 출판일: 2025-05-08
+  - DOI: [10.1038/s41467-025-59439-1](https://doi.org/10.1038/s41467-025-59439-1)
+  - 요약: 그래프 신경망을 활용하여 물질의 구조 최적화와 생성을 설명.
+  - 근거 강도: 중간
 
-### 3. GNN Property Predictors for Molecule Generation
-- **소스**: [Using GNN property predictors as molecule generators](https://doi.org/10.1038/s41467-025-59439-1)
-  - **요약**: Graph neural networks(GNN)을 이용하여 전자적 성질을 가진 분자를 생성하는 방법론을 제시합니다.
-  - **주요 포인트**: GNN 사이클을 활용한 최적화 방식이 분자 설계에 효과적이며, 다양한 물질의 특성을 탐색할 수 있는 가능성을 열어줍니다.
+- **Quantum-AI Synergy and the Framework for Assessing Quantum Advantage**
+  - 저자: Amit Kumar Singh et al.
+  - 출판일: 2025-10-01
+  - DOI: [10.63721/25jpair0118](https://doi.org/10.63721/25jpair0118)
+  - 요약: AI와 양자 컴퓨팅의 상호 작용이 OLED 재료 개발에 미치는 긍정적 영향 탐구.
+  - 근거 강도: 중간
 
-### 4. TADF Emitters and Quantum Computing
-- **소스**: [Quantum Computing for Investigations of Electronic Transitions in Phenylsulfonyl-carbazole TADF Emitters](https://research.ibm.com/blog/quantum-for-oled)
-  - **요약**: TADF 발광재료의 전자 전이를 탐구하며, 양자 컴퓨팅 기술의 적용 가능성을 제시합니다.
-  - **주요 포인트**: TADF 메커니즘 이해를 통한 양자 샘플링이 OLED 기술의 진보를 이끌 수 있음을 설명합니다.
+- **Diindolocarbazole as a Core Structure for Narrow-Emitting and Highly Efficient Blue Organic Light-Emitting Diodes**
+  - 저자: Jihoon Kang et al.
+  - 출판일: 2025-06-10
+  - DOI: [10.1002/advs.202504625](https://doi.org/10.1002/advs.202504625)
+  - 요약: 최신 OLED 기술에서의 효율적이고 좁은 발광 스펙트럼을 가진 재료에 대한 정보.
+  - 근거 강도: 중간
 
-## 결론
-현재 OLED 발광재료 개발에서 양자 컴퓨팅 기술이 중요한 역할을 하고 있으며, 이 분야의 최신 동향을 통해 앞으로의 발전 가능성이 매우 높음을 알 수 있습니다.
+### 산업계 동향
+- **삼성디스플레이**
+  - 최근 QD-OLED 기술이 상업화되고 있으며 성능이 향상되고 있음. 
+  - 링크: [Samsung Innovations](https://www.samsung.com/nz/news/local/the-nobel-winning-material-at-the-heart-of-samsung-qleds-interview-on-real-quantum-dots-part-1)
 
-이 내용은 최종 보고서 초안 작성을 위한 기초 자료로 활용될 수 있습니다. 추가적으로 요구되는 정보나 자료가 있다면 말씀해 주세요!
+- **LG디스플레이**
+  - OLED 재료 개발과 관련한 협력 및 연구 성과를 통해 지속 가능성을 증진하고 있음. 
+  - 링크: [Remodeling OLED with LG Chem](https://www.lgcorp.com/media/release/26853)
+
+- **UDC(Universal Display Corporation)**
+  - 혁신적인 발광 다이오드 기술 개발 및 산업에 기여. 
+  - 링크: [UDC Overview](https://en.wikipedia.org/wiki/Universal_Display_Corporation)
+
+이 자료들은 양자 컴퓨팅과 OLED 발광 재료 간의 관계를 명확히 이해하는 데 필수적입니다. 이 정보를 바탕으로 보고서의 초안을 작성하는 데 필요한 내용을 구체화할 수 있습니다. 다음 단계로 보고서 초안을 작성하겠습니다.
