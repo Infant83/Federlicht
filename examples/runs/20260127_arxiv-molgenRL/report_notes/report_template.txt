@@ -1,0 +1,18 @@
+Template: default
+Source: fallback-default
+Latex: default.tex
+Sections:
+- Executive Summary
+- Scope & Methodology
+- Key Findings
+- Trends & Implications
+- Risks & Gaps
+- Critics
+- Appendix
+
+Guidance:
+Template description: Unknown template 'nature_review'. Falling back to default.
+
+Template tone: Academic, evidence-based, critical.
+
+Template audience: Technical leaders and researchers.

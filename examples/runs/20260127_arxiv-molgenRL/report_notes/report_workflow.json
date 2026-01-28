@@ -1,0 +1,52 @@
+{
+  "created_at": "2026-01-27T22:02:38.826181",
+  "stages": {
+    "scout": {
+      "status": "cached",
+      "detail": ""
+    },
+    "clarifier": {
+      "status": "skipped",
+      "detail": "disabled"
+    },
+    "template_adjust": {
+      "status": "skipped",
+      "detail": "disabled"
+    },
+    "plan": {
+      "status": "disabled",
+      "detail": ""
+    },
+    "web": {
+      "status": "disabled",
+      "detail": ""
+    },
+    "evidence": {
+      "status": "ran",
+      "detail": ""
+    },
+    "plan_check": {
+      "status": "disabled",
+      "detail": ""
+    },
+    "writer": {
+      "status": "ran",
+      "detail": ""
+    },
+    "quality": {
+      "status": "disabled",
+      "detail": ""
+    }
+  },
+  "order": [
+    "scout",
+    "clarifier",
+    "template_adjust",
+    "plan",
+    "web",
+    "evidence",
+    "plan_check",
+    "writer",
+    "quality"
+  ]
+}

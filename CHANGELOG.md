@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+- Add **Federnett**: a web studio wrapper around Feather and Federlicht with an HTTP server, SSE log streaming, background jobs, and kill control.
+- Add a static Federnett UI under `site/federnett/` with Feather/Federlicht/Prompt tabs, theme switching, run discovery, and live logs.
+- Move the Federnett implementation into a dedicated package at `src/federnett/app.py` and keep `federlicht.federnett` as a compatibility shim.
+- Wire the `federnett` console script to `federnett.app:main` and document usage in `README.md`.
+
 ## 0.7.0
 - Add `--generate-prompt` to scout a run and emit an editable report prompt (saved to `--output` or `instruction/`).
 - Add a prompt generator system prompt with Template/Depth/Language headers and scoped guidance for evidence gaps.

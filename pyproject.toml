@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "federlicht"
-version = "0.7.0"
+version = "0.8.0"
 description = "Feather-light knowledge intake."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -46,6 +46,7 @@ all = [
 [project.scripts]
 feather = "feather.cli:main"
 federlicht = "federlicht.report:main"
+federnett = "federnett.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

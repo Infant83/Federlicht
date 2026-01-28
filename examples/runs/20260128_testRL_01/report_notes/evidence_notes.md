@@ -1,0 +1,72 @@
+- **arXiv (1차 문헌, 핵심)**
+  - *Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning* (arXiv:2601.07145v1, 2026-01-12)
+    - 문제의식: 기존 생성모델이 “reaction constraints” 부족으로 **합성 불가능/난합성** 후보를 자주 만든다는 한계를 지적하고, 이를 해결하기 위해 **known reaction libraries + building blocks** 기반의 RL 생성 모델을 제안함.  
+      - URL: https://arxiv.org/abs/2601.07145v1  
+      - 근거: “prior efforts often produced synthetically intractable candidates due to a lack of reaction constraints… developed SyntheFluor-RL… employs known reaction libraries and molecular building blocks…” [/archive/arxiv/text/2601.07145v1.txt]
+    - 방법 개요(파이프라인 3단계): **(1) ChemFluor로 property predictor 학습 → (2) SyntheFluor-RL로 생성/필터링 → (3) 합성 및 실험 검증**.  
+      - URL: https://arxiv.org/abs/2601.07145v1  
+      - 근거: “three main steps… (1) training property predictor models on the ChemFluor dataset, (2) generating and filtering… (3) experimentally validating…” [/archive/arxiv/text/2601.07145v1.txt]
+    - 학습 데이터/타깃 속성:
+      - ChemFluor: **2,912 unique molecules**, 63 solvents → **4,336 molecule-solvent pairs**. (PLQY/흡수/방출 각각 별도 큐레이션)  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “2,912 unique molecules… 63 different solvents… 4,336 unique molecule-solvent pairs” [/archive/arxiv/text/2601.07145v1.txt]
+      - PLQY는 **이진분류(PLQY > 0.5)**, absorption/emission은 **회귀**로 모델링.  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “PLQY prediction was modeled as a binary classification task… threshold of PLQY > 0.5, while absorption and emission… regression tasks.” [/archive/arxiv/text/2601.07145v1.txt]
+      - 용매 특징(4개): **polarizability (SP), dipolarity (SdP), acidity (SA), basicity (SB)**를 입력 피처로 결합.  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “augmented with four… solvent properties—polarizability (SP), dipolarity (SdP), acidity (SA), and basicity (SB)” [/archive/arxiv/text/2601.07145v1.txt]
+    - 예측모델 선택/성능(요지):
+      - Morgan fingerprint가 RDKit features보다 전반적으로 우수했고, 생성 과정 scoring에 **Chemprop-Morgan**을 채택.  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “Morgan fingerprints outperformed… Based on its better performance… Chemprop-Morgan… selected for the scoring function” [/archive/arxiv/text/2601.07145v1.txt]
+      - 예시 성능: PLQY(ROC-AUC 약 **0.895~0.896**), absorption MAE 약 **13 nm대**, emission MAE 약 **19 nm대**(교차검증 평균±표준편차로 제시).  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “Chemprop-Morgan: ROC-AUC = 0.895 ± 0.019… absorption… MAE = 13.118 ± 1.203… emission… MAE = 18.951 ± 0.986” [/archive/arxiv/text/2601.07145v1.txt]
+    - 형광 구조 유도(π-conjugation proxy):
+      - 형광에 중요한 π-시스템을 반영하기 위해 **sp2 network size(연결된 sp2 원자 최대 연결 성분 크기)** 계산 알고리즘을 설계해 목표함수에 포함.  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “designed an algorithm… calculate the size of the largest network of connected atoms with sp2 hybridization” [/archive/arxiv/text/2601.07145v1.txt]
+    - RL 생성의 핵심 설계:
+      - 다목적 최적화(4개): **PLQY, absorption λ, emission λ, sp2 network size**를 동시에 최적화하며, **rolling average success rates**에 따라 가중치를 동적으로 조정.  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “multi-parameter objective… four essential properties… computes a weighted score… dynamically adjusted weights… based on the rolling average success rates” [/archive/arxiv/text/2601.07145v1.txt]
+      - 속도/정확도 트레이드오프: 중간 후보(빌딩블록 조합)는 **MLP-Morgan(value function)**으로 빠르게 평가하고, 최종 분자는 **Chemprop-Morgan(reward/평가)**로 더 정확히 평가하는 하이브리드.  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “MLP-Morgan… significantly faster… rapidly evaluates… then… more accurate… Chemprop-Morgan” [/archive/arxiv/text/2601.07145v1.txt]
+      - 수용액 조건 반영: 모델 입력에 “water”에 해당하는 용매 피처를 붙여 평가(수용액 실험 조건을 의식).  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “represented as a concatenation… with four solvent features corresponding to water…” [/archive/arxiv/text/2601.07145v1.txt]
+    - 합성가능성(Reaction constraints) 강화:
+      - 기존 SyntheMol-RL의 13개 반응은 “aromatic ring formation”이 부족해 확장된 방향족 시스템 생성이 어렵다는 문제를 확인하고, Enamine REAL 기반 **57개 반응 추가(총 70)**. Suzuki-Miyaura 같은 aryl-aryl 연결/링 형성 반응 포함.  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “lack of reactions that facilitate aromatic ring formation… added 57 new reactions… total reaction count to 70… (e.g. Suzuki-Miyaura coupling)” [/archive/arxiv/text/2601.07145v1.txt]
+    - 생성 규모/필터링 결과:
+      - 10,000 roll-outs, 약 **16.6시간**에 **11,590 molecules** 생성.  
+      - 다단계 필터: sp2<12 제거(5,479), PLQY 확률 필터(4,256 제거), visible range(420–750nm) absorption/emission 필터, 이후 **631** 남김 → K-means 100클러스터로 다양성 확보 후 52 → Enamine 합성 가능 34 → TD-DFT(Gaussian)로 oscillator strength(>0.01) 등 최종 정리해 **19개** 합성 타깃 선정.  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “10,000 roll-outs… generating 11,590…” 및 “sequential multi-step filtering… left 631… 100 clusters… yielding 52… 34… TD-DFT… yielding 19…” [/archive/arxiv/text/2601.07145v1.txt]
+    - 실험 검증(합성/형광/세포):
+      - 19개 중 **14개 합성 성공**, 그중 1개 분해 → **13개 실험 테스트**. 가장 밝은 **Compound 13**: Ex/Em(예: Exmax 363nm, Emmax 460nm), **PLQY=0.62**, **Stokes shift 97nm**, **lifetime 11.55ns**. HEK293 live-cell에서 농도 의존적으로 형광 신호 증가(0.1/1/10 µM).  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “Fourteen… synthesized… leaving 13… lead compound… PLQY = 0.62… Stokes shift (97 nm)… lifetime (11.5 ns)… live-cell…” [/archive/arxiv/text/2601.07145v1.txt]
+    - 공개 리소스(재현/데이터):
+      - 데이터/생성물/모델/입력: **Zenodo https://doi.org/10.5281/zenodo.18203970**  
+      - 코드: **GitHub https://github.com/swansonk14/SyntheMol**  
+        - URL: https://arxiv.org/abs/2601.07145v1  
+        - 근거: “publicly available on Zenodo… Code… on GithHub at https://github.com/swansonk14/SyntheMol” [/archive/arxiv/text/2601.07145v1.txt]
+
+- **웹 2차 소스 (LinkedIn, 요약/해설 성격)**
+  - Fan Li LinkedIn 포스트(논문 워크플로 요지 정리)
+    - “synthesizability부터 시작”, “RL을 coordination layer로 사용”, “다단계 필터링으로 ~11,000 → 소수 합성”, “실험적으로 루프를 닫음” 등 실무적 메시지로 요약(기술적 1차 근거는 논문 원문이 더 강함).  
+      - URL: https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI  
+      - 근거: “Start from synthesizability… generated exclusively through known reaction templates… Use RL as a coordination layer… Multi-stage filtering… Close the loop experimentally…” [/archive/tavily_extract/0002_https_www.linkedin.com_posts_fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI_utm_s.txt]
+
+- **런/수집 메타 (커버리지·누락 진단용)**
+  - 인스트럭션 파일이 URL 2개뿐이라(검색 쿼리 0개) 소스 풀이 매우 제한됨.
+    - URL 목록(2개): arXiv PDF, LinkedIn 포스트  
+      - 근거: [/instruction/20260128_testRL.txt]
+  - OpenAlex citations 조회 실패로 보강 수집이 안 됨(400 오류).  
+    - 근거: “WARN citations lookup failed… HTTPError('400 Client Error… api.openalex.org/works… filter=arxiv:2601.07145')” [/archive/_log.txt]
+  - 런 요약: queries=0, URLs=2, arXiv IDs=1.  
+    - 근거: [/archive/20260128_testRL_01-index.md]

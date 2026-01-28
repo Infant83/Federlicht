@@ -2,7 +2,7 @@
 
 Author: Hyun-Jung Kim (angpangmokjang@gmail.com, Infant@kias.re.kr)
 
-Version: 0.6.0
+Version: 0.8.0
 
 Feather-light knowledge intake. This CLI ingests text instructions (`.txt` files), runs Tavily search/extract, fetches arXiv papers, and builds an offline-friendly archive of everything it collected. Input can be a single `.txt` file or a folder of `.txt` files.
 
@@ -104,6 +104,35 @@ federlicht --run ./examples/runs/20260104_oled --output ./examples/runs/20260104
 # .\feather.ps1 --input .\instructions --output .\archive --max-results 8
 # .\feather.cmd --input .\instructions --output .\archive --max-results 8
 ```
+
+### Federnett (Web UI)
+Federnett is a lightweight HTML5 interface that wraps the existing Feather and
+Federlicht CLIs via subprocess. It does not replace core behavior.
+
+Key points:
+- It serves the static UI from `./site/federnett/`.
+- All paths are resolved under `--root` (guardrail against path escape).
+- It scans run folders from `--run-roots` (default: `examples/runs,site/runs,runs`).
+- Logs stream live via SSE and jobs can be stopped from the UI.
+
+```bash
+# Start the UI server (defaults to ./site/federnett):
+federnett --root . --port 8765
+
+# Share on the local network:
+federnett --root . --host 0.0.0.0 --port 8765
+
+# Module entrypoint (equivalent):
+python -m federnett.app --root . --port 8765
+
+# Customize run discovery roots:
+federnett --root . --run-roots examples/runs,site/runs
+
+# Serve from a different static directory:
+federnett --root . --static-dir site/federnett --site-root site
+```
+
+Then open `http://127.0.0.1:8765/`.
 
 ### Python API (Federlicht)
 ```python

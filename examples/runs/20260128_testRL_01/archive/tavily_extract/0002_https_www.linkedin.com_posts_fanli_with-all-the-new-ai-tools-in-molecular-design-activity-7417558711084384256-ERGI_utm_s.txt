@@ -1,0 +1,36 @@
+{
+  "results": [
+    {
+      "url": "https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI?utm_source=share&utm_medium=member_desktop&rcm=ACoAADrVxc4BEqb4PF0MiiEBRbbQJ7tfp6CkF3Q",
+      "title": "Stanford Study: Combining AI Tools for Molecular Design | Fan Li posted on the topic | LinkedIn",
+      "raw_content": "With all the new AI tools in molecular design, how to stay tractable and get the job done?\n\nFor many practitioners, the challenge is no longer a lack of possibilities. We now have generative models, property predictors, ML frameworks, and quantum chemistry tools at our fingertips. \n\nThe harder problem is deciding how to combine them into a workflow that respects real constraints: intrinsic model limitations such as data bias and prediction uncertainty, synthesizability & commercial availability, and finite experimental bandwidth. Without that discipline, it is easy to generate impressive molecules that only stay on paper.\n\nA recent preprint from https://www.linkedin.com/school/stanford-university/?trk=public_post_embed-text provides a strong case study in how to approach this pragmatically, using fluorescent dye design as the testbed. The authors assemble and adapt established methods into a coherent, domain-aware workflow:\n\n🔹 Start from synthesizability, not hypothetical structure: Molecules are generated exclusively through known reaction templates and commercially available building blocks, ensuring candidates are viable and actionable.\n\n🔹 Define objectives that reflect experimental reality: Optimization targets are grounded in physically meaningful properties, including quantum yield, visible absorption and emission, and explicit pi-conjugation metrics tied to fluorescence behavior.\n\n🔹 Use RL as a coordination layer: The core SyntheFluor-RL framework, adapted from SyntheMol-RL and with property predictors trained on the ChemFluor dataset, iteratively selects molecular building blocks to balance multiple fluorescence objectives while guaranteeing synthetic accessibility.\n\n🔹 Apply rational, chemistry-informed filtering: Multi-stage filtering for property thresholds, diversity, novelty, and lightweight quantum checks reduces ~11,000 candidates to a small synthesis set.\n\n🔹 Close the loop experimentally: Most selected molecules were synthesized, three showed notable fluorescence, and one lead compound demonstrated strong photophysical properties and live-cell compatibility\n\nIf you are a practitioner working at the intersection of molecular design, ML, and experimental chemistry, this paper is well worth reading.\n\n📄 Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning, arXiv, January 12, 2026\n🔗 https://lnkd.in/eQbPw8C4\n____________________\nI'm Fan Li, Ph.D. I write about AI, molecules, and how R&D gets done. Follow or DM if this resonates.",
+      "description": "With all the new AI tools in molecular design, how to stay tractable and get the job done?\n\nFor many practitioners, the challenge is no longer a lack of possibilities. We now have generative models, property predictors, ML frameworks, and quantum chemistry tools at our fingertips. \n\nThe harder problem is deciding how to combine them into a workflow that respects real constraints: intrinsic model limitations such as data bias and prediction uncertainty, synthesizability & commercial availability, and finite experimental bandwidth. Without that discipline, it is easy to generate impressive molecules that only stay on paper.\n\nA recent preprint from Stanford University provides a strong case study in how to approach this pragmatically, using fluorescent dye design as the testbed. The authors assemble and adapt established methods into a coherent, domain-aware workflow:\n\n🔹 Start from synthesizability, not hypothetical structure: Molecules are generated exclusively through known reaction templates and commercially available building blocks, ensuring candidates are viable and actionable.\n\n🔹 Define objectives that reflect experimental reality: Optimization targets are grounded in physically meaningful properties, including quantum yield, visible absorption and emission, and explicit pi-conjugation metrics tied to fluorescence behavior.\n\n🔹 Use RL as a coordination layer: The core SyntheFluor-RL framework, adapted from SyntheMol-RL and with property predictors trained on the ChemFluor dataset, iteratively selects molecular building blocks to balance multiple fluorescence objectives while guaranteeing synthetic accessibility.\n\n🔹 Apply rational, chemistry-informed filtering: Multi-stage filtering for property thresholds, diversity, novelty, and lightweight quantum checks reduces ~11,000 candidates to a small synthesis set.\n\n🔹 Close the loop experimentally: Most selected molecules were synthesized, three showed notable fluorescence, and one lead compound demonstrated strong photophysical properties and live-cell compatibility\n\nIf you are a practitioner working at the intersection of molecular design, ML, and experimental chemistry, this paper is well worth reading.\n\n📄 Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning, arXiv, January 12, 2026\n🔗 https://lnkd.in/eQbPw8C4\n____________________\nI'm Fan Li, Ph.D. I write about AI, molecules, and how R&D gets done. Follow or DM if this resonates.",
+      "links": [
+        "https://www.linkedin.com/school/stanford-university/?trk=public_post_embed-text",
+        "https://lnkd.in/eQbPw8C4"
+      ],
+      "images": [
+        "https://media.licdn.com/dms/image/v2/D4E03AQEbn9MYJpWG0Q/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1673318720923?e=2147483647&v=beta&t=OQ_DKK3Qe8w33Y5XdnyJPD2iRtcqyiYSN3-ZyVexd9A",
+        "https://static.licdn.com/aero-v1/sc/h/8fkga714vy9b2wk5auqo5reeb",
+        "https://media.licdn.com/dms/image/v2/D4E22AQG5yc8VGXoPXQ/feedshare-shrink_1280/B4EZu_wulpKAAc-/0/1768448780959?e=2147483647&v=beta&t=T0r41C0lA-U4zLgnS6pvMIl3VlE0BkbYUo9vhGd_ysI",
+        "https://static.licdn.com/aero-v1/sc/h/bn39hirwzjqj18ej1fkz55671",
+        "https://static.licdn.com/aero-v1/sc/h/2tzoeodxy0zug4455msr0oq0v",
+        "https://static.licdn.com/aero-v1/sc/h/asiqslyf4ooq7ggllg4fyo4o2",
+        "https://static.licdn.com/aero-v1/sc/h/70k0g8kmgdfjjymflqqzipzxj",
+        "https://static.licdn.com/aero-v1/sc/h/4ol9mo4lxvobj5ww3va90wz1o",
+        "https://static.licdn.com/aero-v1/sc/h/l7s88viq07vqke49pnrbl5e4",
+        "https://static.licdn.com/aero-v1/sc/h/gs508lg3t2o81tq7pmcgn6m2",
+        "https://static.licdn.com/aero-v1/sc/h/64x33s3lxd27lb5jrntc2qt3s",
+        "https://static.licdn.com/aero-v1/sc/h/a6mgx8l1bgv7yyvnzsn6mnxhn",
+        "https://static.licdn.com/aero-v1/sc/h/e97efymj9gvxv32086hxtsg5r",
+        "https://static.licdn.com/aero-v1/sc/h/985sqoiudwdfnuemt74raqc27"
+      ],
+      "embed_url": "https://www.linkedin.com/embed/feed/update/urn:li:activity:7417558711084384256",
+      "activity_id": "7417558711084384256",
+      "extractor": "linkedin_embed"
+    }
+  ],
+  "failed_results": [],
+  "response_time": 0.0,
+  "request_id": "local-linkedin-embed"
+}

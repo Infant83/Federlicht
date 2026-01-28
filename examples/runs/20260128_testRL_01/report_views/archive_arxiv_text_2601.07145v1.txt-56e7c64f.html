@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2601.07145v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2601.07145v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning</p><p><strong>Authors:</strong> Ruhi Sayana, Kate Callon, Jennifer Xu, Jonathan Deutsch, Steven Chu, James Zou, John Janetzko, Rabindra V. Shivnaraine, Kyle Swanson</p><p><strong>Published:</strong> 2026-01-12T02:31:43+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2601.07145v1">http://arxiv.org/abs/2601.07145v1</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2601.07145v1.pdf">./archive/arxiv/pdf/2601.07145v1.pdf</a></p><p><strong>Summary:</strong><br />Developing new fluorophores for advanced imaging techniques requires exploring new chemical space. While generative AI approaches have shown promise in designing novel dye scaffolds, prior efforts often produced synthetically intractable candidates due to a lack of reaction constraints. Here, we developed SyntheFluor-RL, a generative AI model that employs known reaction libraries and molecular building blocks to create readily synthesizable fluorescent molecule scaffolds via reinforcement learning. To guide the generation of fluorophores, SyntheFluor-RL employs a scoring function built on multiple graph neural networks (GNNs) that predict key photophysical properties, including photoluminescence quantum yield, absorption, and emission wavelengths. These outputs are dynamically weighted and combined with a computed pi-conjugation score to prioritize candidates with desirable optical characteristics and synthetic feasibility. SyntheFluor-RL generated 11,590 candidate molecules, which were filtered to 19 structures predicted to possess dye-like properties. Of the 19 molecules, 14 were synthesized and 13 were experimentally confirmed. The top three were characterized, with the lead compound featuring a benzothiadiazole chromophore and exhibiting strong fluorescence (PLQY = 0.62), a large Stokes shift (97 nm), and a long excited-state lifetime (11.5 ns). These results demonstrate the effectiveness of SyntheFluor-RL in the identification of synthetically accessible fluorophores for further development.</p></div><pre>
+
+===== PAGE 1 =====
+Generating readily synthesizable small molecule
+fluorophore scaffolds with reinforcement learning
+Ruhi Sayana∗
+Kate Callon ∗
+Jennifer Xu∗
+Jonathan Deutsch†
+Steven Chu‡
+James Zou§
+John Janetzko¶
+Rabindra V. Shivnaraine‖
+Kyle Swanson∗∗
+Abstract
+Developing new fluorophores for advanced imaging techniques re-
+quires exploring new chemical space. While generative AI approaches
+have shown promise in designing novel dye scaffolds, prior efforts often
+produced synthetically intractable candidates due to a lack of reac-
+tion constraints.
+Here, we developed SyntheFluor-RL, a generative
+AI model that employs known reaction libraries and molecular build-
+ing blocks to create readily synthesizable fluorescent molecule scaffolds
+via reinforcement learning. To guide the generation of fluorophores,
+SyntheFluor-RL employs a scoring function built on multiple graph
+neural networks (GNNs) that predict key photophysical properties, in-
+cluding photoluminescence quantum yield, absorption, and emission
+wavelengths. These outputs are dynamically weighted and combined
+∗Department of Computer Science, Stanford University. Equal Contribution.
+†Department of Molecular and Cellular Physiology, Stanford University
+‡Department of Molecular and Cellular Physiology, Stanford University; Department
+of Physics, Stanford University.
+§Department of Computer Science, Stanford University; Department of Biomedical
+Data Science, Stanford University.
+¶Department of Molecular and Cellular Physiology, Stanford University; Department
+of Biochemistry and Molecular Genetics, University of Colorado Anschutz Medical Cam-
+pus; Department of Pharmacology, University of Colorado Anschutz Medical Campus;
+Department of Pharmaceutical Sciences, Skaggs School of Pharmacy, University of Col-
+orado Anschutz Medical Campus; BioFrontiers Institute, University of Colorado Boulder.
+Corresponding author: john.janetzko@cuanschutz.edu
+‖Department of Molecular and Cellular Physiology, Stanford University; Currently at
+Greenstone Biosciences. Corresponding author: rvshiv@stanford.edu.
+∗∗Department of Computer Science, Stanford University. Corresponding author: swan-
+sonk@stanford.edu.
+1
+arXiv:2601.07145v1  [cs.LG]  12 Jan 2026
+
+
+===== PAGE 2 =====
+with a computed π-conjugation score to prioritize candidates with de-
+sirable optical characteristics and synthetic feasibility. SyntheFluor-
+RL generated 11,590 candidate molecules, which were filtered to 19
+structures predicted to possess dye-like properties. Of the 19 molecules,
+14 were synthesized and 13 were experimentally confirmed. The top
+three were characterized, with the lead compound featuring a ben-
+zothiadiazole chromophore and exhibiting strong fluorescence (PLQY
+= 0.62), a large Stokes shift (97 nm), and a long excited-state lifetime
+(11.5 ns). These results demonstrate the effectiveness of SyntheFluor-
+RL in the identification of synthetically accessible fluorophores for fur-
+ther development.
+1
+Introduction
+Fluorescent dyes with highly optimized photophysical properties are criti-
+cal for advanced imaging methods to detect and interrogate biomolecules
+[38, 7].
+A variety of microscopy techniques, such as STORM (Stochas-
+tic Optical Reconstruction Microscopy), PALM (Photoactivated Localiza-
+tion Microscopy) [19, 14], single-molecule FRET (Fluorescence Resonance
+Energy Transfer)[34], single-particle tracking (SPT), light-sheet microscopy
+[33], multi-photon fluorescence microscopy[11], and fluorescence recovery af-
+ter photobleaching (FRAP), have significantly enhanced our ability to in-
+vestigate cellular structures and processes with improved spatio-temporal
+resolution. As these methodologies evolve, the demand for a diverse array
+of fluorescent dyes—each characterized by unique photophysical properties
+tailored to each specific imaging technique—becomes increasingly critical.
+For example, techniques such as SPT would benefit from dyes that are longer
+lived, whereas FRAP would benefit from dyes that are rapidly bleached.
+Four primary families of dye scaffolds dominate the field of bioimag-
+ing: coumarins, xanthenes (such as fluorescein and rhodamine), BODIPYs,
+and cyanines[6, 32].
+These scaffolds form the basis for 29 Alexa Fluor
+dyes, 50 ATTO dyes, 6 Cy dyes, and at least 15 Janelia Fluor dyes, col-
+lectively addressing a broad range of imaging needs. Additionally, alterna-
+tive scaffolds such as pyrene, naphthalene, carbazole, oxazine, porphyrin,
+benzothia(dia)zole, squaraine, and phthalocyanine have found more limited
+applications [21, 31]. Advances in dye chemistry continue to drive the discov-
+ery of new scaffolds and the development of synthetic routes for novel dyes
+with tailored photophysical properties, enabling higher imaging resolution
+and compatibility with modern imaging modalities [16].
+Recently, machine learning models have emerged as transformative tools
+2
+
+
+===== PAGE 3 =====
+for designing novel dye scaffolds. In one approach, trained property pre-
+dictors based on characteristics such as photoluminescence quantum yield
+(PLQY), absorption, and emission are used to identify promising fluores-
+cent molecules within databases of known compounds [45, 50, 18, 15, 2].
+While this method effectively uncovers novel candidates, generative models
+offer the capability to rapidly explore a broader chemical space and create
+entirely new scaffolds that are absent from existing fluorophore libraries or
+databases. Despite the potential of generative AI approaches to discover
+novel fluorescent molecular structures [37, 41, 53], they often face challenges
+due to the generation of synthetically intractable scaffolds.
+In this study, we developed SyntheFluor-RL, a generative AI model, to
+assemble readily synthesizable fluorescent molecule scaffolds. SyntheFluor-
+RL, a variant of the generative model SyntheMol-RL [39], assembles novel
+molecules using building blocks and well-established synthetic reactions avail-
+able in the Enamine REAL Space [12], which contains over 30 billion pos-
+sible molecules.
+SyntheFluor-RL was specifically adapted for fluorescent
+molecule design by training graph neural network-based property predic-
+tor models on the ChemFluor dataset [18] to predict photoluminescence
+quantum yield (PLQY) and absorption and emission wavelengths. These
+property predictors are used to guide the model in generating molecules
+that were optimized for multiple fluorescent properties, leveraging an ad-
+ditional 57 reaction pathways from the Enamine REAL space relevant for
+fluorescent molecule design, along with the 13 Enamine REAL space re-
+action pathways used by SyntheMol-RL. SyntheFluor-RL generated 11,590
+candidate molecules, which were subsequently filtered and screened for pre-
+dicted properties, structural novelty, and chemical diversity to identify the
+top 19 compounds for synthesis and experimental validation. Among the 13
+compounds that were successfully tested, our experiments identified three
+distinct molecules, each derived from a different chemical scaffold.
+This
+demonstrates the utility of SyntheFluor-RL for diverse fluorescent molecule
+scaffold design.
+2
+Results
+SyntheFluor-RL was applied to fluorescent molecule scaffold design via three
+main steps, as outlined in Figure 1: (1) training property predictor models
+on the ChemFluor dataset, (2) generating and filtering output molecules
+with SyntheFluor-RL, and (3) experimentally validating the output through
+synthesis and testing.
+3
+
+
+===== PAGE 4 =====
+Training set
+Input
+Input
+139K building blocks
+0.9
+Train
+Property predictor
+Chemical space
+SyntheFluor-RL
+Output
+Synthesis
+Validation
++
+Wavelength
+Emission intensity
+Filtering
+O
+NH
+O
+O
+Absorption (nm)
+Emission (nm)
+13 prior reactions
+57 new reactions
+0.8
+30B molecules
+O
+N
+S
+O
+O
+H
+N
+N
+NH2
+N
+N
+H
+N
+N
+OCH3
+H3C
+HO
+N O
+N
+O
+N
+Root
+O B
+O
+O
+NH
+O
+C
+H2N
+N
+N
+CH
+H3C
+0.1
+O B
+O
+O
+NH
+O
+NH
+F
+F
+O B
+O
+O
+NH
+O
+Br
+O
+0.2
+0.9
+O
+NH
+O
+O
+Generated molecule
+p(PLQY) &gt; 0.5
+420 &lt; nm &lt; 770
+Novelty
+Property
+Diversity
+Gaussian
+O B
+O
+O
+NH
+O
+O
+O
+N
+N
+O
+O
+N
+N
+H
+O
+O
+H
+N
+O
+Cl
+N
+Cl
+N
+N
+O
+N
+Cl
+N
+N
+O
+N
+F
+O
+N
+O
+N
+F
+O
+N
+O
+N
+Cl
+N
+N
+O
+N
+F
+O
+N
+O
+O
+NH
+O
+O
+O
+N
+N
+S
+N
+O
+N
+N
+S
+N
+N
+O
+N
+N
+O
+N
+N
+O
+N
+N O
+N
+O
+O
+N
+O
+N N
+N
+N
+H2N
+O
+N
+O
+N
+O
+H2N
+H
+N
+O
+N
+H
+O
+N
+O
+N
+O
+H2N
+H
+N
+O
+N
+H
+O
+O
+N
+O
+N N
+N
+N
+H2N
+Figure 1: SyntheFluor-RL pipeline overview.
+The workflow begins
+with training set processing followed by property predictor model develop-
+ment. Next, SyntheFluor-RL generates molecules using the trained prop-
+erty predictors within a chemical space of synthesizable molecules. These
+molecules are then filtered based on calculated and predicted properties,
+structural diversity, and novelty. Finally, selected molecules were synthe-
+sized and experimentally validated.
+4
+
+
+===== PAGE 5 =====
+2.1
+Developing Property Prediction Models
+The ChemFluor dataset [18] was processed to extract PLQY, absorption,
+and emission values for 2,912 unique molecules dissolved in 63 different sol-
+vents, resulting in 4,336 unique molecule-solvent pairs (Figure 2A). The
+PLQY values ranged from 0 to 1, absorption values 247nm to 1026nm, and
+the emission values 296nm to 1045nm.
+Following curation, two machine
+learning model architectures were trained to predict fluorescence properties:
+(1) Chemprop (v1.6.1) [48], a graph neural network that processes molecu-
+lar graphs and computed features, and (2) a multilayer perceptron (MLP),
+which uses only computed molecular features (see Methods).
+Two types
+of features were tested for both models: Morgan fingerprints, which en-
+code local chemical structures, and RDKit features, comprising 200 physic-
+ochemical properties computed with RDKit [42] (Figure 2B). In both cases,
+molecular features were augmented with four experimentally derived solvent
+properties—polarizability (SP), dipolarity (SdP), acidity (SA), and basicity
+(SB)—corresponding to the solvent used during experimental measurements.
+Chemprop and MLP models were trained as either binary classifiers or
+regressors, depending on the task. PLQY prediction was modeled as a bi-
+nary classification task using a threshold of PLQY &gt; 0.5, while absorption
+and emission wavelength predictions were modeled as regression tasks. All
+models were trained using 10-fold cross-validation with an 80% training,
+10% validation, and 10% testing split, completing in under 60 minutes on
+an 8-CPU machine. PLQY models were trained on 3,055 molecule-solvent
+pairs, absorption models on 4,202 pairs, and emission models on 4,333 pairs.
+Across all three tasks (PLQY, absorption, and emission) and both model
+architectures, the Morgan fingerprints outperformed the RDKit features
+(Figure 2C-D, Supplementary Table 1). The Chemprop-Morgan and MLP-
+Morgan architectures showed comparable performance on the PLQY clas-
+sification task (Chemprop-Morgan: ROC-AUC = 0.895 ± 0.019 ; MLP-
+Morgan: ROC-AUC = 0.896 ± 0.019). Chemprop-Morgan demonstrated a
+slight advantage over MLP-Morgan for both absorption (Chemprop-Morgan
+MAE = 13.118 ± 1.203; MLP-Morgan MAE = 13.657 ± 1.083) and emis-
+sion (Chemprop-Morgan MAE = 18.951 ± 0.986; MLP-Morgan MAE =
+19.829 ± 1.268) regression tasks. Based on its better performance across
+most tasks, the Chemprop-Morgan architecture was selected for the scoring
+function in the molecule generation process.
+The presence of a π-conjugated system is critical for a molecule to be
+fluorescent[47, 51], and larger π-conjugated systems reduce the HOMO-
+LUMO gap, shifting electronic transitions to the visible spectrum. To incor-
+5
+
+
+===== PAGE 6 =====
+Figure 2: Property Prediction Model Development.
+A) Distributions of
+photoluminescence quantum yield (PLQY), absorption wavelengths, and emission
+wavelengths in the ChemFluor dataset. Red lines represent cutoff values for PLQY
+classification model (PLQY &gt; 0.5 considered fluorescent) and wavelengths consid-
+ered to be in the visible spectra (420 nm to 770 nm) for absorption and emission. B)
+Visualizations of graph neural network architectures combined with either Morgan
+fingerprints or RDKit fingerprints (top two) and MLP architectures using Morgan
+or RDKit fingerprints (bottom two). C) ROC curves and PRC curves for PLQY
+classification models. D) Plots of predicted absorption versus actual absorption
+for the absorption regression model using the Chemprop-Morgan architecture, and
+predicted emission vs actual emission for the emission regression model using the
+Chemprop-Morgan architecture. E) Visualization of sp2 network algorithm. Atoms
+and bonds highlighted in red are members of the largest connected network of sp2-
+hybridized atoms in the molecule.
+6
+
+
+===== PAGE 7 =====
+porate this information, we designed an algorithm (see Methods) to calculate
+the size of the largest network of connected atoms with sp2 hybridization in
+each molecule’s molecular graph representation (Figure 2E).
+2.2
+Generating Molecules with SyntheFluor-RL
+We developed SyntheFluor-RL (see Methods) to generate fluorescent molecule
+candidates (Figure 3A). SyntheFluor-RL is an adaptation of SyntheMol-RL
+[39], which is a generative model that uses reinforcement learning (RL) to
+design easy-to-synthesize molecule with desirable properties. SyntheMol-RL
+was previously applied to generate antibiotic candidates targeting Staphylo-
+coccus aureus. Key to the SyntheMol-RL algorithm is its internal RL value
+function, which is used to direct its selection of chemical building blocks.
+Similarly, SyntheFluor-RL utilizes an RL value function to guide its selec-
+tion process. However, its multi-parameter objective is altered to optimize
+for four essential properties: PLQY, absorption wavelength, emission wave-
+length, and sp2 network size.
+During its generation process, SyntheFluor-RL computes a weighted
+score for each candidate molecule, with dynamically adjusted weights for
+each property to maximize the likelihood of generating molecules that sat-
+isfy all four criteria (Supplementary Figure 1A). Success criteria are defined
+for each of the four properties, and the weights are adjusted over time based
+on the rolling average success rates, ensuring a balanced optimization of
+photophysical properties. The trained Chemprop-Morgan property predic-
+tion models are used in the reward function that evaluates each candidate
+molecule, while an associated set of MLP-Morgan models are weighted in
+the value function to score intermediate candidates and are trained during
+generation. The MLP-Morgan architecture was chosen for the value function
+instead of a matching Chemprop-Morgan architecture because SyntheMol-
+RL with an MLP value function model is significantly faster than with a
+Chemprop value function. As a result, SyntheFluor-RL rapidly evaluates
+many combinations of building blocks using an MLP-Morgan model and
+then performs a slower but more accurate evaluation of generated molecules
+using a Chemprop-Morgan architecture.
+Notably, to ensure that fluorescence properties were assessed under rele-
+vant aqueous experimental conditions, all molecules evaluated by the Chemprop
+and MLP models within SyntheFluor-RL were represented as a concatena-
+tion of their Morgan fingerprint with four solvent features corresponding to
+water: polarizability (SP), dipolarity (SdP), acidity (SA), and basicity (SB).
+Initial generations using SyntheFluor-RL yielded a scarcity of molecules
+7
+
+
+===== PAGE 8 =====
+O
+NH
+O
+O
+Molecule generation
+Update reinforcement learning model
+Multi-property prediction
+1
+2
+3
+Root
+0.824
+0.171
+0.865
+0.739
+-
+Back propagation
+(
+)
+O
+NH
+O
+O
+0.4
+0.4
+0.1 0.1
+-
+-
+-
+0.4
+0.4
+0.1 0.1
+0.4
+0.4
+0.1 0.1
+0.4
+0.4
+0.1 0.1
+OR
+OR
+B
+A
+C
+O B
+O
+O
+NH
+O
+H3C
+H2N
+N
+N
+CH3
+H3C
+O B
+O
+O
+NH
+O
+O B
+O
+O
+NH
+O
+NH2
+F
+F
+Br
+O
+O B
+O
+O
+NH
+O
+O B
+O
+O
+NH
+O
+Br
+O
+O
+NH
+O
+O
+H2N
+N
+NH2
+N
+N
+N
+H
+N
+O
+N
+S
+O
+O
+Cl
+H3C O
+CH3
+OH
+N
+O
+N
+O
+HO
+OCH3
+H3C
+HO
+N O
+N
+O
+N
+O
+N
+S
+O
+O
+H
+N
+N
+NH2
+N
+N
+H
+N
+N
+0
+5
+10
+15
+20
+25
+30
+35
+SP2 Size
+0.0
+0.1
+0.2
+0.3
+0.4
+Frequency
+Generated Molecules
+Random REAL Molecules
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+p(PLQY &gt; 0.5)
+0
+10
+20
+30
+40
+50
+60
+Density
+Generated Molecules
+Random REAL Molecules
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0
+1
+2
+3
+4
+5
+6
+7
+Figure 3: </pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

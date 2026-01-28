@@ -1,0 +1,1 @@
+- [arxiv] Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning — http://arxiv.org/abs/2601.07145v1 (score=0.97; year=2026; text=./archive/arxiv/text/2601.07145v1.txt)

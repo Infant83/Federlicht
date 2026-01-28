@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>report_notes/report_workflow.md</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>report_notes/report_workflow.md</h1></header>
+  <main><h1>Report Workflow</h1>
+<h2>Stages</h2>
+<ol>
+<li>scout: cached</li>
+<li>clarifier: skipped (disabled)</li>
+<li>template_adjust: skipped (disabled)</li>
+<li>plan: disabled</li>
+<li>web: disabled</li>
+<li>evidence: ran</li>
+<li>plan_check: disabled</li>
+<li>writer: ran</li>
+<li>quality: disabled</li>
+</ol>
+<h2>Artifacts</h2>
+<h3>plan</h3>
+<ul>
+<li>Plan update: <a href="../report_notes/report_plan.md">./report_notes/report_plan.md</a></li>
+</ul>
+<h3>evidence</h3>
+<ul>
+<li>Evidence notes: <a href="../report_notes/evidence_notes.md">./report_notes/evidence_notes.md</a></li>
+<li>Source triage: <a href="../report_notes/source_triage.md">./report_notes/source_triage.md</a></li>
+<li>Source index: <a href="../report_notes/source_index.jsonl">./report_notes/source_index.jsonl</a></li>
+<li>Claim map: <a href="../report_notes/claim_map.md">./report_notes/claim_map.md</a></li>
+<li>Gap report: <a href="../report_notes/gap_finder.md">./report_notes/gap_finder.md</a></li>
+</ul>
+<h2>Outputs</h2>
+<ul>
+<li>Report overview: <a href="../report/run_overview_report_full.md">./report/run_overview_report_full.md</a></li>
+<li>Report prompt copy: <a href="../instruction/report_prompt_report_full.txt">./instruction/report_prompt_report_full.txt</a></li>
+</ul></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

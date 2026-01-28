@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/_log.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/_log.txt</h1></header>
+  <main><pre>[2026-01-28 21:48:36] JOB START: 20260128_testRL.txt date=2026-01-28 days=365 max_results=8
+[2026-01-28 21:48:36] TAVILY EXTRACT: <a href="https://arxiv.org/pdf/2601.07145">https://arxiv.org/pdf/2601.07145</a>
+[2026-01-28 21:48:38] LINKEDIN EMBED EXTRACT: <a href="https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI?utm_source=share&amp;utm_medium=member_desktop&amp;rcm=ACoAADrVxc4BEqb4PF0MiiEBRbbQJ7tfp6CkF3Q">https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI?utm_source=share&amp;utm_medium=member_desktop&amp;rcm=ACoAADrVxc4BEqb4PF0MiiEBRbbQJ7tfp6CkF3Q</a>
+[2026-01-28 21:48:39] ARXIV ID FETCH: 2601.07145
+[2026-01-28 21:48:40] WARN citations lookup failed arxiv_id=2601.07145v1 err=HTTPError(&#x27;400 Client Error: Bad Request for url: <a href="https://api.openalex.org/works?api_key=6ndeGuzS4ekLd9O7DvxEpE&amp;filter=arxiv%3A2601.07145&#x27;">https://api.openalex.org/works?api_key=6ndeGuzS4ekLd9O7DvxEpE&amp;filter=arxiv%3A2601.07145&#x27;</a>)
+[2026-01-28 21:48:40] ARXIV PDF DOWNLOAD: <a href="https://arxiv.org/pdf/2601.07145v1">https://arxiv.org/pdf/2601.07145v1</a> -&gt; 2601.07145v1.pdf
+[2026-01-28 21:48:41] PDF-&gt;TEXT: 2601.07145v1.pdf
+[2026-01-28 21:48:42] JOB END
+</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

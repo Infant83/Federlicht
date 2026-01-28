@@ -1,0 +1,8 @@
+[2026-01-28 21:48:36] JOB START: 20260128_testRL.txt date=2026-01-28 days=365 max_results=8
+[2026-01-28 21:48:36] TAVILY EXTRACT: https://arxiv.org/pdf/2601.07145
+[2026-01-28 21:48:38] LINKEDIN EMBED EXTRACT: https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI?utm_source=share&utm_medium=member_desktop&rcm=ACoAADrVxc4BEqb4PF0MiiEBRbbQJ7tfp6CkF3Q
+[2026-01-28 21:48:39] ARXIV ID FETCH: 2601.07145
+[2026-01-28 21:48:40] WARN citations lookup failed arxiv_id=2601.07145v1 err=HTTPError('400 Client Error: Bad Request for url: https://api.openalex.org/works?api_key=6ndeGuzS4ekLd9O7DvxEpE&filter=arxiv%3A2601.07145')
+[2026-01-28 21:48:40] ARXIV PDF DOWNLOAD: https://arxiv.org/pdf/2601.07145v1 -> 2601.07145v1.pdf
+[2026-01-28 21:48:41] PDF->TEXT: 2601.07145v1.pdf
+[2026-01-28 21:48:42] JOB END

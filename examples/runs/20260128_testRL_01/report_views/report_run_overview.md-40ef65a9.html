@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>report/run_overview.md</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>report/run_overview.md</h1></header>
+  <main><h1>Run Overview</h1>
+<h2>Instruction</h2>
+<p>Source: <a href="../instruction/20260128_testRL.txt">./instruction/20260128_testRL.txt</a></p>
+<pre><code>https://arxiv.org/pdf/2601.07145
+https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI?utm_source=share&amp;utm_medium=member_desktop&amp;rcm=ACoAADrVxc4BEqb4PF0MiiEBRbbQJ7tfp6CkF3Q
+</code></pre>
+<h2>Archive Index</h2>
+<p>Source: <a href=".<a href="./archive/20260128_testRL_01-index.md">/archive/20260128_testRL_01-index.md</a>">.<a href="../archive/20260128_testRL_01-index.md">/archive/20260128_testRL_01-index.md</a></a></p>
+<h1>Archive 20260128_testRL_01</h1>
+<ul>
+<li>Query ID: <code>20260128_testRL_01</code></li>
+<li>Date: 2026-01-28 (range: last 365 days)</li>
+<li>Queries: 0 | URLs: 2 | arXiv IDs: 1</li>
+</ul>
+<h2>Run Command</h2>
+<ul>
+<li><code>python -m feather --input C:\Users\angpa\myProjects\FEATHER\examples\runs\20260128_testRL\instruction\20260128_testRL.txt --output C:\Users\angpa\myProjects\FEATHER\examples\runs --days 365 --max-results 8 --download-pdf --lang en --openalex --oa-max-results 8</code></li>
+</ul>
+<h2>Instruction</h2>
+<ul>
+<li><code>../instruction/20260128_testRL.txt</code></li>
+</ul>
+<h2>Tavily Extract</h2>
+<ul>
+<li><code>./tavily_extract/0001_https_arxiv.org_pdf_2601.07145.txt</code></li>
+<li><code>./tavily_extract/0002_https_www.linkedin.com_posts_fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI_utm_s.txt</code></li>
+</ul>
+<h2>arXiv</h2>
+<ul>
+<li><code>./arxiv/papers.jsonl</code></li>
+<li>PDFs: 1</li>
+<li>PDF file: <code>./arxiv/pdf/2601.07145v1.pdf</code> | Title: Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning | Source: <a href="https://arxiv.org/pdf/2601.07145v1">https://arxiv.org/pdf/2601.07145v1</a> | Citations: -</li>
+<li>
+<p>Extracted texts: 1</p>
+</li>
+<li>
+<p>Text file: <code>./arxiv/text/2601.07145v1.txt</code> | Title: Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning | Source: <a href="https://arxiv.org/pdf/2601.07145v1">https://arxiv.org/pdf/2601.07145v1</a> | Citations: -</p>
+</li>
+</ul></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

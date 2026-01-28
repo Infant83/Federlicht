@@ -1,0 +1,35 @@
+{
+  "date": "2026-01-28",
+  "src_file": "C:\\Users\\angpa\\myProjects\\FEATHER\\examples\\runs\\20260128_testRL_01\\instruction\\20260128_testRL.txt",
+  "root_dir": "C:\\Users\\angpa\\myProjects\\FEATHER\\examples\\runs\\test2\\20260128_testRL",
+  "out_dir": "C:\\Users\\angpa\\myProjects\\FEATHER\\examples\\runs\\test2\\20260128_testRL\\archive",
+  "query_id": "20260128_testRL",
+  "lang_pref": "en",
+  "openalex_enabled": true,
+  "openalex_max_results": 8,
+  "youtube_enabled": false,
+  "youtube_max_results": 8,
+  "youtube_transcript": false,
+  "youtube_order": "relevance",
+  "days": 365,
+  "max_results": 8,
+  "download_pdf": true,
+  "arxiv_source": false,
+  "update_run": false,
+  "citations_enabled": true,
+  "queries": [],
+  "query_specs": [],
+  "local_paths": [],
+  "urls": [
+    "https://arxiv.org/pdf/2601.07145",
+    "https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI?utm_source=share&utm_medium=member_desktop&rcm=ACoAADrVxc4BEqb4PF0MiiEBRbbQJ7tfp6CkF3Q"
+  ],
+  "arxiv_ids": [
+    "2601.07145"
+  ],
+  "site_hints": [],
+  "raw_lines": [
+    "https://arxiv.org/pdf/2601.07145",
+    "https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI?utm_source=share&utm_medium=member_desktop&rcm=ACoAADrVxc4BEqb4PF0MiiEBRbbQJ7tfp6CkF3Q"
+  ]
+}

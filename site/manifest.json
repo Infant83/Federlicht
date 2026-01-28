@@ -1,7 +1,33 @@
 {
-  "revision": "2026-01-27T06:46:54.969722",
-  "generated_at": "2026-01-27T06:46:54.969722",
+  "revision": "2026-01-27T22:02:50.771588",
+  "generated_at": "2026-01-27T22:02:50.771588",
   "items": [
+    {
+      "id": "20260127_arxiv-molgenRL",
+      "run": "20260127_arxiv-molgenRL",
+      "report_stem": "report_full",
+      "title": "강화학습 기반 형광체 자동설계 종합검토",
+      "author": "Hyun-Jung Kim / AI Governance Team",
+      "summary": "강화학습 기반 형광체 자동설계 종합검토 Federlicht assisted and prompted by \"Hyun-Jung Kim / AI Governance Team\" — 2026-01-27 22:02 Executive Summary 본 보고서는 arXiv에 게시된 논문 \"Generating readily synthesizable small molecule fluorophore scaff…",
+      "lang": "Korean",
+      "template": "default",
+      "format": "html",
+      "model": "gpt-5-mini",
+      "tags": [
+        "강화학습",
+        "형광체",
+        "자동설계",
+        "종합검토",
+        "assisted"
+      ],
+      "date": "2026-01-27",
+      "timestamp": "2026-01-27T22:02:50.228487",
+      "source_mtime": 1769518970,
+      "source_size": 36255,
+      "paths": {
+        "report": "runs/20260127_arxiv-molgenRL/report_full.html"
+      }
+    },
     {
       "id": "20260126_arxiv-3d_molgen",
       "run": "20260126_arxiv-3d_molgen",

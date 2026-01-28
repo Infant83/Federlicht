@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>강화학습 기반 형광체 자동설계 종합검토</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    :root {
+      --bg: #0b0f14;
+      --bg-2: #121821;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f5f7fb;
+      --site-muted: rgba(245, 247, 251, 0.65);
+      --accent: #4ee0b5;
+      --accent-2: #6bd3ff;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(78, 224, 181, 0.25);
+      --ink: #0b1220;
+      --muted: #425066;
+      --accent-strong: #2fb892;
+      --paper: rgba(255, 255, 255, 0.94);
+      --paper-strong: #ffffff;
+      --paper-alt: rgba(240, 245, 255, 0.6);
+      --rule: rgba(15, 23, 42, 0.12);
+      --shadow: 0 28px 70px rgba(15, 23, 42, 0.22);
+      --link: var(--accent-2);
+      --link-hover: var(--accent);
+      --page-bg: radial-gradient(1200px 600px at 12% -10%, var(--glow), transparent 60%),
+        radial-gradient(900px 540px at 92% 8%, rgba(107, 211, 255, 0.18), transparent 55%),
+        linear-gradient(180deg, #0b111d 0%, var(--bg-2) 45%, var(--bg) 100%);
+      --body-font: "Fraunces", "Charter", Georgia, serif;
+      --heading-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --ui-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --mono-font: "JetBrains Mono", "Consolas", monospace;
+    }
+    :root[data-theme="sky"] {
+      --bg: #0b1220;
+      --bg-2: #0f1b2e;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f4f7ff;
+      --site-muted: rgba(244, 247, 255, 0.62);
+      --accent: #64b5ff;
+      --accent-2: #8fd1ff;
+      --edge: rgba(255, 255, 255, 0.18);
+      --glow: rgba(100, 181, 255, 0.28);
+      --accent-strong: #3f8ed1;
+    }
+    :root[data-theme="crimson"] {
+      --bg: #120a0d;
+      --bg-2: #1c0f16;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #fff5f7;
+      --site-muted: rgba(255, 245, 247, 0.62);
+      --accent: #ff6b81;
+      --accent-2: #ff9aa9;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(255, 107, 129, 0.25);
+      --accent-strong: #e3546d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: #e2e8f0;
+      background: var(--page-bg);
+      font-family: var(--body-font);
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+      overflow-x: hidden;
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.6;
+      mix-blend-mode: screen;
+      filter: blur(0px);
+      animation: float 16s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 122, 89, 0.55), transparent 60%);
+      top: -220px;
+      left: -160px;
+    }
+    .orb-2 {
+      width: 440px;
+      height: 440px;
+      background: radial-gradient(circle at 60% 40%, rgba(14, 165, 164, 0.5), transparent 62%);
+      top: 80px;
+      right: -120px;
+      animation-delay: -4s;
+    }
+    .orb-3 {
+      width: 340px;
+      height: 340px;
+      background: radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.35), transparent 70%);
+      bottom: -180px;
+      left: 22%;
+      animation-delay: -8s;
+    }
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1040px;
+      margin: 56px auto 96px;
+      padding: 0 28px;
+    }
+    .masthead {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 22px 22px;
+      border: 1px solid rgba(226, 232, 240, 0.18);
+      border-radius: 18px;
+      background: rgba(10, 14, 20, 0.55);
+      backdrop-filter: blur(8px);
+      margin-bottom: 36px;
+      animation: fadeIn 0.7s ease-out both;
+    }
+    .masthead-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .kicker {
+      font-family: var(--ui-font);
+      font-size: 0.82rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.68);
+    }
+    .back-link {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--ui-font);
+      font-size: 0.78rem;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.78);
+      background: rgba(15, 23, 42, 0.35);
+      transition: all 0.2s ease;
+    }
+    .back-link:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .report-title {
+      font-family: var(--heading-font);
+      font-size: clamp(2.2rem, 3.6vw, 3.6rem);
+      margin: 0;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: #f8fafc;
+    }
+    .report-deck {
+      color: rgba(226, 232, 240, 0.8);
+      font-size: 1.05rem;
+      max-width: 720px;
+    }
+    .article {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 22px;
+      padding: 40px 44px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      animation: rise 0.8s ease-out both;
+    }
+    .article > * { animation: rise 0.6s ease-out both; }
+    .article > *:nth-child(1) { animation-delay: 0.05s; }
+    .article > *:nth-child(2) { animation-delay: 0.1s; }
+    .article > *:nth-child(3) { animation-delay: 0.15s; }
+    .article > *:nth-child(4) { animation-delay: 0.2s; }
+    .article > *:nth-child(5) { animation-delay: 0.25s; }
+    .article h1, .article h2, .article h3, .article h4 {
+      font-family: var(--heading-font);
+      color: var(--ink);
+    }
+    .article h1 { font-size: 2rem; margin-top: 0; }
+    .article h2 {
+      font-size: 1.55rem;
+      margin-top: 2.6rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule);
+      position: relative;
+      padding-left: 18px;
+    }
+    .article h2::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 1.45rem;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent-strong);
+    }
+    .article h3 { font-size: 1.2rem; margin-top: 1.7rem; color: #1f2937; }
+    .article p { font-size: 1.05rem; }
+    .article ul, .article ol { padding-left: 1.4rem; }
+    .article blockquote {
+      border-left: 3px solid var(--accent-strong);
+      margin: 1.6rem 0;
+      padding: 0.7rem 1.4rem;
+      background: var(--paper-alt);
+      color: var(--muted);
+      font-style: italic;
+    }
+    .article a {
+      color: var(--link);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(14, 165, 164, 0.4);
+    }
+    .article a:hover { color: var(--link-hover); border-bottom-color: var(--link-hover); }
+    .article code {
+      background: rgba(15, 23, 42, 0.06);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-family: var(--mono-font);
+      font-size: 0.92em;
+    }
+    .article pre {
+      background: rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 14px;
+      padding: 16px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      font-family: var(--mono-font);
+    }
+    .article table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; }
+    .article th, .article td { border: 1px solid var(--rule); padding: 10px 12px; }
+    .article th { background: rgba(148, 163, 184, 0.15); text-align: left; }
+    .article tr:nth-child(even) td { background: rgba(148, 163, 184, 0.08); }
+    .article hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+    .misc-block {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.6rem;
+    }
+    .misc-block ul { margin: 0.6rem 0 0.8rem 1.2rem; }
+    .misc-block li { margin: 0.2rem 0; }
+    .report-figure {
+      margin: 1.4rem 0;
+      padding: 0.9rem 1.1rem;
+      border: 1px solid var(--rule);
+      border-radius: 14px;
+      background: rgba(248, 250, 252, 0.8);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    .report-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+    .report-figure figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.4rem; }
+    .figure-callout { font-size: 0.95rem; color: var(--muted); margin: 0.8rem 0 1rem; font-style: italic; }
+    .viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 10, 17, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .viewer-overlay.open { opacity: 1; pointer-events: auto; }
+    .viewer-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: min(560px, 92vw);
+      height: calc(100% - 40px);
+      background: var(--paper-strong);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 18px;
+      box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+      transform: translateX(120%);
+      transition: transform 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+    }
+    .viewer-panel.open { transform: translateX(0); }
+    .viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--rule);
+      font-family: var(--ui-font);
+      gap: 12px;
+    }
+    .viewer-title { font-size: 0.95rem; color: var(--ink); flex: 1; }
+    .viewer-actions { display: flex; gap: 8px; align-items: center; }
+    .viewer-actions a {
+      font-size: 0.85rem;
+      color: var(--link);
+      text-decoration: none;
+    }
+    .viewer-close {
+      border: none;
+      background: rgba(15, 23, 42, 0.08);
+      color: #0f172a;
+      border-radius: 999px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+    }
+    .viewer-frame { flex: 1; border: none; width: 100%; border-radius: 0 0 16px 16px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(18px); } }
+    @media (max-width: 860px) {
+      .page { margin: 40px auto 64px; padding: 0 20px; }
+      .article { padding: 28px; }
+      .report-deck { font-size: 1rem; }
+    }
+    @media (max-width: 600px) {
+      .report-title { font-size: 2rem; }
+      .article { padding: 22px; }
+      .article h2 { font-size: 1.35rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+body.template-default,
+body.template-arxiv_preprint,
+body.template-acs_review {
+  --ink: #1d1b17;
+  --muted: #59524a;
+  --accent: #8b3f2d;
+  --paper-alt: #f2ede3;
+  --page-bg: radial-gradient(1200px 600px at 18% -12%, #efe9e0 0%, #f6f2ea 45%, #fdfcf9 100%);
+  --body-font: "Iowan Old Style", "Charter", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --heading-font: "Avenir Next", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+  --ui-font: "Avenir Next", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+}
+
+body.template-default .kicker,
+body.template-arxiv_preprint .kicker,
+body.template-acs_review .kicker {
+  letter-spacing: 0.26em;
+}
+
+    body { background: var(--page-bg) !important; color: var(--site-ink); }
+    .masthead { color: #f8fafc; }
+    .report-deck { color: rgba(226, 232, 240, 0.82); }
+    .kicker { color: rgba(255, 255, 255, 0.7); }
+  </style>
+</head>
+<body class="template-default">
+  <div class="backdrop">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+  <div class="page">
+    <header class="masthead">
+      <div class="masthead-top">
+        <div class="kicker">Federlicht</div>
+        <a class="back-link" id="back-link" href="#">목록으로</a>
+      </div>
+      <div class="report-title">강화학습 기반 형광체 자동설계 종합검토</div>
+      <div class="report-deck">Research review and tech survey</div>
+    </header>
+    <main class="article">
+<h1>강화학습 기반 형광체 자동설계 종합검토</h1>
+<p>Federlicht assisted and prompted by "Hyun-Jung Kim / AI Governance Team" — 2026-01-27 22:02</p>
+<h2>Executive Summary</h2>
+<p>본 보고서는 arXiv에 게시된 논문 "Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning"의 방법론·실험·성과를 근거 중심으로 종합 검토한 기술 리뷰이다. 이 연구는 제한된 실험 데이터(ChemFluor: 2,912 분자, 63 용매)를 바탕으로 강화학습 기반 분자합성 계획(reactive‑RL)과 물성 예측 모델을 결합해 즉시 합성 가능한 형광체 후보를 자동 생성·선별·합성·검증한 사례를 보고한다(핵심 증거: 원문 PDF 및 텍스트) <a href="/archive/arxiv/pdf/2601.07145v1.pdf">paper</a>, <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>.  </p>
+<p>핵심 결과: SyntheFluor‑RL로 10,000 rollouts 동안 11,590개의 후보를 생성했고, 단계적 필터링·클러스터링·TD‑DFT 및 상업 합성 의뢰를 통해 최종 13개를 실험 검증하였다. 실험 결과 상위 후보(Compound 13)는 PLQY = 0.62, 형광 수명 $ \tau = 11.55\ \mathrm{ns} $ 등 실험적 광물성능을 보였음(측정: chloroform, Fluorolog 3, TCSPC) <a href="/archive/arxiv/pdf/2601.07145v1.pdf">paper</a>, <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>. (해석)</p>
+<p>본 보고서는 논문이 제시한 수치·데이터 처리 파이프라인·재현성 약점(예: CV 설명의 모호성, 랜덤 시드·분할 방식 미기재) 및 향후 개선 방향(데이터·체크포인트 공개 검증, TD‑DFT 수준 검토)을 정리하고, 재현성 체크리스트와 실무적 권고를 제공한다(제안).</p>
+<h2>Scope &amp; Methodology</h2>
+<h3>검토 범위</h3>
+<ul>
+<li>근거 자료: 논문 원문 PDF와 텍스트 추출본을 1차 근거로 사용(<a href="/archive/arxiv/pdf/2601.07145v1.pdf">paper</a>, <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>). 코드/데이터 공개 링크(저자 제공)는 참조로 표시함([zenodo], [github])—필요 시 로컬 아카이브 파일들을 추가로 열람 가능.  </li>
+<li>포함 항목: 데이터셋 구성 및 규모, property predictor 아키텍처·성능, 강화학습 생성 파이프라인(반응 세트·rollout), 스코어링·동적 보상, 후보 필터링 흐름, TD‑DFT/실험 검증 절차, 합성 결과 및 실험 수치.  </li>
+<li>제외 항목: 저자와의 추가 비공개 데이터(있다면) 및 Enamine 내부 절차의 세부(비공개) 정보는 포함하지 않음.</li>
+</ul>
+<h3>방법론적 접근</h3>
+<ul>
+<li>근거 통합: 논문 텍스트에서 직접 추출된 수치·절차를 정리하고(명확 근거 표기), 각 주장에 대해 근거→해석→한계의 구조로 교차검증(예: 모델 성능 보고치와 실제 실험 성과 연결성 검토).  </li>
+<li>재현성 관점: Methods 섹션의 명시적 파라미터(예: 학습 프레임워크 버전, TD‑DFT 세팅, CV 전략)를 근거로 재현 체크리스트를 구성. 누락 항목을 식별하고 우선순위를 부여(결과 신뢰성에 미치는 영향 기준). (제안)  </li>
+<li>서술 톤: 기술적 리더·연구자를 대상으로 한 학술적·비판적 서술 — 수치·주장에는 직접 인용을 병기하고, 해석·제안은 명확히 표기(해석/제안/전망 태그).</li>
+</ul>
+<h2>Key Findings</h2>
+<h3>데이터·모델 정리</h3>
+<ul>
+<li>학습 데이터: ChemFluor 데이터셋은 2,912 고유 분자와 63 용매로 구성되어 4,336 molecule–solvent 쌍을 형성하며 PLQY, 흡수 및 발광 데이터가 포함되어 있다(증거: Methods) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>.  </li>
+<li>Property predictors: 핵심은 Chemprop‑Morgan (GNN + Morgan fingerprint) 및 MLP‑Morgan의 하이브리드 구조로, Chemprop‑Morgan이 PLQY 분류에서 ROC‑AUC = $0.895 \pm 0.019$을 보고했다(증거) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>. (해석) 이 수치는 제한된 데이터셋 크기에서 비교적 견고한 분류 성능을 시사하나, 분류 임계치(PLQY &gt; 0.5) 결정과 데이터 불균형 영향은 추가 검증이 필요하다.</li>
+</ul>
+<h3>생성 파이프라인 및 연산 비용</h3>
+<ul>
+<li>생성 규모: SyntheFluor‑RL은 10,000 rollouts로 총 11,590 molecules를 생성했으며 실행 시간은 32 CPU + 1 GPU 환경에서 약 16시간 38분 26초가 소요되었다(증거) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>.  </li>
+<li>반응 세트: 초기 SyntheMol‑RL의 13 reactions에 Enamine REAL에서 가져온 57 reactions를 추가해 총 70 reaction candidates를 구성했으나 실제 생성 과정에서 사용된 것은 18 unique reactions였음(증거) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>. (해석) 반응 라이브러리 확장은 합성가능성 탐색 폭을 넓히는 반면, 실제 사용 반응 수는 RL 정책이 선호하는 chemistry space에 집중됨을 보여 준다.</li>
+</ul>
+<h3>스코어링·필터링 파이프라인(숫자 흐름)</h3>
+<ul>
+<li>최적화 목표: 네 속성(PLQY 확률, absorption λ, emission λ, sp2 network size)을 동시 최적화하고, sp2 network size ≥ 12를 성공 임계값으로 설정함(증거) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>.  </li>
+<li>단계별 필터링: 11,590 → sp2 size &lt;12로 5,479 제거 → PLQY filter(p&gt;0.5)로 4,256 제거 → absorption/emission(visible 420–750 nm) 필터로 추가 제거 → 최종 631 → 클러스터링(100 clusters)로 52 → Enamine 합성 가능성 검사로 34 → TD‑DFT 및 oscillator strength cutoff로 19 → 합성 의뢰 후 13 tested(증거) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>. (해석) 필터 체인은 생성물에서 실험 가능한 후보를 효율적으로 축소했으나 각 필터의 구현 세부(임계값 적용 방식, 표준화 절차)가 공개되어야 재현 가능성이 확보된다.</li>
+</ul>
+<h3>실험적 검증 결과</h3>
+<ul>
+<li>합성·검증: 19 후보 중 14가 Enamine에서 합성·배송되었고 그중 1개는 수령 시 분해되어 13개가 실험적으로 측정되었다(증거) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>.  </li>
+<li>주요 실험 수치: Compound 13은 PLQY = 0.62(quinine 표준 비교), fluorescence lifetime (amplitude‑weighted) $ \tau = 11.55\ \mathrm{ns} $, Stokes shift = 97 nm, ε ≈ $6{,}000\ \mathrm{M}^{-1}\mathrm{cm}^{-1}$을 보고하였다(측정 조건: chloroform, 10 mM; 장비: Fluorolog 3, TCSPC) (증거) <a href="/archive/arxiv/pdf/2601.07145v1.pdf">paper</a>, <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>. (해석) 이 값들은 합성된 신물질이 상업적 형광체와 비교했을 때 연구개발 초기단계에서 실용 가능 구간에 접근했음을 시사한다.</li>
+</ul>
+<h3>재현성·공개 자원</h3>
+<ul>
+<li>데이터·코드 공개: 저자는 데이터 및 코드(생성 inputs, generated molecules, 모델 등)를 Zenodo와 GitHub에 공개한다고 명시했다(증거: 논문 본문 및 부록) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>, [zenodo], [github]. (제안) 공개 리포지터리에서 체크포인트·분할 스크립트·seed 정보를 우선 확인해야 한다.</li>
+</ul>
+<h2>Trends &amp; Implications</h2>
+<h3>자동화된 형광체 발굴의 가속</h3>
+<ul>
+<li>(해석) 본 연구는 반응 중심의 강화학습(reactive‑RL)을 property predictor와 결합해 합성가능성(synthesizability)과 desired photophysical properties를 동시에 최적화하는 흐름을 제시한다. 이는 'in silico → 합성 의뢰 → 실험 검증'의 파이프라인이 짧은 사이클로 돌아가는 연구·산업적 워크플로우를 가능케 한다.  </li>
+</ul>
+<h3>데이터 한계와 모델 일반화</h3>
+<ul>
+<li>(해석) ChemFluor의 크기(≈2.9k 분자)는 형광체 설계의 고차원 화학공간을 충분히 커버하지 못할 가능성이 있으며, 이는 모델이 특정 scaffold/solvent 조합에 편향될 위험으로 이어진다. 따라서 성능 지표(예: ROC‑AUC ≈ 0.895)는 훈련 분포 내에서는 타당하지만, 외삽(외부 화학공간) 능력은 제한적일 수 있다. (전망) 외부 데이터 통합·데이터 증강 또는 active learning 루프를 추가하면 일반화 성능 개선 가능하다.</li>
+</ul>
+<h3>실무적 적용 가능성</h3>
+<ul>
+<li>(제안) 산업적 R&amp;D에서는 본 접근법을 프로토타이핑 단계(lead discovery, scaffold hopping)에 통합할 수 있다. 특히 반응 세트를 제약사 내부 실험가능 반응으로 맞추면 합성 요청 실패율을 낮출 수 있다. 다만 TD‑DFT 수준(예: B3LYP/3‑21G*)과 oscillator strength cutoff는 예측의 정밀도 한계를 가지므로, 상업화 전 더 높은 수준의 계산(더 큰 기저함수, solvation 모델) 또는 빠른 실험 스크리닝을 병행해야 한다(제안).</li>
+</ul>
+<h3>비용·시간 효율성</h3>
+<ul>
+<li>(해석) 10,000 rollouts에 16.6시간(32 CPU+1 GPU)은 비교적 낮은 비용으로 대량 후보 생성을 가능하게 함을 시사한다. 이는 대규모 스크리닝을 위한 실용적 접근으로 평가된다. 그러나 생성물의 실제 합성 가능성·실험 성공률(13/19 tested)은 여전히 병목이므로, 합성 성공까지의 전체 파이프라인 비용을 고려한 효율성 평가가 필요하다(제안).</li>
+</ul>
+<h2>Risks &amp; Gaps</h2>
+<h3>재현성 관련 핵심 결손(우선 순위 높은 항목)</h3>
+<ul>
+<li>1) CV 설명의 모순: 논문은 "10‑fold CV"와 "80/10/10 split"을 동시에 기술하고 있어 두 진술이 기술적 모순인지(혹은 서로 다른 실험에 대한 기술인지) 명확하지 않음 — 이는 모델 성능 재현에 결정적(증거: Methods 문구) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>. (리스크)  </li>
+<li>2) 랜덤 시드·데이터 분할 방식 미기재: scaffold split인지 랜덤 split인지, seed 값, 하이퍼파라미터(학습률, epoch, early stopping 기준 등)와 체크포인트가 명시되어 있지 않음 — 재현성 약화(리스크).  </li>
+<li>3) 필터/스코어 함수 구현 세부 미공개: sp2 network 계산 알고리즘(DFS 기반)은 서술되어 있으나 코드·입력 포맷·정규화 방식이 공개되어야 필터 단계 재현 가능(리스크).  </li>
+</ul>
+<h3>방법론적 한계</h3>
+<ul>
+<li>TD‑DFT 수준: B3LYP/3‑21G*와 SCRF water는 계산 비용 절감에는 유리하나 정량적 excitation 예측 정확도(특히 색상 예측에서 수십 nm 오차 가능)를 제한한다(리스크). (해석) 상업적 적용을 위해서는 더 높은 수준의 이론 계산 또는 경험적 보정이 필요하다.  </li>
+<li>데이터 편향성: ChemFluor의 제한된 화학 다양성은 모델이 특정 scaffold 유형에 과적합될 가능성을 남김(리스크).  </li>
+</ul>
+<h3>검증·추적성 결손</h3>
+<ul>
+<li>공개 리소스 확인: 논문은 Zenodo·GitHub 링크를 제공하지만(증거) 실용적인 재현을 위해서는 모델 체크포인트, training logs, generation seeds 및 필터 스크립트의 존재·무결성을 확인해야 한다(제안) <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>, [zenodo], [github].  </li>
+</ul>
+<p>만약 위 항목들이 충족되지 않으면 본 연구의 claimed pipeline(생성→선별→합성→검증)의 자동 재현은 제한적일 것이다(전망).</p>
+<h2>Critics</h2>
+<h3>핵심 반대/한계 헤드라인</h3>
+<ul>
+<li>재현성·투명성 부족, 데이터 범위 한계, 계산 수준의 정밀도 제약.</li>
+</ul>
+<h3>짧은 반박·대안</h3>
+<ul>
+<li>불충분한 메타데이터(시드·split 방식·하이퍼파라미터)는 재현성 문제를 야기하며, 해결책은 체크포인트·실험 로그·스크립트 전면 공개이다. (제안)  </li>
+<li>TD‑DFT의 낮은 기저함수 수준은 색상 예측에서 오차를 초래하므로, 소수의 후보에 대해 고급 계산(예: CAM‑B3LYP/6‑31+G**) 또는 실험적 고속 스크리닝을 권장한다. (제안)  </li>
+<li>
+<p>윤리·안전: 생성된 화합물은 합성 가능성이 있으므로 독성·환경 영향 평가는 후속 필수 단계이다(리스크). (전망)</p>
+</li>
+<li>
+<p>간단 요약 불릿:</p>
+</li>
+<li>데이터·코드 접근성은 제공되었으나 재현성 필수 아티팩트(시드, split 방식, 체크포인트)는 명확히 확인되어야 함.  </li>
+<li>실험적 성공(Compound 13 등)은 유의미하나, 전체 성공률과 비용-효과 분석이 더 필요함.  </li>
+<li>AI 관련 규제/안전(예: 합성 가능한 구조의 오남용) 관점에서 윤리적 검토가 권장됨. (제안)</li>
+</ul>
+<h2>Appendix</h2>
+<h3>재현성·검증 체크리스트 (H3)</h3>
+<ul>
+<li>데이터</li>
+<li>ChemFluor 원시파일(분자 SMILES, solvent, PLQY, absorption, emission) 원본 CSV 또는 데이터베이스 접근 및 버전(커밋/DOI) 확인.  </li>
+<li>데이터 전처리 스크립트(중복 제거, 정상화, missing value 처리) 확보.  </li>
+<li>모델 학습</li>
+<li>학습 스크립트(명령행 인자 포함), Chemprop 버전(v1.6.1 등), 사용된 패키지 버전 목록(requirements.txt) 확보.  </li>
+<li>랜덤 시드, 데이터 분할 방식(scaffold/random/time split), cross‑validation 절차(10‑fold 세부) 문서화.  </li>
+<li>모델 체크포인트(최종 가중치), 학습 로그(학습곡선, epoch별 메트릭) 확보.  </li>
+<li>생성·필터링</li>
+<li>RL 정책 파라미터(temperature schedule, dynamic weights algorithm 코드), rollouts 재현 스크립트.  </li>
+<li>sp2 network 계산 코드(DFS 구현), 필터 임계값 적용 코드, clustering(사용한 fingerprint·K‑means 파라미터) 스크립트.  </li>
+<li>계산·실험</li>
+<li>TD‑DFT 입력 파일(geometry, route card), Gaussian 입력/출력 예제, oscillator strength cutoff 적용 스크립트.  </li>
+<li>합성 의뢰서(Enamine catalog IDs), 합성 성공/실패 로그, 실험 측정 raw data(PLQY 측정 스펙트럼, TCSPC raw fits).</li>
+</ul>
+<h3>로컬 근거 링크(아카이브된 파일 및 공개 리포지터리) (H3)</h3>
+<ul>
+<li>논문 원문(로컬): <a href="/archive/arxiv/pdf/2601.07145v1.pdf">paper</a> — PDF 원문 및 도표(주요 수치·실험 파라미터 출처).  </li>
+<li>텍스트 추출본(로컬): <a href="/archive/arxiv/text/2601.07145v1.txt">text</a> — Methods 및 수치 인용의 근거 텍스트.  </li>
+<li>추가 추출본(로컬): [<a href="./archive/tavily_extract/0001_https_arxiv.org_pdf_2601.07145.txt">/archive/tavily_extract/0001_https_arxiv.org_pdf_2601.07145.txt</a>] — 원문에서 추출한 로우 텍스트(빠른 검색용).  </li>
+<li>데이터·코드 공개(저자 제공 링크): <a href="https://doi.org/10.5281/zenodo.18203970" target="_blank" rel="noopener">\[1\]</a>, <a href="https://github.com/swansonk14/SyntheMol" target="_blank" rel="noopener">\[2\]</a> — 공개 여부 및 파일 목록은 직접 확인 필요(제안).</li>
+</ul>
+<h3>재현성 우선순위 액션 리스트 (H3)</h3>
+<ul>
+<li>즉시(우선) 확인 항목</li>
+<li>Zenodo와 GitHub에서 training logs, model checkpoints, generation inputs, 필터 스크립트 존재 여부 확인(제안).  </li>
+<li>Methods 문장(“10‑fold CV” vs “80/10/10 split”)의 원문 추출 및 저자 명확화 요청(제안).  </li>
+<li>단기(필요 리소스: 몇 시간)</li>
+<li>로컬 PDF에서 Methods 전부를 캡처하여 CV/데이터 분할·seed 관련 모순을 확인하고 요약 리포트 작성.  </li>
+<li>TD‑DFT 설정에 대한 보정 제안(더 높은 수준의 계산 권장) 문서화.  </li>
+<li>중기(필요 리소스: 하루)</li>
+<li>공개 코드로 재생산 시도(학습·generation·필터링 순서대로), 실패·차이점 로그를 작성해 저자에게 질의.</li>
+</ul>
+<p>참고: 위 Appendix 항목들은 재현성 확보를 위한 최소한의 실무적 체크리스트다. (제안)</p>
+<p>References (선택적 근거 표기)
+- 논문 원문 및 로컬 텍스트: <a href="/archive/arxiv/pdf/2601.07145v1.pdf">paper</a>, <a href="/archive/arxiv/text/2601.07145v1.txt">text</a>.<br />
+- 공개 데이터/코드: <a href="https://doi.org/10.5281/zenodo.18203970" target="_blank" rel="noopener">\[1\]</a>, <a href="https://github.com/swansonk14/SyntheMol" target="_blank" rel="noopener">\[2\]</a>.</p>
+<p>(끝)</p>
+<h2>References</h2>
+<ol>
+<li>doi.org/10.5281/zenodo.18203970 — <a href="https://doi.org/10.5281/zenodo.18203970" target="_blank" rel="noopener">link</a></li>
+<li>github.com/swansonk14/SyntheMol — <a href="https://github.com/swansonk14/SyntheMol" target="_blank" rel="noopener">link</a></li>
+</ol>
+<h2>Miscellaneous</h2>
+<div class="misc-block">
+<ul>
+<li>Generated at: 2026-01-27 22:02:50</li>
+<li>Duration: 00:07:01 (421.01s)</li>
+<li>Model: gpt-5-mini</li>
+<li>Quality model: gpt-5-mini</li>
+<li>Quality strategy: pairwise</li>
+<li>Quality iterations: 1</li>
+<li>Template: default</li>
+<li>Language: Korean</li>
+<li>Tags: 강화학습, 형광체, 자동설계, 종합검토, assisted</li>
+<li>Output format: html</li>
+<li>PDF compile: disabled</li>
+<li>Run overview: <a href="../../../examples/runs/20260127_arxiv-molgenRL/report_views/report_run_overview.md-40ef65a9.html" data-viewer="../../../examples/runs/20260127_arxiv-molgenRL/report_views/report_run_overview.md-40ef65a9.html" data-raw="../../../examples/runs/20260127_arxiv-molgenRL/report/run_overview.md" class="viewer-link">./report/run_overview.md</a></li>
+<li>Report overview: <a href="../../../examples/runs/20260127_arxiv-molgenRL/report_views/report_run_overview_report_full.md-d5c00cb8.html" data-viewer="../../../examples/runs/20260127_arxiv-molgenRL/report_views/report_run_overview_report_full.md-d5c00cb8.html" data-raw="../../../examples/runs/20260127_arxiv-molgenRL/report/run_overview_report_full.md" class="viewer-link">./report/run_overview_report_full.md</a></li>
+<li>Report workflow: <a href="../../../examples/runs/20260127_arxiv-molgenRL/report_views/report_notes_report_workflow.md-bd2306de.html" data-viewer="../../../examples/runs/20260127_arxiv-molgenRL/report_views/report_notes_report_workflow.md-bd2306de.html" data-raw="../../../examples/runs/20260127_arxiv-molgenRL/report_notes/report_workflow.md" class="viewer-link">./report_notes/report_workflow.md</a></li>
+<li>Archive index: <a href="../../../examples/runs/20260127_arxiv-molgenRL/report_views/archive_20260127_arxiv-molgenRL-index.md-0545fde0.html" data-viewer="../../../examples/runs/20260127_arxiv-molgenRL/report_views/archive_20260127_arxiv-molgenRL-index.md-0545fde0.html" data-raw="../../../examples/runs/20260127_arxiv-molgenRL/archive/20260127_arxiv-molgenRL-index.md" class="viewer-link">./archive/20260127_arxiv-molgenRL-index.md</a></li>
+<li>Instruction file: <a href="../../../examples/runs/20260127_arxiv-molgenRL/report_views/instruction_20260127_arxiv-molgenRL.txt-5063fc0d.html" data-viewer="../../../examples/runs/20260127_arxiv-molgenRL/report_views/instruction_20260127_arxiv-molgenRL.txt-5063fc0d.html" data-raw="../../../examples/runs/20260127_arxiv-molgenRL/instruction/20260127_arxiv-molgenRL.txt" class="viewer-link">./instruction/20260127_arxiv-molgenRL.txt</a></li>
+<li>Report prompt: <a href="../../../examples/runs/20260127_arxiv-molgenRL/report_views/instruction_report_prompt_report_full.txt-e0a852da.html" data-viewer="../../../examples/runs/20260127_arxiv-molgenRL/report_views/instruction_report_prompt_report_full.txt-e0a852da.html" data-raw="../../../examples/runs/20260127_arxiv-molgenRL/instruction/report_prompt_report_full.txt" class="viewer-link">./instruction/report_prompt_report_full.txt</a></li>
+</ul>
+</div>
+    </main>
+  </div>
+  <div id="viewer-overlay" class="viewer-overlay"></div>
+  <aside id="viewer-panel" class="viewer-panel" aria-hidden="true">
+    <div class="viewer-header">
+      <div class="viewer-title" id="viewer-title">Source preview</div>
+      <div class="viewer-actions">
+        <a id="viewer-raw" href="#" target="_blank" rel="noopener">Open raw</a>
+        <button class="viewer-close" id="viewer-close" aria-label="Close">x</button>
+      </div>
+    </div>
+    <iframe id="viewer-frame" class="viewer-frame" title="Source preview"></iframe>
+  </aside>
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const themeParam = params.get('theme');
+      const storedTheme = localStorage.getItem('federlicht.theme');
+      const theme = themeParam || storedTheme;
+      if (theme) {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('federlicht.theme', theme);
+      }
+      const backLink = document.getElementById('back-link');
+      if (backLink) {
+        const path = window.location.pathname.replace(/\\/g, '/');
+        const idx = path.lastIndexOf('/runs/');
+        if (idx !== -1) {
+          backLink.href = `${path.slice(0, idx)}/index.html`;
+          backLink.style.display = 'inline-flex';
+        }
+      }
+      const panel = document.getElementById('viewer-panel');
+      const overlay = document.getElementById('viewer-overlay');
+      const frame = document.getElementById('viewer-frame');
+      const rawLink = document.getElementById('viewer-raw');
+      const title = document.getElementById('viewer-title');
+      const closeBtn = document.getElementById('viewer-close');
+      function closeViewer() {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        frame.src = 'about:blank';
+      }
+      function openViewer(viewer, raw, label) {
+        frame.src = viewer;
+        rawLink.href = raw || viewer;
+        title.textContent = label || 'Source preview';
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+      }
+      document.querySelectorAll('a').forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          link.setAttribute('target', '_blank');
+          link.setAttribute('rel', 'noopener');
+        }
+        const viewer = link.getAttribute('data-viewer');
+        if (viewer) {
+          link.addEventListener('click', (event) => {
+            if (event.metaKey || event.ctrlKey) { return; }
+            event.preventDefault();
+            openViewer(viewer, link.getAttribute('data-raw'), link.textContent.trim());
+          });
+        }
+      });
+      overlay.addEventListener('click', closeViewer);
+      closeBtn.addEventListener('click', closeViewer);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { closeViewer(); }
+      });
+    })();
+  </script>
+</body>
+</html>

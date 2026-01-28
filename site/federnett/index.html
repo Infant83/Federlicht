@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Federnett</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-dot" aria-hidden="true"></span>
+          <div class="brand-text">
+            <strong>Federnett</strong>
+            <span>Feather + Federlicht Studio</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button id="reload-runs" class="ghost">Reload Runs</button>
+          <label class="theme-select">
+            <span>Theme</span>
+            <select id="theme-select" aria-label="Theme">
+              <option value="default">Default</option>
+              <option value="sky">Sky</option>
+              <option value="crimson">Crimson</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel control">
+          <div class="hero-grid panel-head">
+            <div class="hero-copy">
+              <div class="hero-badge">Agentic Research Studio</div>
+              <h1>Enlighten your Technology Insight.</h1>
+              <p>
+                Run Feather to collect evidence, then drive Federlicht to craft
+                reports. Logs stream live and everything stays inside your repo
+                root.
+              </p>
+              <div class="meta-strip" id="meta-strip"></div>
+            </div>
+            <div class="hero-cards">
+              <div
+                class="hero-card hero-accent clickable"
+                id="hero-card-runs"
+                data-action="runs"
+              >
+                <span>Discovered Runs</span>
+                <strong id="run-count">0</strong>
+                <small>One level deep across run roots</small>
+              </div>
+              <div
+                class="hero-card clickable"
+                id="hero-card-templates"
+                data-action="templates"
+              >
+                <span>Templates</span>
+                <strong id="template-count">0</strong>
+                <small>Loaded from `src/federlicht/templates`</small>
+              </div>
+              <div class="hero-card clickable" id="hero-card-root" data-action="root">
+                <span>Workspace Root</span>
+                <strong id="root-badge">-</strong>
+                <small>Site root: <span class="hero-mini" id="site-badge">-</span></small>
+              </div>
+              <div
+                class="hero-card clickable"
+                id="hero-card-run-roots"
+                data-action="run-roots"
+              >
+                <span>Run Roots</span>
+                <strong id="run-roots-badge">-</strong>
+                <small>Comma-separated folders under root</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabs" role="tablist">
+            <button
+              class="tab active"
+              data-tab="feather"
+              role="tab"
+              aria-selected="true"
+            >
+              Feather
+            </button>
+            <button class="tab" data-tab="federlicht" role="tab">
+              Federlicht
+            </button>
+          </div>
+
+          <section class="tab-panel active" id="tab-feather" role="tabpanel">
+            <div class="tab-shell">
+              <form id="feather-form" class="form-grid">
+                <label>
+                  <span>Run Name</span>
+                  <input
+                    id="feather-run-name"
+                    name="run_name"
+                    placeholder="20260127_new-run"
+                    autocomplete="off"
+                  />
+                </label>
+
+                <label class="wide">
+                  <span>Output Folder</span>
+                  <input
+                    id="feather-output"
+                    name="output"
+                    placeholder="site/runs/20260127_new-run"
+                    required
+                  />
+                </label>
+
+                <label class="wide">
+                  <span>Instruction File</span>
+                  <div class="combo">
+                    <input
+                      id="feather-input"
+                      name="input"
+                      placeholder="site/runs/20260127_new-run/instruction/20260127_new-run.txt"
+                    />
+                    <button type="button" id="feather-pick-instruction" class="ghost">
+                      Choose
+                    </button>
+                  </div>
+                </label>
+
+                <label class="wide">
+                  <span>Instruction (editable)</span>
+                  <textarea
+                    id="feather-query"
+                    name="query"
+                    rows="4"
+                    placeholder="Edit or draft the instruction content here. Save to a file or run as ad-hoc query."
+                  ></textarea>
+                </label>
+                <div class="instruction-inline-actions wide">
+                  <button type="button" id="feather-save-instruction" class="ghost">
+                    Save Instruction
+                  </button>
+                  <button type="button" id="feather-saveas-instruction" class="ghost">
+                    Save Instruction As
+                  </button>
+                </div>
+
+                <div class="toggles wide">
+                  <label class="toggle">
+                    <input type="checkbox" id="feather-download-pdf" checked />
+                    <span>Download PDFs</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" id="feather-openalex" checked />
+                    <span>OpenAlex</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" id="feather-youtube" />
+                    <span>YouTube</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" id="feather-yt-transcript" />
+                    <span>YT Transcript</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" id="feather-update-run" />
+                    <span>Update Run</span>
+                  </label>
+                </div>
+
+                <details class="wide advanced">
+                  <summary>Advanced</summary>
+                  <div class="advanced-grid">
+                    <label>
+                      <span>Language</span>
+                      <select id="feather-lang">
+                        <option value="en" selected>en</option>
+                        <option value="ko">ko</option>
+                        <option value="de">de</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Days</span>
+                      <input id="feather-days" type="number" min="1" value="365" />
+                    </label>
+                    <label>
+                      <span>Max Results</span>
+                      <input
+                        id="feather-max-results"
+                        type="number"
+                        min="1"
+                        value="8"
+                      />
+                    </label>
+                    <label>
+                      <span>YouTube Order</span>
+                      <input id="feather-yt-order" placeholder="relevance" />
+                    </label>
+                    <label class="wide">
+                      <span>Extra Args</span>
+                      <input
+                        id="feather-extra-args"
+                        placeholder="--tavily-topic news --max-openalex-pdfs 12"
+                      />
+                    </label>
+                  </div>
+                </details>
+
+                <div class="actions wide">
+                  <button type="submit" class="primary">Run Feather</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="tab-federlicht" role="tabpanel">
+            <div class="tab-shell">
+              <form id="federlicht-form" class="form-grid">
+                <label class="wide">
+                  <span>Run Folder</span>
+                  <div class="combo">
+                    <select id="run-select" required></select>
+                    <button type="button" id="run-open" class="ghost">
+                      Open Run Folder
+                    </button>
+                  </div>
+                </label>
+
+                <label class="wide">
+                  <span>Output Report</span>
+                  <input
+                    id="federlicht-output"
+                    placeholder="site/runs/20260127_new-run/report_full.html"
+                    required
+                  />
+                </label>
+
+                <label>
+                  <span>Template</span>
+                  <select id="template-select"></select>
+                </label>
+
+                <label>
+                  <span>Language</span>
+                  <select id="federlicht-lang">
+                    <option value="ko" selected>ko</option>
+                    <option value="en">en</option>
+                    <option value="de">de</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Depth</span>
+                  <select id="federlicht-depth">
+                    <option value="brief">brief</option>
+                    <option value="standard" selected>standard</option>
+                    <option value="deep">deep</option>
+                    <option value="extreme">extreme</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Model</span>
+                  <input id="federlicht-model" placeholder="$OPENAI_MODEL" />
+                </label>
+
+                <label class="wide">
+                  <span>Prompt File</span>
+                  <div class="combo">
+                    <input
+                      id="federlicht-prompt-file"
+                      placeholder="site/runs/20260127_new-run/instruction/generated_prompt_20260127_new-run.txt"
+                    />
+                    <div class="combo-actions">
+                      <button type="button" id="federlicht-prompt-pick" class="ghost">
+                        Choose
+                      </button>
+                      <button type="button" id="federlicht-prompt-generate" class="ghost">
+                        Generate
+                      </button>
+                    </div>
+                  </div>
+                </label>
+
+                <label class="wide">
+                  <span>Inline Prompt</span>
+                  <textarea
+                    id="federlicht-prompt"
+                    rows="4"
+                    placeholder="Optional: override or extend the prompt."
+                  ></textarea>
+                </label>
+
+                <div class="toggles wide">
+                  <label class="toggle">
+                    <input type="checkbox" id="federlicht-figures" checked />
+                    <span>Figures</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" id="federlicht-web-search" />
+                    <span>Web Search</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" id="federlicht-no-tags" />
+                    <span>No Tags</span>
+                  </label>
+                </div>
+
+                <details class="wide advanced">
+                  <summary>Advanced</summary>
+                  <div class="advanced-grid">
+                    <label>
+                      <span>Check Model</span>
+                      <input id="federlicht-check-model" placeholder="gpt-4o" />
+                    </label>
+                    <label>
+                      <span>Vision Model</span>
+                      <input id="federlicht-model-vision" placeholder="gpt-4o" />
+                    </label>
+                    <label>
+                      <span>Stages</span>
+                      <input id="federlicht-stages" placeholder="scout,evidence,writer" />
+                    </label>
+                    <label>
+                      <span>Skip Stages</span>
+                      <input id="federlicht-skip-stages" placeholder="quality" />
+                    </label>
+                    <label>
+                      <span>Quality Iterations</span>
+                      <input
+                        id="federlicht-quality-iterations"
+                        type="number"
+                        min="0"
+                        value="0"
+                      />
+                    </label>
+                    <label>
+                      <span>Quality Strategy</span>
+                      <input id="federlicht-quality-strategy" value="pairwise" />
+                    </label>
+                    <label>
+                      <span>Max Chars</span>
+                      <input id="federlicht-max-chars" type="number" min="1000" />
+                    </label>
+                    <label>
+                      <span>Max PDF Pages</span>
+                      <input id="federlicht-max-pdf-pages" type="number" min="0" />
+                    </label>
+                    <label>
+                      <span>Figures Mode</span>
+                      <input id="federlicht-figures-mode" value="auto" />
+                    </label>
+                    <label>
+                      <span>Figures Select</span>
+                      <input
+                        id="federlicht-figures-select"
+                        placeholder="report_notes/figures_selected.txt"
+                      />
+                    </label>
+                    <label class="wide">
+                      <span>Tags</span>
+                      <input id="federlicht-tags" placeholder="qc,oled,materials" />
+                    </label>
+                    <label class="wide">
+                      <span>Site Output</span>
+                      <input id="federlicht-site-output" placeholder="site/runs/..." />
+                    </label>
+                    <label class="wide">
+                      <span>Extra Args</span>
+                      <input
+                        id="federlicht-extra-args"
+                        placeholder="--progress --stream --repair-debug"
+                      />
+                    </label>
+                  </div>
+                  <div class="advanced-block">
+                    <header class="inline-header">
+                      <h3>Agent Pipeline</h3>
+                      <p>
+                        Toggle stages, drag to reorder, and feed the result into Federlicht.
+                      </p>
+                    </header>
+                    <div id="pipeline-chips" class="pipeline-chips"></div>
+                    <div id="pipeline-selected" class="pipeline-selected"></div>
+                    <div class="pipeline-meta">
+                      <div>
+                        Stages:
+                        <code id="pipeline-stages-value">-</code>
+                      </div>
+                      <div>
+                        Skip:
+                        <code id="pipeline-skip-value">-</code>
+                      </div>
+                    </div>
+                    <div class="stage-detail">
+                      <h4 id="stage-detail-title">Stage Details</h4>
+                      <pre id="stage-detail-body"></pre>
+                    </div>
+                  </div>
+                </details>
+
+                <div class="actions wide">
+                  <button type="submit" class="primary">Run Federlicht</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section
+            id="run-studio-wrap"
+            class="panel studio studio-inline"
+            aria-live="polite"
+          >
+            <div class="panel-head slim">
+              <div>
+                <h2>Run Studio</h2>
+                <p id="studio-meta">
+                  Pick a run to inspect evidence, review artifacts, and shape the pipeline.
+                </p>
+              </div>
+              <div class="panel-pills">
+                <span class="meta-pill" id="studio-run-rel">-</span>
+                <span class="meta-pill" id="studio-updated">-</span>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <section class="studio-card summary-card" id="run-files-card">
+                <header>
+                  <h3>Run Snapshot &amp; Files</h3>
+                  <p>Coverage summary and quick file access for the selected run.</p>
+                </header>
+                <ul id="run-summary-lines" class="summary-lines"></ul>
+                <div id="run-summary-links" class="summary-links"></div>
+                <div id="run-summary-reports" class="summary-reports"></div>
+                <div class="file-list" id="run-file-list"></div>
+              </section>
+            </div>
+          </section>
+        </section>
+        <div
+          id="layout-splitter"
+          class="splitter"
+          aria-hidden="true"
+          title="Drag to resize logs"
+        ></div>
+        <section class="panel telemetry" id="logs-wrap">
+          <div class="telemetry-grid">
+            <section class="telemetry-block logs-block">
+              <div class="panel-head slim">
+                <div>
+                  <h2>Live Logs</h2>
+                  <p id="job-status">No active job.</p>
+                </div>
+                <div class="log-actions">
+                  <button id="log-clear" class="ghost">Clear</button>
+                  <button id="job-kill" class="danger" disabled>Stop</button>
+                </div>
+              </div>
+
+              <div class="log-shell">
+                <pre id="log-output" aria-live="polite"></pre>
+              </div>
+
+              <div class="jobs">
+                <h3>Recent Jobs</h3>
+                <div id="jobs-list" class="jobs-list"></div>
+              </div>
+            </section>
+
+            <div
+              id="telemetry-splitter"
+              class="splitter splitter-vertical"
+              aria-hidden="true"
+              title="Drag to resize preview"
+            ></div>
+
+            <section class="telemetry-block preview-block">
+              <div class="panel-head slim">
+                <div>
+                  <h2>File Preview</h2>
+                  <p>Preview reports, markdown, PDFs, or edit text files.</p>
+                </div>
+                <div class="file-preview-head">
+                  <span id="file-preview-path">No file selected</span>
+                  <span id="file-preview-status" class="file-preview-status"></span>
+                </div>
+              </div>
+              <div class="file-preview-body">
+                <textarea
+                  id="file-preview-editor"
+                  class="file-preview-editor"
+                  rows="10"
+                  placeholder="Select a text file to preview."
+                ></textarea>
+                <div id="file-preview-markdown" class="file-preview-markdown"></div>
+                <img id="file-preview-image" class="file-preview-image" alt="" />
+                <iframe id="file-preview-frame" class="file-preview-frame" title="File preview"></iframe>
+              </div>
+              <input
+                id="file-preview-saveas-path"
+                class="ghost-input"
+                placeholder="Save as path (e.g., report_notes/notes.md)"
+              />
+              <div class="file-preview-actions">
+                <button type="button" id="file-preview-open" class="ghost">
+                  Open
+                </button>
+                <button type="button" id="file-preview-save" class="ghost">
+                  Save
+                </button>
+                <button type="button" id="file-preview-saveas" class="ghost">
+                  Save As
+                </button>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <section class="panel templates-panel" id="templates-panel">
+        <div class="panel-head slim">
+          <div>
+            <h2>Templates</h2>
+            <p>Template sections + guidance parsed from frontmatter.</p>
+          </div>
+          <div class="panel-pills">
+            <span class="meta-pill">bottom dock</span>
+          </div>
+        </div>
+        <div id="templates-grid" class="templates-grid"></div>
+      </section>
+
+      <div class="modal" id="instruction-modal" aria-hidden="true" role="dialog">
+        <div class="modal-backdrop" data-modal-close></div>
+        <div class="modal-card" role="document">
+          <header class="modal-header">
+            <div>
+              <h3>Instruction Files</h3>
+              <p>Select an existing file or create a new one for Feather or Prompt.</p>
+            </div>
+            <button type="button" class="ghost" data-modal-close>Close</button>
+          </header>
+          <div class="modal-controls">
+            <input
+              id="instruction-search"
+              class="ghost-input"
+              placeholder="Filter by filename or path"
+            />
+            <label class="file-import">
+              Import File
+              <input id="instruction-import" type="file" accept=".txt,.md" />
+            </label>
+          </div>
+          <div id="instruction-list" class="modal-list"></div>
+          <div class="modal-footer">
+            <input
+              id="instruction-saveas"
+              class="ghost-input"
+              placeholder="instruction/new_topic.txt"
+            />
+            <div class="actions">
+              <button type="button" id="instruction-use-selected" class="ghost">
+                Use Selected
+              </button>
+              <button type="button" id="instruction-saveas-btn" class="primary">
+                Save As
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="run-picker-modal" aria-hidden="true" role="dialog">
+        <div class="modal-backdrop" data-runpicker-close></div>
+        <div class="modal-card" role="document">
+          <header class="modal-header">
+            <div>
+              <h3>Choose Run Folder</h3>
+              <p>Select a run under site/runs.</p>
+            </div>
+            <button type="button" class="ghost" data-runpicker-close>Close</button>
+          </header>
+          <div class="modal-controls">
+            <input
+              id="run-picker-search"
+              class="ghost-input"
+              placeholder="Filter runs"
+            />
+          </div>
+          <div id="run-picker-list" class="modal-list"></div>
+          <div class="modal-footer">
+            <button type="button" id="run-picker-use" class="primary">Use Selected</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="template-modal" aria-hidden="true" role="dialog">
+        <div class="modal-backdrop" data-modal-close></div>
+        <div class="modal-card" role="document">
+          <header class="modal-header">
+            <div>
+              <h3 id="template-modal-title">Template Preview</h3>
+              <p id="template-modal-meta">Template details</p>
+            </div>
+            <button type="button" class="ghost" data-modal-close>Close</button>
+          </header>
+          <div id="template-modal-body" class="modal-list"></div>
+        </div>
+      </div>
+
+      <footer class="footnote">
+        Federnett calls the existing Feather and Federlicht CLIs via subprocess.
+        No core behavior is replaced.
+      </footer>
+    </div>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

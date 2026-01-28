@@ -1,0 +1,7 @@
+[2026-01-28 23:59:30] JOB START: 20260128_testRL.txt date=2026-01-28 days=365 max_results=8
+[2026-01-28 23:59:30] TAVILY EXTRACT: https://arxiv.org/pdf/2601.07145
+[2026-01-28 23:59:32] LINKEDIN EMBED EXTRACT: https://www.linkedin.com/posts/fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI?utm_source=share&utm_medium=member_desktop&rcm=ACoAADrVxc4BEqb4PF0MiiEBRbbQJ7tfp6CkF3Q
+[2026-01-28 23:59:33] ARXIV ID FETCH: 2601.07145
+[2026-01-28 23:59:36] ARXIV PDF DOWNLOAD: https://arxiv.org/pdf/2601.07145v1 -> 2601.07145v1.pdf
+[2026-01-28 23:59:37] PDF->TEXT: 2601.07145v1.pdf
+[2026-01-28 23:59:38] JOB END

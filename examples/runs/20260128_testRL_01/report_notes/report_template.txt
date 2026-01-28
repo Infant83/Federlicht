@@ -1,0 +1,34 @@
+Template: annual_review
+Source: C:\Users\angpa\myProjects\FEATHER\scripts\templates\annual_review.md
+Latex: default.tex
+Sections:
+- Abstract
+- Introduction
+- Year in Review
+- Cross-Cutting Themes
+- Outstanding Questions
+- Future Directions
+- Risks & Gaps
+- Critics
+- Appendix
+
+Guidance:
+Template description: Annual Review-style yearly synthesis.
+
+Template tone: Systematic, integrative, balanced.
+
+Template audience: Researchers and strategists.
+
+Section guidance:
+- Abstract: short summary of yearly shifts and evidence base.
+- Introduction: scope, selection criteria, and time window.
+- Year in Review: 4-6 highlights with evidence.
+- Cross-Cutting Themes: synthesize across subfields.
+- Outstanding Questions: identify gaps and contradictory results.
+- Future Directions: likely next steps and required validations.
+- Risks & Gaps: highlight missing evidence, constraints, unknowns, and validation needs. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
+- Critics: short headline + brief paragraphs + bullets; include contrarian views. If not applicable, state Not applicable and give a brief reason; scale depth to evidence strength and context.
+
+Template writing guidance:
+Focus on year-to-year change and evidence trajectory.
+Avoid overfitting to single-source signals.

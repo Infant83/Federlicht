@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>합성 가능 공간 기반 형광체 분자 설계 최적화 동향 2025–2026</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    :root {
+      --bg: #0b0f14;
+      --bg-2: #121821;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f5f7fb;
+      --site-muted: rgba(245, 247, 251, 0.65);
+      --accent: #4ee0b5;
+      --accent-2: #6bd3ff;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(78, 224, 181, 0.25);
+      --ink: #0b1220;
+      --muted: #425066;
+      --accent-strong: #2fb892;
+      --paper: rgba(255, 255, 255, 0.94);
+      --paper-strong: #ffffff;
+      --paper-alt: rgba(240, 245, 255, 0.6);
+      --rule: rgba(15, 23, 42, 0.12);
+      --shadow: 0 28px 70px rgba(15, 23, 42, 0.22);
+      --link: var(--accent-2);
+      --link-hover: var(--accent);
+      --page-bg: radial-gradient(1200px 600px at 12% -10%, var(--glow), transparent 60%),
+        radial-gradient(900px 540px at 92% 8%, rgba(107, 211, 255, 0.18), transparent 55%),
+        linear-gradient(180deg, #0b111d 0%, var(--bg-2) 45%, var(--bg) 100%);
+      --body-font: "Fraunces", "Charter", Georgia, serif;
+      --heading-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --ui-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --mono-font: "JetBrains Mono", "Consolas", monospace;
+    }
+    :root[data-theme="sky"] {
+      --bg: #0b1220;
+      --bg-2: #0f1b2e;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f4f7ff;
+      --site-muted: rgba(244, 247, 255, 0.62);
+      --accent: #64b5ff;
+      --accent-2: #8fd1ff;
+      --edge: rgba(255, 255, 255, 0.18);
+      --glow: rgba(100, 181, 255, 0.28);
+      --accent-strong: #3f8ed1;
+    }
+    :root[data-theme="crimson"] {
+      --bg: #120a0d;
+      --bg-2: #1c0f16;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #fff5f7;
+      --site-muted: rgba(255, 245, 247, 0.62);
+      --accent: #ff6b81;
+      --accent-2: #ff9aa9;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(255, 107, 129, 0.25);
+      --accent-strong: #e3546d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: #e2e8f0;
+      background: var(--page-bg);
+      font-family: var(--body-font);
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+      overflow-x: hidden;
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.6;
+      mix-blend-mode: screen;
+      filter: blur(0px);
+      animation: float 16s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 122, 89, 0.55), transparent 60%);
+      top: -220px;
+      left: -160px;
+    }
+    .orb-2 {
+      width: 440px;
+      height: 440px;
+      background: radial-gradient(circle at 60% 40%, rgba(14, 165, 164, 0.5), transparent 62%);
+      top: 80px;
+      right: -120px;
+      animation-delay: -4s;
+    }
+    .orb-3 {
+      width: 340px;
+      height: 340px;
+      background: radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.35), transparent 70%);
+      bottom: -180px;
+      left: 22%;
+      animation-delay: -8s;
+    }
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1040px;
+      margin: 56px auto 96px;
+      padding: 0 28px;
+    }
+    .masthead {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 22px 22px;
+      border: 1px solid rgba(226, 232, 240, 0.18);
+      border-radius: 18px;
+      background: rgba(10, 14, 20, 0.55);
+      backdrop-filter: blur(8px);
+      margin-bottom: 36px;
+      animation: fadeIn 0.7s ease-out both;
+    }
+    .masthead-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .kicker {
+      font-family: var(--ui-font);
+      font-size: 0.82rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.68);
+    }
+    .back-link {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--ui-font);
+      font-size: 0.78rem;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.78);
+      background: rgba(15, 23, 42, 0.35);
+      transition: all 0.2s ease;
+    }
+    .back-link:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .report-title {
+      font-family: var(--heading-font);
+      font-size: clamp(2.2rem, 3.6vw, 3.6rem);
+      margin: 0;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: #f8fafc;
+    }
+    .report-deck {
+      color: rgba(226, 232, 240, 0.8);
+      font-size: 1.05rem;
+      max-width: 720px;
+    }
+    .article {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 22px;
+      padding: 40px 44px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      animation: rise 0.8s ease-out both;
+    }
+    .article > * { animation: rise 0.6s ease-out both; }
+    .article > *:nth-child(1) { animation-delay: 0.05s; }
+    .article > *:nth-child(2) { animation-delay: 0.1s; }
+    .article > *:nth-child(3) { animation-delay: 0.15s; }
+    .article > *:nth-child(4) { animation-delay: 0.2s; }
+    .article > *:nth-child(5) { animation-delay: 0.25s; }
+    .article h1, .article h2, .article h3, .article h4 {
+      font-family: var(--heading-font);
+      color: var(--ink);
+    }
+    .article h1 { font-size: 2rem; margin-top: 0; }
+    .article h2 {
+      font-size: 1.55rem;
+      margin-top: 2.6rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule);
+      position: relative;
+      padding-left: 18px;
+    }
+    .article h2::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 1.45rem;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent-strong);
+    }
+    .article h3 { font-size: 1.2rem; margin-top: 1.7rem; color: #1f2937; }
+    .article p { font-size: 1.05rem; }
+    .article ul, .article ol { padding-left: 1.4rem; }
+    .article blockquote {
+      border-left: 3px solid var(--accent-strong);
+      margin: 1.6rem 0;
+      padding: 0.7rem 1.4rem;
+      background: var(--paper-alt);
+      color: var(--muted);
+      font-style: italic;
+    }
+    .article a {
+      color: var(--link);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(14, 165, 164, 0.4);
+    }
+    .article a:hover { color: var(--link-hover); border-bottom-color: var(--link-hover); }
+    .article code {
+      background: rgba(15, 23, 42, 0.06);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-family: var(--mono-font);
+      font-size: 0.92em;
+    }
+    .article pre {
+      background: rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 14px;
+      padding: 16px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      font-family: var(--mono-font);
+    }
+    .article table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; }
+    .article th, .article td { border: 1px solid var(--rule); padding: 10px 12px; }
+    .article th { background: rgba(148, 163, 184, 0.15); text-align: left; }
+    .article tr:nth-child(even) td { background: rgba(148, 163, 184, 0.08); }
+    .article hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+    .misc-block {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.6rem;
+    }
+    .misc-block ul { margin: 0.6rem 0 0.8rem 1.2rem; }
+    .misc-block li { margin: 0.2rem 0; }
+    .report-figure {
+      margin: 1.4rem 0;
+      padding: 0.9rem 1.1rem;
+      border: 1px solid var(--rule);
+      border-radius: 14px;
+      background: rgba(248, 250, 252, 0.8);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    .report-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+    .report-figure figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.4rem; }
+    .figure-callout { font-size: 0.95rem; color: var(--muted); margin: 0.8rem 0 1rem; font-style: italic; }
+    .viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 10, 17, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .viewer-overlay.open { opacity: 1; pointer-events: auto; }
+    .viewer-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: min(560px, 92vw);
+      height: calc(100% - 40px);
+      background: var(--paper-strong);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 18px;
+      box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+      transform: translateX(120%);
+      transition: transform 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+    }
+    .viewer-panel.open { transform: translateX(0); }
+    .viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--rule);
+      font-family: var(--ui-font);
+      gap: 12px;
+    }
+    .viewer-title { font-size: 0.95rem; color: var(--ink); flex: 1; }
+    .viewer-actions { display: flex; gap: 8px; align-items: center; }
+    .viewer-actions a {
+      font-size: 0.85rem;
+      color: var(--link);
+      text-decoration: none;
+    }
+    .viewer-close {
+      border: none;
+      background: rgba(15, 23, 42, 0.08);
+      color: #0f172a;
+      border-radius: 999px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+    }
+    .viewer-frame { flex: 1; border: none; width: 100%; border-radius: 0 0 16px 16px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(18px); } }
+    @media (max-width: 860px) {
+      .page { margin: 40px auto 64px; padding: 0 20px; }
+      .article { padding: 28px; }
+      .report-deck { font-size: 1rem; }
+    }
+    @media (max-width: 600px) {
+      .report-title { font-size: 2rem; }
+      .article { padding: 22px; }
+      .article h2 { font-size: 1.35rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+body.template-annual_review {
+  --ink: #1c1d1c;
+  --muted: #4f5858;
+  --accent: #0f6973;
+  --link: #0c5c6d;
+  --page-bg: radial-gradient(1200px 600px at 15% -10%, #e6f2f2 0%, #f5f7f5 45%, #ffffff 100%);
+  --body-font: "Garamond", "Palatino Linotype", "Book Antiqua", "Iowan Old Style", Georgia, serif;
+  --heading-font: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+  --ui-font: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+}
+
+body.template-annual_review .kicker {
+  letter-spacing: 0.3em;
+}
+
+body.template-annual_review .article {
+  border-radius: 18px;
+}
+
+body.template-annual_review .article h2 {
+  border-top: 2px solid rgba(15, 105, 115, 0.25);
+}
+
+    body { background: var(--page-bg) !important; color: var(--site-ink); }
+    .masthead { color: #f8fafc; }
+    .report-deck { color: rgba(226, 232, 240, 0.82); }
+    .kicker { color: rgba(255, 255, 255, 0.7); }
+  </style>
+</head>
+<body class="template-annual_review">
+  <div class="backdrop">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+  <div class="page">
+    <header class="masthead">
+      <div class="masthead-top">
+        <div class="kicker">Federlicht</div>
+        <a class="back-link" id="back-link" href="#">목록으로</a>
+      </div>
+      <div class="report-title">합성 가능 공간 기반 형광체 분자 설계 최적화 동향 2025–2026</div>
+      <div class="report-deck">Research review and tech survey</div>
+    </header>
+    <main class="article">
+<h1>합성 가능 공간 기반 형광체 분자 설계 최적화 동향 2025–2026</h1>
+<p>Federlicht assisted and prompted by "Hyun-Jung Kim / AI Governance Team" — 2026-01-28 23:55</p>
+<h2>Abstract</h2>
+<p>2025–2026년(본 런의 커버리지 기준 365일) 형광체(fluorophore) 분자 설계 분야에서 눈에 띄는 변화는, “좋아 보이는 분자 생성”에서 “실제로 합성 가능한 분자 공간에서의 최적화”로의 중심 이동이다(해석). 핵심 1차 근거인 <em>Generating readily synthesizable small molecule fluorophore scaffolds with reinforcement learning</em> (arXiv:2601.07145v1, 2026-01-12)은 기존 생성 모델이 반응 제약 부족으로 합성 불가 후보를 자주 만든다는 문제를 전면에 두고, 알려진 반응 라이브러리와 상업적 빌딩블록을 기반으로 하는 RL 프레임워크(SyntheFluor-RL)를 제시한다[paper]. 이 연구는 (1) ChemFluor 데이터로 광물성 예측기(GNN/MLP)를 학습하고, (2) 반응 템플릿 제약 하에서 분자를 생성·필터링한 뒤, (3) 합성 및 실험으로 “루프를 닫는” 3단 파이프라인을 명시하며[paper], 11,590개 생성 → 19개 합성 타깃 → 14개 합성 성공 → 13개 실험 확인이라는 실행 가능한 성과를 보고한다[paper]. 다만 본 런의 소스 풀이 arXiv 1편과 요약 성격의 LinkedIn 포스트 1건으로 제한되어 있어, 연도 단위 “분야 전체”의 합의 형성 여부보다는 단일 프리프린트가 제시한 방법론적 궤적을 중심으로 정리할 수밖에 없다(해석)[paper][source].</p>
+<h2>Introduction</h2>
+<p>본 보고서는 Query ID <code>20260128_testRL_01</code>의 수집 범위(최근 365일)와 아카이브에 포함된 1차 문헌 1편 및 2차 요약 1건을 근거로, “합성가능성을 내재화한 RL 기반 형광체 스캐폴드 생성”의 연간 변화(연구 방향의 이동, 근거의 질적 변화, 검증 루프의 닫힘)를 종합한다(해석). 선정 기준은 (i) 형광체 설계를 명시적으로 다루고, (ii) 생성 과정에 합성 제약(반응 템플릿/빌딩블록)을 구조적으로 포함하며, (iii) 실험 검증까지 연결되는지를 우선하였다(해석)[paper].</p>
+<p>근거 체계는 arXiv 프리프린트의 방법·결과 서술을 1차로 사용하고[paper], LinkedIn 포스트는 실무적 메시지(워크플로 통합 관점) 확인에만 보조적으로 사용한다(해석)[source]. 또한 OpenAlex 인용/후속연구 추적은 런 로그상 API 오류로 실패하여, 인용 네트워크 기반의 “연간 추세” 확장은 수행되지 못했다(사실)[source].</p>
+<h2>Year in Review</h2>
+<h3>1) “반응 제약 결여 → 합성 불가 생성” 문제가 전면화됨</h3>
+<p>해당 프리프린트는 기존 생성형 접근이 “reaction constraints” 부족으로 합성적으로 다루기 어려운 후보를 만든다는 점을 명시적 한계로 제시한다[paper]. 이 문제 정의는 단순히 합성가능성 점수(SA score)로 사후 필터링하는 접근과 달리, 생성 자체를 “반응 가능한 공간”으로 제한해야 한다는 설계 철학을 강화한다(해석)[paper].</p>
+<h3>2) 합성가능 공간에서의 RL: SyntheFluor-RL의 위치</h3>
+<p>저자들은 SyntheMol-RL[39] 변형으로서 SyntheFluor-RL을 제안하며, Enamine REAL Space의 빌딩블록과 알려진 반응 경로를 활용해 “readily synthesizable” 형광 스캐폴드를 조립하는 것을 목표로 한다[paper]. 이때 “합성가능성”은 (i) 상업적으로 접근 가능한 빌딩블록, (ii) 사전에 정의된 반응 템플릿의 조합으로 구현된다(해석)[paper].</p>
+<h3>3) 예측기 학습의 구체화: ChemFluor 기반 다중 과제(분류+회귀)</h3>
+<p>ChemFluor 데이터셋은 2,912개 고유 분자, 63개 용매로부터 4,336개의 molecule–solvent pair로 구성되며[paper], PLQY는 $&gt;0.5$를 양성으로 두는 이진 분류, 흡수/방출 파장은 회귀로 모델링된다[paper]. 입력에는 분자 피처 외에 용매 특성 4종(Polarizability $SP$, Dipolarity $SdP$, Acidity $SA$, Basicity $SB$)이 결합된다[paper]. 성능 예시로 Chemprop-Morgan이 PLQY ROC-AUC $0.895\pm 0.019$, 흡수 MAE $13.118\pm 1.203$ nm, 방출 MAE $18.951\pm 0.986$ nm을 보고하며[paper], 생성 과정의 스코어링에 해당 모델을 채택한다[paper]. 이 구체성은 “생성 모델만 제시”하던 접근에서 “예측기 성능·피처·학습 프로토콜”을 전면에 드러내는 방향으로의 이동을 보여준다(해석)[paper].</p>
+<h3>4) 형광 유도 목적함수의 재구성: $\pi$-conjugation proxy의 명시적 포함</h3>
+<p>형광에 중요한 $\pi$-시스템을 반영하기 위해, 저자들은 연결된 $sp^{2}$ 원자의 최대 연결 성분 크기(“sp2 network size”)를 계산하는 알고리즘을 설계하고 이를 목적함수에 포함한다[paper]. 이는 “예측기 점수만” 최적화할 때 발생할 수 있는 구조적 비현실성(예: 가시광 영역 전이에 필요한 공액계 부족)을 보완하려는 장치로 해석된다(해석)[paper].</p>
+<h3>5) 반응 라이브러리의 확장(13 → 70): 방향족 링 형성 병목의 해소 시도</h3>
+<p>SyntheMol-RL의 13개 반응만으로는 “aromatic ring formation”이 부족해 확장된 방향족 시스템 생성이 어렵다고 지적하고, Enamine REAL 기반으로 57개 반응을 추가해 총 70개로 확장한다(예: Suzuki–Miyaura coupling)[paper]. 형광체 설계에서 방향족/공액계 확장이 중요하다는 점을 감안하면, “타깃 도메인(형광) 요구 → 반응 공간 설계 변경”이라는 도메인-인지형 생성으로의 전환을 보여준다(해석)[paper].</p>
+<h3>6) 생성→필터→합성→실험의 폐루프에 가까운 실행 결과</h3>
+<p>10,000 roll-out으로 약 16.6시간 동안 11,590개 분자를 생성하고[paper], $sp^{2}$ 네트워크 크기, PLQY 확률, 가시광 범위(예: 420–750 nm) 조건 등 다단계 필터링으로 631개까지 축소한 뒤 클러스터링으로 다양성을 확보하고, 합성 가능성 및 TD-DFT(Gaussian) 기반의 oscillator strength 필터(예: $&gt;0.01$)를 거쳐 19개 합성 타깃을 선정한다[paper]. 19개 중 14개 합성 성공, 1개 분해로 13개 실험 테스트를 수행했으며[paper], 대표 리드(Compound 13)는 PLQY 0.62, Stokes shift 97 nm, lifetime 11.5 ns를 보고하고 HEK293 live-cell에서 농도 의존적 형광 증가를 관찰한다[paper]. 이 결과는 “합성가능 공간의 생성”이 실제 합성 성공률과 실험 확인으로 연결될 수 있음을 정량적으로 보여주는 근거다(해석)[paper].</p>
+<h2>Cross-Cutting Themes</h2>
+<h3>1) 생성 모델의 평가 단위가 “분자”에서 “워크플로”로 이동(해석)</h3>
+<p>논문은 파이프라인을 (1) 예측기 학습, (2) RL 기반 생성 및 필터링, (3) 합성·실험 검증의 3단계로 구조화한다[paper]. 이는 생성 모델의 성능을 novelty/diversity 같은 분자 수준 지표로만 논하기보다, <strong>후속 단계(합성·QC·실험)</strong>까지 포함한 “엔드-투-엔드 산출물 수율”로 평가하려는 방향으로 해석된다(해석)[paper].</p>
+<h3>2) “합성 제약”의 구현 방식: 사후 필터링이 아니라 생성 공간 자체의 제한(해석)</h3>
+<p>LinkedIn 요약에서도 “Start from synthesizability… generated exclusively through known reaction templates and commercially available building blocks”라는 메시지가 강조되는데[ source ], 이는 1차 문헌의 핵심 설계(Enamine REAL 반응 템플릿/빌딩블록 기반 조립)와 정합적이다[paper]. 즉, 합성가능성은 점수화된 속성이 아니라 <strong>생성 규칙(반응/블록)</strong>으로 내재화된다(해석)[paper][source].</p>
+<h3>3) 예측기 불확실성과 계산 비용을 고려한 “하이브리드 평가” 패턴(해석)</h3>
+<p>생성 과정에서 중간 후보(빌딩블록 조합)는 더 빠른 MLP-Morgan(value function)으로 평가하고, 최종 분자는 더 정확한 Chemprop-Morgan으로 평가하는 속도/정확도 트레이드오프를 명시한다[paper]. 이는 대규모 roll-out에서 계산 비용이 병목이 되기 때문에, 계층적 평가가 실용적 설계로 자리잡는 흐름을 반영한다(해석)[paper].</p>
+<h3>4) 물리 기반 계산(TD-DFT)의 “경량 게이트”로서의 재등장(해석)</h3>
+<p>최종 후보 34개에서 TD-DFT(Gaussian)로 oscillator strength 등의 기준을 적용해 19개로 압축한 단계는[paper], ML 예측기 중심 워크플로에도 물리 기반 계산이 “최종 안전장치/품질 게이트”로 남아 있음을 보여준다(해석)[paper]. 특히 형광처럼 전자전이 특성이 핵심인 과제에서, TD-DFT는 비용이 크더라도 후보 수를 줄인 뒤 적용하는 방식으로 공존한다(해석)[paper].</p>
+<h2>Outstanding Questions</h2>
+<h3>1) 예측기 일반화: ChemFluor의 커버리지와 도메인 이동 성능은 충분한가?</h3>
+<p>ChemFluor는 4,336 pair 규모이며[paper], PLQY를 $&gt;0.5$ 이진 분류로 단순화한다[paper]. 이 선택이 스크리닝에는 유리할 수 있으나, 미세한 PLQY 차이가 중요한 응용(예: 고성능 라벨링)에서는 정보 손실이 생길 수 있다(해석). 또한 용매 피처를 “water에 해당하는 4개 용매 특성”으로 고정해 평가하는 방식이 수용액 조건을 반영하려는 의도임은 분명하나[paper], 실제 생체 환경(단백질 결합, 점도, pH, 염 농도)까지 일반화되는지는 별도 검증이 필요하다(해석).</p>
+<h3>2) 목적함수 설계: $sp^{2}$ 네트워크 크기가 형광성의 충분조건/강한 대리변수인가?</h3>
+<p>저자들은 $sp^{2}$ 네트워크 크기를 공액계의 proxy로 사용해 우선순위를 부여한다[paper]. 그러나 큰 공액계가 항상 높은 PLQY로 이어지지 않는(예: 비방사 소멸 경로 증가) 경우도 가능하므로, 해당 proxy가 어떤 실패 모드를 갖는지(예: 응집 유도 소광, 내부전환 증가) 체계적 분석이 남아 있다(추론).</p>
+<h3>3) “합성가능”의 정의가 상업적 빌딩블록/반응 템플릿에 편향되는가?</h3>
+<p>Enamine REAL의 반응/블록 제약은 실행 가능성을 높이지만[paper], 동시에 새로운 반응 개발이 필요한 완전히 새로운 스캐폴드의 탐색은 제한될 수 있다(해석). 즉, 합성가능성 제약이 “현재 조달 가능한 것”에 편향을 만들고, 장기적으로는 탐색 공간을 과도하게 축소할 위험이 있다(추론).</p>
+<h3>4) 실험 성과의 범위: 13개 테스트 중 “세 가지 분명한 형광”의 재현성과 비교 기준</h3>
+<p>논문은 13개 실험 확인, 상위 3개 특성화 및 리드의 세포 내 관찰을 보고하지만[paper], 기존 상용 염료(Alexa/ATTO/JF 등) 대비 밝기·포토스태빌리티·독성·표지 효율 등 비교 지표가 어느 수준에서 확보되었는지는 본 발췌 범위만으로는 제한적이다(해석). 후속 데이터가 공개 리소스(Zenodo)에 포함되어 있다면, 동일 조건 비교가 핵심 검증이 될 것이다(제안)[paper].</p>
+<h2>Future Directions</h2>
+<h3>1) 불확실성 인지 최적화로의 확장(제안)</h3>
+<p>현재는 예측값 중심 스코어링과 동적 가중치 조정(rolling average success rate 기반)이 핵심이다[paper]. 다음 단계로는 예측기 불확실성(예: 앙상블 분산, 캘리브레이션)을 목적함수에 포함해, 고득점이지만 불확실성이 큰 후보를 실험 자원 상황에 따라 조절하는 정책이 필요하다(제안). 이는 LinkedIn 요약에서 언급된 “data bias and prediction uncertainty”를 워크플로 차원에서 다루자는 문제의식과도 결을 같이 한다(해석)[source].</p>
+<h3>2) 합성 경로의 “실제 수율/조건”을 보상에 통합(제안)</h3>
+<p>현재 합성가능성은 템플릿/블록 수준의 가능성에 가깝다[paper]. 반응 수율, 조건 민감도, 정제 난이도 같은 공정적 요인을 반영한 보상 설계(예: 비용 함수 $C$를 두고 보상 $R=\text{property score}-\lambda C$)로 확장하면, “실험 대역폭” 제약을 더 직접적으로 반영할 수 있다(제안).</p>
+<h3>3) TD-DFT/고급 계산의 위치 최적화: 액티브 러닝 루프(제안)</h3>
+<p>현재 TD-DFT는 최종 후보에서의 필터 역할이다[paper]. 이를 액티브 러닝으로 재구성하여, TD-DFT 결과를 예측기 보정에 재투입(예: 스펙트럼 관련 보조 타깃 학습)하면, 다음 세대 생성에서 필터 의존도를 낮출 수 있다(제안). 특히 oscillator strength 같은 물리량은 ML 예측기의 “물리적 일관성”을 강화하는 레이블로 기능할 수 있다(추론).</p>
+<h3>4) 공개 리소스 기반 재현·벤치마크 표준화(제안)</h3>
+<p>저자들은 Zenodo DOI와 GitHub 코드 위치를 명시한다[paper]. 이를 기반으로 (i) 동일 반응 라이브러리에서 다른 목표(예: 근적외선, 포토스위처블), (ii) 다른 데이터셋으로의 전이, (iii) 동일 실험 프로토콜에서의 재현을 수행하는 커뮤니티 벤치마크가 가능하다(제안).</p>
+<h2>Risks &amp; Gaps</h2>
+<h3>1) 증거 풀의 편향: 사실상 단일 1차 소스 중심</h3>
+<p>본 런은 URL 2개(핵심 arXiv 1편 + 요약 LinkedIn 1건)만 포함하며[paper][source], OpenAlex 인용 조회가 실패하여 후속/동시대 연구의 대비가 불가능했다(사실)[source]. 따라서 “연간 추세”를 일반화하면 과적합 위험이 크다(해석).</p>
+<h3>2) 프리프린트 리스크: 동료심사 전 결과의 불확실성</h3>
+<p>arXiv:2601.07145v1은 프리프린트이며[paper], 일부 수치·절차·실험 조건의 추가 검증이 저널 버전에서 변경될 수 있다(해석). 전략적 의사결정에는 공개 데이터(Zenodo)로의 재현 시도가 병행되어야 한다(제안)[paper].</p>
+<h3>3) 합성 성공률의 해석 주의</h3>
+<p>19개 중 14개 합성 성공은 고무적이나[paper], 이는 “선정된 19개”가 이미 다단계 필터링과 상업적 합성 가능성 체크를 거친 결과다[paper]. 즉, 모델 자체의 생성 품질과 필터·인프라(Enamine, TD-DFT, 클러스터링)의 기여를 분해하지 않으면, 성과의 원인을 과대평가할 수 있다(해석).</p>
+<h3>4) 생물학적 사용성의 제한된 관찰</h3>
+<p>HEK293 live-cell에서 농도 의존 형광 증가가 보고되었지만[paper], 광독성, 장기 안정성, 소기관 특이성, 표적 결합 기반 라벨링 등의 다양한 바이오이미징 요구사항을 포괄한다고 보긴 어렵다(해석). 응용 확장을 위해선 표준 비교군(상용 dye)과의 정량 비교가 필요하다(제안).</p>
+<h2>Critics</h2>
+<h3>헤드라인: “RL이 혁신이라기보다, 기존 구성요소를 잘 엮은 엔지니어링 패키징 아닌가?”</h3>
+<p>이 작업의 강점은 합성 제약·예측기·필터링·실험을 하나의 워크플로로 통합한 점이지만[paper], 비판적으로 보면 핵심 기여가 “새로운 화학/새로운 모델”이라기보다 “도구 조합 및 파이프라인 엔지니어링”에 가깝다는 견해가 가능하다(해석). 또한 합성 제약을 강하게 걸수록 생성 다양성이 실제로는 공급망(REAL Space) 내부의 변주에 머물 수 있다는 우려도 있다(해석)[paper].</p>
+<ul>
+<li><strong>탐색 공간 축소 비판</strong>: 반응 템플릿/상업적 블록 제약이 장기적 혁신(새 반응/새 스캐폴드)을 저해할 수 있음(해석)[paper].  </li>
+<li><strong>목적함수 편향</strong>: PLQY 이진화($&gt;0.5$)와 $sp^{2}$ proxy는 스크리닝에는 유리하나, 고성능 최적화에서는 과도한 단순화일 수 있음(해석)[paper].  </li>
+<li><strong>실험 검증의 범위</strong>: 13개 실험 확인은 의미 있지만, 상용 dye 대비 우월성의 체계적 비교가 부족하면 “좋은 후보”와 “실제로 채택될 후보” 사이 간극이 남음(해석).  </li>
+<li><strong>재현성의 실질성</strong>: 코드/데이터 공개는 긍정적이나[paper], 외부 실험실에서 동일 수율/특성을 재현할 수 있는지까지가 진짜 검증임(제안).</li>
+</ul>
+<h2>Appendix</h2>
+<h3>### A1. 근거 아카이브 아티팩트(클릭 가능한 경로)</h3>
+<ul>
+<li>1차 문헌(텍스트 추출): <a href="report_views/archive_arxiv_text_2601.07145v1.txt-56e7c64f.html" data-viewer="report_views/archive_arxiv_text_2601.07145v1.txt-56e7c64f.html" data-raw="archive/arxiv/text/2601.07145v1.txt" class="viewer-link">\[1\]</a>  </li>
+<li>2차 요약(웹 보강, LinkedIn): <a href="report_views/archive_tavily_extract_0002_https_www.linkedin.com_posts_fanli_with-all-the-new--113f336d.html" data-viewer="report_views/archive_tavily_extract_0002_https_www.linkedin.com_posts_fanli_with-all-the-new--113f336d.html" data-raw="archive/tavily_extract/0002_https_www.linkedin.com_posts_fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI_utm_s.txt" class="viewer-link">\[2\]</a>  </li>
+<li>런 인스트럭션(URL 2개로 제한): <a href="report_views/instruction_20260128_testRL.txt-5aca7f71.html" data-viewer="report_views/instruction_20260128_testRL.txt-5aca7f71.html" data-raw="instruction/20260128_testRL.txt" class="viewer-link">\[3\]</a>  </li>
+<li>런 로그(OpenAlex 조회 실패 포함): <a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[4\]</a>  </li>
+<li>아카이브 인덱스: <a href="report_views/archive_20260128_testRL_01-index.md-285ec543.html" data-viewer="report_views/archive_20260128_testRL_01-index.md-285ec543.html" data-raw="archive/20260128_testRL_01-index.md" class="viewer-link">\[5\]</a></li>
+</ul>
+<h3>### A2. 재현·검증 체크리스트(실행 관점)</h3>
+<ul>
+<li>(제안) <strong>모델 성능 재확인</strong>: Chemprop-Morgan의 ROC-AUC/MAE가 동일 분할·동일 피처(용매 4특성 포함)에서 재현되는지 확인[paper].  </li>
+<li>(제안) <strong>생성 수율 분해</strong>: “RL 생성” vs “필터링/TD-DFT/상업 합성가능성 체크”의 기여도를 분리해 보고.  </li>
+<li>(제안) <strong>대조군 비교</strong>: 리드 compound의 PLQY, lifetime, 광안정성 등을 동일 조건에서 상용 dye와 정량 비교[paper].  </li>
+<li>(제안) <strong>공간 편향 진단</strong>: REAL Space 제약이 만들어내는 스캐폴드 다양성을, 반응/블록 분포 관점에서 분석(예: 특정 반응 템플릿 과점유 여부).  </li>
+</ul>
+<h3>### A3. 범위/한계 요약</h3>
+<ul>
+<li>본 보고서는 사실상 단일 프리프린트 중심의 “연간 스냅샷”이며, 동시대 경쟁/후속 연구를 충분히 포함하지 못했다(해석)[source].  </li>
+<li>LinkedIn 소스는 해설 성격으로 기술적 세부의 1차 근거가 아니며, 해석의 보조로만 사용했다(해석)[source].  </li>
+<li>OpenAlex 인용 조회 실패로, 인용 기반 영향도/확산 추적은 공백으로 남는다(사실)[source].</li>
+</ul>
+<h2>Figures</h2>
+<p class="figure-callout">Figures referenced: <a href="#fig-1">Figure 1</a>: Source PDF: 2601.07145v1.pdf; <a href="#fig-2">Figure 2</a>: Source PDF: 2601.07145v1.pdf; <a href="#fig-3">Figure 3</a>: Source PDF: 2601.07145v1.pdf; <a href="#fig-4">Figure 4</a>: Source PDF: 2601.07145v1.pdf</p>
+
+<figure class="report-figure" id="fig-1">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2601.07145v1.pdf-12cbeeab.png" alt="Figure from ./archive/arxiv/pdf/2601.07145v1.pdf (page 6)" />
+  <figcaption>Figure 1: <a href="report_views/archive_arxiv_pdf_2601.07145v1.pdf-e20c9d80.html" data-viewer="report_views/archive_arxiv_pdf_2601.07145v1.pdf-e20c9d80.html" data-raw="archive/arxiv/pdf/2601.07145v1.pdf" class="viewer-link">./archive/arxiv/pdf/2601.07145v1.pdf</a> (page 6)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-2">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2601.07145v1.pdf-2b8835c1.png" alt="Figure from ./archive/arxiv/pdf/2601.07145v1.pdf (page 13)" />
+  <figcaption>Figure 2: <a href="report_views/archive_arxiv_pdf_2601.07145v1.pdf-e20c9d80.html" data-viewer="report_views/archive_arxiv_pdf_2601.07145v1.pdf-e20c9d80.html" data-raw="archive/arxiv/pdf/2601.07145v1.pdf" class="viewer-link">./archive/arxiv/pdf/2601.07145v1.pdf</a> (page 13)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-3">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2601.07145v1.pdf-2c0ec36e.png" alt="Figure from ./archive/arxiv/pdf/2601.07145v1.pdf (page 14)" />
+  <figcaption>Figure 3: <a href="report_views/archive_arxiv_pdf_2601.07145v1.pdf-e20c9d80.html" data-viewer="report_views/archive_arxiv_pdf_2601.07145v1.pdf-e20c9d80.html" data-raw="archive/arxiv/pdf/2601.07145v1.pdf" class="viewer-link">./archive/arxiv/pdf/2601.07145v1.pdf</a> (page 14)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-4">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2601.07145v1.pdf-df32baea.png" alt="Figure from ./archive/arxiv/pdf/2601.07145v1.pdf (page 14)" />
+  <figcaption>Figure 4: <a href="report_views/archive_arxiv_pdf_2601.07145v1.pdf-e20c9d80.html" data-viewer="report_views/archive_arxiv_pdf_2601.07145v1.pdf-e20c9d80.html" data-raw="archive/arxiv/pdf/2601.07145v1.pdf" class="viewer-link">./archive/arxiv/pdf/2601.07145v1.pdf</a> (page 14)</figcaption>
+</figure>
+<h2>References</h2>
+<ol>
+<li>2601.07145v1.txt — <a href="report_views/archive_arxiv_text_2601.07145v1.txt-56e7c64f.html" data-viewer="report_views/archive_arxiv_text_2601.07145v1.txt-56e7c64f.html" data-raw="archive/arxiv/text/2601.07145v1.txt" class="viewer-link">file</a></li>
+<li>0002_https_www.linkedin.com_posts_fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI_utm_s.txt — <a href="report_views/archive_tavily_extract_0002_https_www.linkedin.com_posts_fanli_with-all-the-new--113f336d.html" data-viewer="report_views/archive_tavily_extract_0002_https_www.linkedin.com_posts_fanli_with-all-the-new--113f336d.html" data-raw="archive/tavily_extract/0002_https_www.linkedin.com_posts_fanli_with-all-the-new-ai-tools-in-molecular-design-activity-7417558711084384256-ERGI_utm_s.txt" class="viewer-link">file</a></li>
+<li>20260128_testRL.txt — <a href="report_views/instruction_20260128_testRL.txt-5aca7f71.html" data-viewer="report_views/instruction_20260128_testRL.txt-5aca7f71.html" data-raw="instruction/20260128_testRL.txt" class="viewer-link">file</a></li>
+<li>_log.txt — <a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">file</a></li>
+<li>20260128_testRL_01-index.md — <a href="report_views/archive_20260128_testRL_01-index.md-285ec543.html" data-viewer="report_views/archive_20260128_testRL_01-index.md-285ec543.html" data-raw="archive/20260128_testRL_01-index.md" class="viewer-link">file</a></li>
+</ol>
+<h2>Miscellaneous</h2>
+<div class="misc-block">
+<ul>
+<li>Generated at: 2026-01-28 23:55:19</li>
+<li>Duration: 00:05:20 (320.88s)</li>
+<li>Model: gpt-5.2</li>
+<li>Quality strategy: none</li>
+<li>Quality iterations: 0</li>
+<li>Template: annual_review</li>
+<li>Language: Korean</li>
+<li>Tags: 분자, 형광체, 설계, 합성, 가능</li>
+<li>Output format: html</li>
+<li>PDF compile: disabled</li>
+<li>Run overview: <a href="report_views/report_run_overview.md-40ef65a9.html" data-viewer="report_views/report_run_overview.md-40ef65a9.html" data-raw="report/run_overview.md" class="viewer-link">./report/run_overview.md</a></li>
+<li>Report overview: <a href="report_views/report_run_overview_report_full_1.md-9f952eef.html" data-viewer="report_views/report_run_overview_report_full_1.md-9f952eef.html" data-raw="report/run_overview_report_full_1.md" class="viewer-link">./report/run_overview_report_full_1.md</a></li>
+<li>Report workflow: <a href="report_views/report_notes_report_workflow.md-bd2306de.html" data-viewer="report_views/report_notes_report_workflow.md-bd2306de.html" data-raw="report_notes/report_workflow.md" class="viewer-link">./report_notes/report_workflow.md</a></li>
+<li>Archive index: <a href="report_views/archive_20260128_testRL_01-index.md-285ec543.html" data-viewer="report_views/archive_20260128_testRL_01-index.md-285ec543.html" data-raw="archive/20260128_testRL_01-index.md" class="viewer-link">./archive/20260128_testRL_01-index.md</a></li>
+<li>Instruction file: <a href="report_views/instruction_20260128_testRL.txt-5aca7f71.html" data-viewer="report_views/instruction_20260128_testRL.txt-5aca7f71.html" data-raw="instruction/20260128_testRL.txt" class="viewer-link">./instruction/20260128_testRL.txt</a></li>
+<li>Report prompt: <a href="report_views/instruction_report_prompt_report_full_1.txt-33f5a855.html" data-viewer="report_views/instruction_report_prompt_report_full_1.txt-33f5a855.html" data-raw="instruction/report_prompt_report_full_1.txt" class="viewer-link">./instruction/report_prompt_report_full_1.txt</a></li>
+<li>Figure candidates: <a href="./report_views/figures_preview.html">./report_views/figures_preview.html</a></li>
+</ul>
+</div>
+    </main>
+  </div>
+  <div id="viewer-overlay" class="viewer-overlay"></div>
+  <aside id="viewer-panel" class="viewer-panel" aria-hidden="true">
+    <div class="viewer-header">
+      <div class="viewer-title" id="viewer-title">Source preview</div>
+      <div class="viewer-actions">
+        <a id="viewer-raw" href="#" target="_blank" rel="noopener">Open raw</a>
+        <button class="viewer-close" id="viewer-close" aria-label="Close">x</button>
+      </div>
+    </div>
+    <iframe id="viewer-frame" class="viewer-frame" title="Source preview"></iframe>
+  </aside>
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const themeParam = params.get('theme');
+      const storedTheme = localStorage.getItem('federlicht.theme');
+      const theme = themeParam || storedTheme;
+      if (theme) {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('federlicht.theme', theme);
+      }
+      const backLink = document.getElementById('back-link');
+      if (backLink) {
+        const path = window.location.pathname.replace(/\\/g, '/');
+        const idx = path.lastIndexOf('/runs/');
+        if (idx !== -1) {
+          backLink.href = `${path.slice(0, idx)}/index.html`;
+          backLink.style.display = 'inline-flex';
+        }
+      }
+      const panel = document.getElementById('viewer-panel');
+      const overlay = document.getElementById('viewer-overlay');
+      const frame = document.getElementById('viewer-frame');
+      const rawLink = document.getElementById('viewer-raw');
+      const title = document.getElementById('viewer-title');
+      const closeBtn = document.getElementById('viewer-close');
+      function closeViewer() {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        frame.src = 'about:blank';
+      }
+      function openViewer(viewer, raw, label) {
+        frame.src = viewer;
+        rawLink.href = raw || viewer;
+        title.textContent = label || 'Source preview';
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+      }
+      document.querySelectorAll('a').forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          link.setAttribute('target', '_blank');
+          link.setAttribute('rel', 'noopener');
+        }
+        const viewer = link.getAttribute('data-viewer');
+        if (viewer) {
+          link.addEventListener('click', (event) => {
+            if (event.metaKey || event.ctrlKey) { return; }
+            event.preventDefault();
+            openViewer(viewer, link.getAttribute('data-raw'), link.textContent.trim());
+          });
+        }
+      });
+      overlay.addEventListener('click', closeViewer);
+      closeBtn.addEventListener('click', closeViewer);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { closeViewer(); }
+      });
+    })();
+  </script>
+</body>
+</html>

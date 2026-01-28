@@ -192,16 +192,23 @@ def openalex_fetch_by_doi(doi: str, api_key: Optional[str], mailto: Optional[str
 
 def openalex_fetch_by_arxiv(arxiv_id: str, api_key: Optional[str], mailto: Optional[str]) -> Optional[Dict[str, Any]]:
     params = build_params(api_key, mailto)
-    params["filter"] = f"arxiv:{arxiv_id}"
-    r = requests.get(f"{OPENALEX_BASE}/works", params=params, timeout=60, headers=request_headers())
-    if r.status_code == 404:
-        return None
-    r.raise_for_status()
-    data = r.json()
-    results = data.get("results") or []
-    if not results:
-        return None
-    return results[0]
+    landing_urls = (
+        f"http://arxiv.org/abs/{arxiv_id}",
+        f"https://arxiv.org/abs/{arxiv_id}",
+    )
+    for url in landing_urls:
+        params["filter"] = f"primary_location.landing_page_url:{url}"
+        r = requests.get(f"{OPENALEX_BASE}/works", params=params, timeout=60, headers=request_headers())
+        if r.status_code == 404:
+            continue
+        if r.status_code == 400:
+            continue
+        r.raise_for_status()
+        data = r.json()
+        results = data.get("results") or []
+        if results:
+            return results[0]
+    return None
 
 
 def openalex_get_citations(

@@ -64,6 +64,18 @@ SUMMARY_MAX_RESULTS = 5
 YOUTUBE_TITLE_MAX_LEN = 80
 ARXIV_TEX_MAX_CHARS = 200000
 ARXIV_FIGURE_EXTS = {".pdf", ".png", ".jpg", ".jpeg", ".eps", ".svg"}
+INSTRUCTION_EXTS = {".txt", ".md", ".text", ".prompt", ".instruct", ".instruction"}
+
+
+def is_instruction_file(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    if path.name.startswith("."):
+        return False
+    suffix = path.suffix.lower()
+    if suffix in INSTRUCTION_EXTS:
+        return True
+    return suffix == ""
 
 
 class JobLogger:
@@ -464,11 +476,11 @@ def parse_job(
 
 def collect_instruction_files(input_path: Path) -> List[Path]:
     if input_path.is_file():
-        if input_path.suffix.lower() != ".txt":
-            raise SystemExit(f"Input file must be .txt: {input_path}")
+        if not is_instruction_file(input_path):
+            raise SystemExit(f"Input file must be a text-like file: {input_path}")
         return [input_path]
     if input_path.is_dir():
-        return sorted(input_path.glob("*.txt"))
+        return sorted(p for p in input_path.rglob("*") if is_instruction_file(p))
     raise SystemExit(f"Input path not found: {input_path}")
 
 
