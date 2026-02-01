@@ -405,6 +405,22 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         help="Max chars returned by read tool (default: 16000).",
     )
     ap.add_argument(
+        "--max-tool-chars",
+        type=int,
+        default=0,
+        help=(
+            "Max cumulative chars returned by read tool across a run (default: 0 = unlimited). "
+            "Set to cap total read_document output."
+        ),
+    )
+    ap.add_argument(
+        "--max_tool_chars",
+        dest="max_tool_chars",
+        type=int,
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+    ap.add_argument(
         "--max-pdf-pages",
         type=int,
         default=6,
@@ -4105,9 +4121,11 @@ def build_format_instructions(
     if output_format != "tex":
         citation_instruction = pick(
             "본문에 전체 URL을 그대로 출력하지 말고 [source], [paper] 같은 짧은 링크 라벨을 사용하세요. "
-            "파일 경로는 클릭 가능하도록 마크다운 링크를 우선 사용하세요. ",
+            "파일 경로는 클릭 가능하도록 마크다운 링크를 우선 사용하세요. "
+            "인용은 문장 끝에 inline으로 붙이고, 인용만 단독 줄로 두지 마세요. ",
             "Avoid printing full URLs in the body; use short link labels like [source] or [paper] instead. "
-            "Prefer markdown links for file paths so they are clickable. ",
+            "Prefer markdown links for file paths so they are clickable. "
+            "Keep citations inline at the end of the sentence; do not place citations on their own line. ",
         )
     else:
         citation_instruction = pick(
@@ -4991,6 +5009,7 @@ def read_pdf_with_fitz(
     pdf_path: Path,
     max_pages: int,
     max_chars: int,
+    start_page: int = 0,
     auto_extend_pages: int = 0,
     extend_min_chars: int = 0,
 ) -> str:
@@ -5000,12 +5019,13 @@ def read_pdf_with_fitz(
         return "PyMuPDF (pymupdf) is not installed. Cannot read PDF."
     doc = fitz.open(str(pdf_path))
     total_pages = doc.page_count
+    start_page = max(0, min(start_page, max(0, total_pages - 1)))
     if max_pages <= 0:
-        pages = total_pages
+        pages = max(0, total_pages - start_page)
     else:
-        pages = min(max_pages, total_pages)
+        pages = min(max_pages, total_pages - start_page)
     chunks: list[str] = []
-    for page in range(pages):
+    for page in range(start_page, start_page + pages):
         chunks.append(doc.load_page(page).get_text())
     pages_read = pages
     text = "\n".join(chunks)
@@ -5013,18 +5033,21 @@ def read_pdf_with_fitz(
         auto_extend_pages
         and extend_min_chars
         and len(text) < extend_min_chars
-        and pages_read < total_pages
+        and start_page + pages_read < total_pages
     ):
-        extra = min(auto_extend_pages, total_pages - pages_read)
-        for page in range(pages_read, pages_read + extra):
+        remaining_pages = total_pages - (start_page + pages_read)
+        extra = min(auto_extend_pages, remaining_pages)
+        for page in range(start_page + pages_read, start_page + pages_read + extra):
             chunks.append(doc.load_page(page).get_text())
         pages_read += extra
         text = "\n".join(chunks)
     note = ""
-    if pages_read < total_pages:
+    if start_page + pages_read < total_pages:
+        first_page = start_page + 1
+        last_page = start_page + pages_read
         note = (
-            f"\n\n[note] PDF scan truncated: pages 1-{pages_read} of {total_pages}. "
-            "Increase --max-pdf-pages or --pdf-extend-pages to read more."
+            f"\n\n[note] PDF scan truncated: pages {first_page}-{last_page} of {total_pages}. "
+            "Increase --max-pdf-pages or use start_page to read more."
         )
     if max_chars > 0:
         if note:
@@ -5737,6 +5760,11 @@ _CODE_LINK_RE = re.compile(
 _CITED_PATH_RE = re.compile(
     r"(?<![\w./])((?:\./)?(?:archive|instruction|report_notes|report|supporting)/[A-Za-z0-9_./-]+)"
 )
+_CITATION_LINK_PATTERN = r"\[(?:\\\[)?\d+(?:\\\])?\]\([^)]+\)"
+_CITATION_LINK_RE = re.compile(_CITATION_LINK_PATTERN)
+_CITATION_LINE_RE = re.compile(
+    rf"^[\s\(\[]*(?:{_CITATION_LINK_PATTERN})(?:[\s,;]*(?:{_CITATION_LINK_PATTERN}))*[\s\)\].,:;]*$"
+)
 _AUTHOR_LINE_RE = re.compile(r"^\s*(?:author|작성자|prompted by|byline)\s*:\s*(.+)$", re.IGNORECASE)
 _TEMPLATE_LINE_RE = re.compile(r"^\s*(?:template|템플릿)\s*:\s*(.+)$", re.IGNORECASE)
 _FIGURE_CAPTION_RE = re.compile(r"^(?:figure|fig\\.?)[\\s:]*\\d+", re.IGNORECASE)
@@ -6043,8 +6071,8 @@ def build_text_meta_index(
                 "summary": entry.get("summary"),
                 "source_url": entry.get("entry_id") or entry.get("pdf_url"),
                 "pdf_path": f"./{pdf_path.relative_to(run_dir).as_posix()}" if pdf_path.exists() else None,
-                "authors": ", ".join(entry.get("authors", [])) if entry.get("authors") else None,
-                "published": entry.get("published"),
+                "authors": normalize_author_list(entry.get("authors")),
+                "published": entry.get("published") or entry.get("updated"),
                 "source": "arxiv",
             }
             add_meta(rel_text, payload)
@@ -6066,9 +6094,9 @@ def build_text_meta_index(
                 "summary": work.get("abstract"),
                 "source_url": work.get("landing_page_url") or work.get("doi") or work.get("pdf_url"),
                 "pdf_path": f"./{pdf_path.relative_to(run_dir).as_posix()}" if pdf_path.exists() else None,
-                "authors": ", ".join(work.get("authors", [])) if work.get("authors") else None,
-                "published": work.get("published"),
-                "journal": work.get("journal"),
+                "authors": extract_openalex_authors(work),
+                "published": resolve_openalex_published(work),
+                "journal": resolve_openalex_journal(work),
                 "cited_by_count": work.get("cited_by_count"),
                 "source": "openalex",
             }
@@ -6126,6 +6154,22 @@ def build_text_meta_index(
                     "source": "supporting_web",
                 }
                 add_meta(rel_text, payload)
+
+    local_manifest = archive_dir / "local" / "manifest.jsonl"
+    if local_manifest.exists():
+        for entry in iter_jsonl(local_manifest):
+            rel_text = coerce_rel_path(entry.get("content_path"), run_dir)
+            if not rel_text:
+                continue
+            title = entry.get("title") or entry.get("file_name") or Path(entry.get("source_path") or "").name
+            payload = {
+                "title": title,
+                "source_url": entry.get("source_path"),
+                "published": entry.get("modified"),
+                "source": "local",
+                "extra": entry.get("file_ext"),
+            }
+            add_meta(rel_text, payload)
 
     return meta_map
 
@@ -6388,7 +6432,7 @@ def run_web_research(
                         for chunk in resp.iter_content(chunk_size=8192):
                             if chunk:
                                 handle.write(chunk)
-                pdf_text = read_pdf_with_fitz(pdf_path, max_pdf_pages, max_chars)
+                pdf_text = read_pdf_with_fitz(pdf_path, max_pdf_pages, max_chars, start_page=0)
                 text_path.write_text(pdf_text, encoding="utf-8")
                 record.update({"pdf_path": pdf_path.as_posix(), "text_path": text_path.as_posix()})
             else:
@@ -6923,6 +6967,57 @@ def iter_jsonl(path: Path):
                 continue
 
 
+def extract_openalex_authors(work: dict) -> Optional[str]:
+    authors = work.get("authors")
+    if isinstance(authors, list):
+        names: list[str] = []
+        for entry in authors:
+            if isinstance(entry, dict):
+                name = entry.get("display_name") or entry.get("name")
+                if name:
+                    names.append(name)
+            elif entry:
+                names.append(str(entry))
+        normalized = normalize_author_list(names)
+    else:
+        normalized = normalize_author_list(authors)
+    if normalized:
+        return normalized
+    names: list[str] = []
+    for entry in work.get("authorships") or []:
+        author = entry.get("author") or {}
+        name = author.get("display_name") or author.get("name")
+        if name:
+            names.append(name)
+    return normalize_author_list(names)
+
+
+def resolve_openalex_journal(work: dict) -> Optional[str]:
+    journal = work.get("journal")
+    if journal:
+        if isinstance(journal, dict):
+            name = journal.get("display_name") or journal.get("name")
+            if name:
+                return name
+        elif isinstance(journal, str):
+            return journal
+    host = work.get("host_venue") or {}
+    name = host.get("display_name")
+    if name:
+        return name
+    primary = work.get("primary_location") or {}
+    source = primary.get("source") or {}
+    if isinstance(source, dict):
+        name = source.get("display_name")
+        if name:
+            return name
+    return None
+
+
+def resolve_openalex_published(work: dict) -> Optional[str]:
+    return work.get("publication_date") or work.get("publication_year") or work.get("published")
+
+
 def load_openalex_meta(archive_dir: Path) -> dict[str, dict]:
     meta: dict[str, dict] = {}
     openalex = archive_dir / "openalex" / "works.jsonl"
@@ -6974,6 +7069,9 @@ def collect_references(
                     "journal": meta.get("journal"),
                     "published": meta.get("published"),
                     "openalex_id_short": meta.get("openalex_id_short"),
+                    "authors": meta.get("authors"),
+                    "doi": meta.get("doi"),
+                    "source_label": meta.get("source_label"),
                 }
             )
         refs.append(payload)
@@ -6998,9 +7096,11 @@ def collect_references(
             title = work.get("title")
             meta = {
                 "cited_by_count": work.get("cited_by_count"),
-                "journal": (work.get("host_venue") or {}).get("display_name"),
-                "published": work.get("publication_date") or work.get("publication_year"),
+                "journal": resolve_openalex_journal(work),
+                "published": resolve_openalex_published(work),
                 "openalex_id_short": work.get("openalex_id_short"),
+                "authors": extract_openalex_authors(work),
+                "doi": work.get("doi"),
             }
             add_ref(url, title, "openalex", openalex, meta=meta)
             if limit_reached():
@@ -7011,7 +7111,11 @@ def collect_references(
         for entry in iter_jsonl(arxiv):
             url = entry.get("entry_id") or entry.get("pdf_url")
             title = entry.get("title")
-            add_ref(url, title, "arxiv", arxiv)
+            meta = {
+                "authors": normalize_author_list(entry.get("authors")),
+                "published": entry.get("published") or entry.get("updated"),
+            }
+            add_ref(url, title, "arxiv", arxiv, meta=meta)
             if limit_reached():
                 return refs
 
@@ -7893,6 +7997,25 @@ def rewrite_citations(report_text: str, output_format: str = "md") -> tuple[str,
     return updated, refs
 
 
+def merge_orphan_citations(report_text: str) -> str:
+    if not report_text:
+        return report_text
+    lines = report_text.splitlines()
+    merged: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and _CITATION_LINE_RE.fullmatch(stripped):
+            if merged:
+                prefix = merged[-1].rstrip()
+                joiner = "" if prefix.endswith(("(", "[", "{")) else " "
+                merged[-1] = prefix + joiner + stripped
+            else:
+                merged.append(stripped)
+            continue
+        merged.append(line)
+    return "\n".join(merged)
+
+
 def index_label_for_path(target: str) -> Optional[str]:
     trimmed = target.lstrip("./")
     for key, label in INDEX_JSONL_HINTS.items():
@@ -7922,33 +8045,121 @@ def display_title(title: Optional[str], url: Optional[str]) -> str:
     return "Untitled source"
 
 
+_AUTHOR_SPLIT_RE = re.compile(r"[;,]")
+_YEAR_RE = re.compile(r"(19|20)\d{2}")
+_SOURCE_LABELS = {
+    "local": "Local file",
+    "web": "Web",
+    "supporting_web": "Supporting web",
+    "youtube": "YouTube",
+}
+
+
+def normalize_author_list(authors: object, max_names: int = 4) -> Optional[str]:
+    if not authors:
+        return None
+    names: list[str] = []
+    if isinstance(authors, str):
+        parts = [part.strip() for part in _AUTHOR_SPLIT_RE.split(authors) if part.strip()]
+        if len(parts) <= 1:
+            return authors.strip()
+        names = parts
+    elif isinstance(authors, (list, tuple, set)):
+        for item in authors:
+            if not item:
+                continue
+            text = str(item).strip()
+            if text:
+                names.append(text)
+    else:
+        return None
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for name in names:
+        if name in seen:
+            continue
+        seen.add(name)
+        cleaned.append(name)
+    if not cleaned:
+        return None
+    if len(cleaned) > max_names:
+        return f"{cleaned[0]} et al."
+    return ", ".join(cleaned)
+
+
+def extract_year(value: object) -> Optional[str]:
+    if value is None:
+        return None
+    match = _YEAR_RE.search(str(value))
+    return match.group(0) if match else None
+
+
+def normalize_reference_url(value: object) -> Optional[str]:
+    if not value:
+        return None
+    url = str(value).strip()
+    if url.startswith(("http://", "https://")):
+        return url
+    return None
+
+
+def normalize_source_label(value: object) -> Optional[str]:
+    if not value:
+        return None
+    key = str(value).strip().lower()
+    return _SOURCE_LABELS.get(key)
+
+
+def clean_reference_tail(value: object) -> Optional[str]:
+    if not value:
+        return None
+    text = " ".join(str(value).split())
+    return text.strip().strip(".")
+
+
 def format_reference_item(ref: dict, output_format: str = "md") -> str:
-    url = ref.get("url")
+    url = normalize_reference_url(ref.get("url") or ref.get("source_url"))
     title = display_title(ref.get("title"), url)
+    authors = normalize_author_list(ref.get("authors"))
+    published = ref.get("published")
+    year = extract_year(published)
+    venue = ref.get("journal") or ref.get("publisher") or ref.get("channel")
+    source_label = normalize_source_label(ref.get("source") or ref.get("source_label"))
     cite_note = ""
     if ref.get("cited_by_count") is not None:
         if output_format == "tex":
             cite_note = f" \\textit{{citations: {ref['cited_by_count']}}}"
         else:
             cite_note = f" <small>citations: {ref['cited_by_count']}</small>"
-    extra_bits = []
-    if ref.get("journal"):
-        extra_bits.append(ref["journal"])
-    if ref.get("published"):
-        extra_bits.append(str(ref["published"]))
+    main = ""
+    if authors and year:
+        main = f"{authors} ({year}). {title}"
+    elif authors:
+        main = f"{authors}. {title}"
+    elif year:
+        main = f"{title} ({year})"
+    else:
+        main = f"{title}"
+    tail_bits: list[str] = []
+    if venue:
+        tail_bits.append(clean_reference_tail(venue) or "")
+    if not year and published:
+        tail_bits.append(clean_reference_tail(published) or "")
     if ref.get("extra"):
-        extra_bits.append(ref["extra"])
-    extra_text = "; ".join(extra_bits)
+        tail_bits.append(clean_reference_tail(ref["extra"]) or "")
+    if source_label:
+        tail_bits.append(source_label)
+    tail_bits = [bit for bit in tail_bits if bit]
+    if tail_bits:
+        main = f"{main}. {'; '.join(tail_bits)}"
     if output_format == "tex":
-        safe_title = latex_escape(str(title))
-        extra = f" ({latex_escape(extra_text)})" if extra_text else ""
+        safe_title = latex_escape(str(main))
         if url and isinstance(url, str):
-            return f"{safe_title}{extra} --- {latex_link(url, 'link')}{cite_note}"
-        return f"{safe_title}{extra}{cite_note}"
-    extra = f" ({extra_text})" if extra_text else ""
+            return f"{safe_title} --- {latex_link(url, 'link')}{cite_note}"
+        return f"{safe_title}{cite_note}"
     if url and isinstance(url, str):
-        return f"{title}{extra} — [link]({url}){cite_note}"
-    return f"{title}{extra}{cite_note}"
+        return f"{main} — [link]({url}){cite_note}"
+    return f"{main}{cite_note}"
 
 
 def render_reference_section(
@@ -7956,11 +8167,13 @@ def render_reference_section(
     refs_meta: list[dict],
     openalex_meta: dict[str, dict],
     output_format: str = "md",
+    text_meta_index: Optional[dict[str, dict]] = None,
 ) -> str:
     if not citations:
         return ""
     by_archive = {ref.get("archive", "").lstrip("./"): ref for ref in refs_meta}
     by_url = {ref.get("url"): ref for ref in refs_meta if ref.get("url")}
+    text_meta_index = text_meta_index or {}
     if output_format == "tex":
         lines = ["", "\\section*{References}", "\\renewcommand{\\labelenumi}{[\\arabic{enumi}]}", "\\begin{enumerate}"]
     else:
@@ -7988,60 +8201,55 @@ def render_reference_section(
                         for item in items[:6]:
                             lines.append(f"   - {format_reference_item(item, output_format)}")
                     continue
-            meta = by_archive.get(norm)
+            meta = text_meta_index.get(norm) or text_meta_index.get(f"./{norm}") or by_archive.get(norm)
             path_name = Path(norm).name
             short_id = Path(norm).stem if path_name.startswith("W") else None
             oa_meta = openalex_meta.get(short_id) if short_id else None
-            url = meta.get("url") if meta else None
+            url = None
+            if meta:
+                url = meta.get("source_url") or meta.get("url")
+            if not url and oa_meta:
+                url = oa_meta.get("landing_page_url") or oa_meta.get("doi") or oa_meta.get("pdf_url")
             title = display_title(
                 (meta.get("title") if meta else None) or (oa_meta.get("title") if oa_meta else None),
                 url,
             )
             if title == "Untitled source":
                 title = path_name
-            cite_note = ""
-            if meta and meta.get("cited_by_count") is not None:
-                cite_note = (
-                    f" \\textit{{citations: {meta['cited_by_count']}}}"
-                    if output_format == "tex"
-                    else f" <small>citations: {meta['cited_by_count']}</small>"
-                )
-            elif oa_meta and oa_meta.get("cited_by_count") is not None:
-                cite_note = (
-                    f" \\textit{{citations: {oa_meta['cited_by_count']}}}"
-                    if output_format == "tex"
-                    else f" <small>citations: {oa_meta['cited_by_count']}</small>"
-                )
-            if url and isinstance(url, str) and url.startswith(("http://", "https://")):
-                if output_format == "tex":
-                    safe_title = latex_escape(str(title))
-                    source_link = latex_link(url, "source")
-                    file_link = latex_link(target, f"\\texttt{{{latex_escape(target)}}}")
-                    lines.append(f"\\item {safe_title} ({source_link}) --- {file_link}{cite_note}")
-                else:
-                    lines.append(f"{idx}. {title} ([source]({url})) — [file]({target}){cite_note}")
+            ref_payload: dict = {}
+            if meta:
+                ref_payload.update(meta)
+            if oa_meta:
+                ref_payload.setdefault("authors", extract_openalex_authors(oa_meta))
+                ref_payload.setdefault("journal", resolve_openalex_journal(oa_meta))
+                ref_payload.setdefault("published", resolve_openalex_published(oa_meta))
+                ref_payload.setdefault("cited_by_count", oa_meta.get("cited_by_count"))
+            ref_payload.setdefault("title", title)
+            if url:
+                ref_payload["url"] = url
+            item_text = format_reference_item(ref_payload, output_format)
+            pdf_path = ref_payload.get("pdf_path") if isinstance(ref_payload, dict) else None
+            if output_format == "tex":
+                file_link = latex_link(target, f"\\texttt{{{latex_escape(target)}}}")
+                parts = [item_text, file_link]
+                if pdf_path and pdf_path != target:
+                    parts.append(latex_link(pdf_path, "pdf"))
+                lines.append("\\item " + " --- ".join(parts))
             else:
-                if output_format == "tex":
-                    safe_title = latex_escape(str(title))
-                    file_link = latex_link(target, f"\\texttt{{{latex_escape(target)}}}")
-                    lines.append(f"\\item {safe_title} --- {file_link}{cite_note}")
-                else:
-                    lines.append(f"{idx}. {title} — [file]({target}){cite_note}")
+                parts = [item_text, f"[file]({target})"]
+                if pdf_path and pdf_path != target:
+                    parts.append(f"[pdf]({pdf_path})")
+                lines.append(f"{idx}. " + " — ".join(parts))
         else:
             meta = by_url.get(target)
-            title = display_title(meta.get("title") if meta else None, target)
-            cite_note = ""
-            if meta and meta.get("cited_by_count") is not None:
-                cite_note = (
-                    f" \\textit{{citations: {meta['cited_by_count']}}}"
-                    if output_format == "tex"
-                    else f" <small>citations: {meta['cited_by_count']}</small>"
-                )
+            payload = {"title": meta.get("title") if meta else None, "url": target}
+            if meta:
+                payload.update(meta)
+            item_text = format_reference_item(payload, output_format)
             if output_format == "tex":
-                safe_title = latex_escape(str(title))
-                lines.append(f"\\item {safe_title} --- {latex_link(target, 'link')}{cite_note}")
+                lines.append(f"\\item {item_text}")
             else:
-                lines.append(f"{idx}. {title} — [link]({target}){cite_note}")
+                lines.append(f"{idx}. {item_text}")
     if output_format == "tex":
         lines.append("\\end{enumerate}")
     return "\n".join(lines)
@@ -8398,6 +8606,8 @@ def run_pipeline(
                     handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
     report = feder_tools.normalize_math_expressions(report)
     report_body, citation_refs = rewrite_citations(report.rstrip(), output_format)
+    if output_format != "tex":
+        report_body = merge_orphan_citations(report_body)
     if figure_entries:
         report_body = insert_figures_by_section(report_body, figure_entries, output_format, report_dir, run_dir)
     report = report_body
@@ -8408,12 +8618,13 @@ def run_pipeline(
     refs = collect_references(archive_dir, run_dir, args.max_refs, supporting_dir)
     refs = filter_references(refs, report_prompt, evidence_notes, args.max_refs)
     openalex_meta = load_openalex_meta(archive_dir)
+    text_meta_index = build_text_meta_index(run_dir, archive_dir, supporting_dir)
     report = ensure_appendix_contents(report, output_format, refs, run_dir, notes_dir, language)
     if report_prompt:
         report = f"{report.rstrip()}{format_report_prompt_block(report_prompt, output_format)}"
     if clarification_questions and "no_questions" not in clarification_questions.lower():
         report = f"{report.rstrip()}{format_clarifications_block(clarification_questions, clarification_answers, output_format)}"
-    report = f"{report.rstrip()}{render_reference_section(citation_refs, refs, openalex_meta, output_format)}"
+    report = f"{report.rstrip()}{render_reference_section(citation_refs, refs, openalex_meta, output_format, text_meta_index)}"
     out_path = Path(args.output) if args.output else None
     final_path: Optional[Path] = None
     if out_path:

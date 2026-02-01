@@ -1,0 +1,8 @@
+- [tavily] 기본&배당(주식투자 영어 표현_배당 관련) : 네이버 블로그 — https://blog.naver.com/investing_200105/221770533781?viewType=pc (score=0.32)
+- [tavily] [미국주식투자]우선주 배당주 영어단어 정리 - 네이버 블로그 - NAVER — https://m.blog.naver.com/sence255/221792476472 (score=0.31)
+- [tavily] [퇴근길 투자 스터디] '수익·수익률' 영어로 어떻게 쓸까? - YouTube — https://www.youtube.com/watch?v=FExH3wif2nY (score=0.31)
+- [tavily] What is the meaning of "배당 주식"? - Question about Korean — https://hinative.com/questions/25244608 (score=0.31)
+- [tavily] 배당 in English - Korean-English Dictionary | Glosbe — https://glosbe.com/ko/en/%EB%B0%B0%EB%8B%B9 (score=0.31)
+- [tavily] 미국배당주 고르는 꿀팁 2가지!(feat. 미국배당용어) — https://www.kcie.or.kr/mobile/guide/2/13/web_view?series_idx=&content_idx=566 (score=0.30)
+- [tavily] Achieving Financial Freedom Through Dividend Investing! (f. Just ... — https://www.youtube.com/watch?v=TIQc_X9rP_Y (score=0.30)
+- [tavily] Stock dividend - KoreanLII — http://www.koreanlii.or.kr/w/index.php/Stock_dividend (score=0.30)

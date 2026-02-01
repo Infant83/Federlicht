@@ -155,6 +155,15 @@ class ReportOrchestrator:
         supporting_summary: Optional[str] = None
         alignment_max_chars = min(args.quality_max_chars, 8000)
         pack_limit = min(args.quality_max_chars, 6000)
+        report_prompt_limit = 4000 if pack_limit <= 0 else min(4000, pack_limit)
+        triage_limit = 3000 if pack_limit <= 0 else min(3000, max(1500, pack_limit // 2))
+        guidance_limit = triage_limit
+        supporting_limit = triage_limit
+        alignment_limit = 3000 if pack_limit <= 0 else min(3000, pack_limit)
+        clarification_limit = alignment_limit
+        triage_line_limit = 80
+        guidance_line_limit = 80
+        supporting_line_limit = 120
 
         def pack_text(text: str) -> str:
             return helpers.truncate_text(text, pack_limit)
@@ -323,11 +332,171 @@ class ReportOrchestrator:
             candidate = pdf_path.with_suffix(".txt")
             return candidate if candidate.exists() else None
 
+        tool_char_limit = int(getattr(args, "max_tool_chars", 0) or 0)
+        tool_chars_used = 0
+        reducer_chunk_chars = 4500
+        reducer_chunk_overlap = 200
+        reducer_max_chunk_summaries = 12
+        tool_cache_dir = notes_dir / "tool_cache"
+        tool_cache_dir.mkdir(parents=True, exist_ok=True)
+        reducer_runner: Optional[Callable[[str, str, int], str]] = None
+
+        def split_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
+            if chunk_size <= 0 or not text:
+                return [text]
+            chunks: list[str] = []
+            start = 0
+            size = max(1, chunk_size)
+            overlap = max(0, overlap)
+            while start < len(text):
+                end = min(len(text), start + size)
+                chunk = text[start:end]
+                if chunk.strip():
+                    chunks.append(chunk)
+                if end >= len(text):
+                    break
+                start = max(0, end - overlap)
+            return chunks
+
+        def reduce_text(
+            raw_text: str,
+            source_label: str,
+            max_chars: int,
+        ) -> str:
+            if not raw_text:
+                return raw_text
+            if not reducer_runner:
+                return helpers.truncate_text(raw_text, max_chars)
+            chunks = split_into_chunks(raw_text, reducer_chunk_chars, reducer_chunk_overlap)
+            if len(chunks) > reducer_max_chunk_summaries:
+                chunks = chunks[:reducer_max_chunk_summaries]
+            summaries: list[str] = []
+            total = len(chunks)
+            per_chunk_target = max(300, max_chars // max(1, total))
+            for idx, chunk in enumerate(chunks, start=1):
+                chunk_file = f"chunk_{idx:03d}.txt"
+                header = f"CHUNK {idx}/{total} [{chunk_file}] ({source_label})"
+                prompt = "\n".join([header, chunk])
+                summaries.append(reducer_runner(prompt, source_label, per_chunk_target))
+            if len(summaries) == 1:
+                summary = summaries[0]
+            else:
+                joined = "\n".join(summaries)
+                summary = reducer_runner(
+                    "\n".join(
+                        [
+                            f"CHUNK_SUMMARIES ({source_label})",
+                            joined,
+                            f"Target max chars: {max_chars}",
+                        ]
+                    ),
+                    source_label,
+                    max_chars,
+                )
+            return helpers.truncate_text(summary, max_chars)
+
+        def apply_tool_budget(payload: str, raw_text: str, source_label: str) -> str:
+            nonlocal tool_chars_used
+            if tool_char_limit <= 0:
+                return payload
+            remaining = tool_char_limit - tool_chars_used
+            if remaining <= 0:
+                return "[error] Tool output budget exhausted. Increase --max-tool-chars."
+            if len(payload) <= remaining:
+                tool_chars_used += len(payload)
+                return payload
+            note = "\n\n[truncated: tool output budget reached]"
+            if remaining > len(note) + 200:
+                base_allow = remaining - len(note)
+                header, _, body = payload.partition("\n\n")
+                chunks = split_into_chunks(body, reducer_chunk_chars, reducer_chunk_overlap)
+                cache_id = cache_key("tool_reduce", source_label, body)
+                artifact_dir = tool_cache_dir / f"read_{cache_id}"
+                artifact_dir.mkdir(parents=True, exist_ok=True)
+                raw_path = artifact_dir / "raw.txt"
+                raw_path.write_text(body, encoding="utf-8")
+                for idx, chunk in enumerate(chunks, start=1):
+                    (artifact_dir / f"chunk_{idx:03d}.txt").write_text(chunk, encoding="utf-8")
+                artifact_rel = ""
+                try:
+                    artifact_rel = artifact_dir.relative_to(run_dir).as_posix()
+                except Exception:
+                    artifact_rel = artifact_dir.as_posix()
+                artifact_note = f"\n\n[artifact] Original chunks: {artifact_rel}"
+                safe_allow = max(200, base_allow - len(header) - 2 - len(artifact_note))
+                reduced = reduce_text(body, source_label, safe_allow)
+                summary_path = artifact_dir / "summary.txt"
+                summary_path.write_text(reduced, encoding="utf-8")
+                meta = {
+                    "created_at": dt.datetime.now().isoformat(),
+                    "source": source_label,
+                    "raw_chars": len(body),
+                    "chunk_chars": reducer_chunk_chars,
+                    "chunk_overlap": reducer_chunk_overlap,
+                    "chunk_count": len(chunks),
+                    "artifact_dir": artifact_rel,
+                }
+                (artifact_dir / "meta.json").write_text(
+                    json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+                text = f"{header}\n\n{reduced}{artifact_note}{note}"
+            else:
+                text = helpers.truncate_text(payload, remaining)
+            tool_chars_used += len(text)
+            return text
+
+        def parse_verification_requests(text: str) -> list[tuple[str, str]]:
+            if not text:
+                return []
+            artifact_dirs = re.findall(r"\\[artifact\\] Original chunks: ([^\\s]+)", text)
+            latest_artifact = artifact_dirs[-1] if artifact_dirs else ""
+            requests: list[tuple[str, str]] = []
+            for line in text.splitlines():
+                if "NEEDS_VERIFICATION" not in line:
+                    continue
+                for chunk in re.findall(r"\\[chunk_(\\d{3})\\]", line):
+                    chunk_name = f"chunk_{chunk}.txt"
+                    if latest_artifact:
+                        requests.append((latest_artifact, chunk_name))
+            return requests
+
+        def read_verification_chunks(requests: list[tuple[str, str]], max_chars: int) -> str:
+            if not requests:
+                return ""
+            seen = set()
+            snippets: list[str] = []
+            budget = max(500, max_chars)
+            used = 0
+            for artifact_dir, chunk_name in requests:
+                key = (artifact_dir, chunk_name)
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    artifact_path = resolve_run_path(artifact_dir)
+                    chunk_path = artifact_path / chunk_name
+                    if not chunk_path.exists():
+                        continue
+                    content = read_text_file(chunk_path, 0, max(2000, budget))
+                except Exception:
+                    continue
+                header = f"[verified] {artifact_dir}/{chunk_name}"
+                entry = f"{header}\n{content}".strip()
+                remaining = budget - used
+                if remaining <= 0:
+                    break
+                if len(entry) > remaining:
+                    entry = helpers.truncate_text(entry, remaining)
+                snippets.append(entry)
+                used += len(entry)
+            return "\n\n".join(snippets)
+
         def read_document(
             rel_path: str,
             start: int = 0,
             max_chars: Optional[int] = None,
             max_pages: Optional[int] = None,
+            start_page: Optional[int] = None,
         ) -> str:
             """Read a file from the run folder (text/PDF) with optional slicing."""
             try:
@@ -337,20 +506,28 @@ class ReportOrchestrator:
             limit = args.max_chars if max_chars is None else max_chars
             if path.suffix.lower() == ".pdf":
                 page_limit = args.max_pdf_pages if max_pages is None else max_pages
+                page_start = 0 if start_page is None else max(0, start_page)
                 txt_path = resolve_pdf_text(path)
                 if txt_path:
                     text = normalize_rel_paths(read_text_file(txt_path, start, limit))
-                    return f"[from text] {txt_path.relative_to(run_dir).as_posix()}\n\n{text}"
+                    rel_label = txt_path.relative_to(run_dir).as_posix()
+                    payload = f"[from text] {rel_label}\n\n{text}"
+                    return apply_tool_budget(payload, text, rel_label)
                 pdf_text = helpers.read_pdf_with_fitz(
                     path,
                     page_limit,
                     limit,
+                    start_page=page_start,
                     auto_extend_pages=int(getattr(args, "pdf_extend_pages", 0) or 0),
                     extend_min_chars=int(getattr(args, "pdf_extend_min_chars", 0) or 0),
                 )
-                return f"[from pdf] {path.relative_to(run_dir).as_posix()}\n\n{pdf_text}"
+                rel_label = path.relative_to(run_dir).as_posix()
+                payload = f"[from pdf] {rel_label}\n\n{pdf_text}"
+                return apply_tool_budget(payload, pdf_text, rel_label)
             text = normalize_rel_paths(read_text_file(path, start, limit))
-            return f"[from text] {path.relative_to(run_dir).as_posix()}\n\n{text}"
+            rel_label = path.relative_to(run_dir).as_posix()
+            payload = f"[from text] {rel_label}\n\n{text}"
+            return apply_tool_budget(payload, text, rel_label)
 
         tools = [list_archive_files, list_supporting_files, read_document]
 
@@ -552,13 +729,127 @@ class ReportOrchestrator:
             ratio = 2 if helpers.is_korean_language(language) else 4
             return (len(text) + ratio - 1) // ratio
 
-        def resolve_writer_budget(max_tokens: Optional[int]) -> Optional[int]:
+        def resolve_stage_budget(
+            max_tokens: Optional[int],
+            reserve: int = 3000,
+            minimum: int = 2000,
+        ) -> Optional[int]:
             fallback = getattr(helpers, "DEFAULT_MAX_INPUT_TOKENS", None)
             budget = max_tokens or args.max_input_tokens or fallback
             if not budget:
                 return None
-            reserve = 8000
-            return max(10000, int(budget) - reserve)
+            return max(minimum, int(budget) - reserve)
+
+        def resolve_writer_budget(max_tokens: Optional[int]) -> Optional[int]:
+            return resolve_stage_budget(max_tokens, reserve=8000, minimum=10000)
+
+        def estimate_chars_for_tokens(token_budget: int) -> int:
+            ratio = 2 if helpers.is_korean_language(language) else 4
+            return max(0, token_budget * ratio)
+
+        def trim_lines(text: str, max_lines: Optional[int]) -> str:
+            if not text or not max_lines or max_lines <= 0:
+                return text or ""
+            lines = text.splitlines()
+            if len(lines) <= max_lines:
+                return text
+            return "\n".join(lines[:max_lines])
+
+        def make_section(
+            key: str,
+            header: Optional[str],
+            content: Optional[str],
+            priority: str = "medium",
+            base_limit: Optional[int] = None,
+            min_limit: int = 400,
+            max_lines: Optional[int] = None,
+        ) -> dict:
+            return {
+                "key": key,
+                "header": header,
+                "content": content or "",
+                "priority": priority,
+                "base_limit": base_limit,
+                "min_limit": min_limit,
+                "max_lines": max_lines,
+            }
+
+        def apply_section_limits(section: dict, ratio: float) -> None:
+            content = section.get("content") or ""
+            if not content:
+                return
+            max_lines = section.get("max_lines")
+            if max_lines:
+                content = trim_lines(content, max_lines)
+            base_limit = section.get("base_limit")
+            min_limit = section.get("min_limit", 400)
+            limit: Optional[int] = None
+            if base_limit:
+                limit = max(min_limit, int(base_limit * ratio))
+            elif ratio < 1.0:
+                limit = max(min_limit, int(len(content) * ratio))
+            if limit and len(content) > limit:
+                content = helpers.truncate_text(content, limit)
+            section["content"] = content
+
+        def build_payload(sections: list[dict]) -> str:
+            lines: list[str] = []
+            for section in sections:
+                content = section.get("content") or ""
+                if not content:
+                    continue
+                header = section.get("header")
+                if header:
+                    lines.extend(["", header, content])
+                else:
+                    lines.append(content)
+            return "\n".join(lines)
+
+        def build_stage_payload(
+            sections: list[dict],
+            budget: Optional[int],
+            fallback_map: Optional[dict[str, str]] = None,
+            force_fallback: bool = False,
+        ) -> tuple[str, bool, bool]:
+            for section in sections:
+                apply_section_limits(section, 1.0)
+            fallback_used = False
+            if fallback_map and force_fallback:
+                for section in sections:
+                    key = section.get("key")
+                    if key in fallback_map and fallback_map[key]:
+                        section["content"] = fallback_map[key]
+                        fallback_used = True
+                for section in sections:
+                    apply_section_limits(section, 1.0)
+            payload = build_payload(sections)
+            trimmed = fallback_used
+            if not budget or estimate_tokens(payload) <= budget:
+                return payload, trimmed, fallback_used
+            if fallback_map and not fallback_used:
+                for section in sections:
+                    key = section.get("key")
+                    if key in fallback_map and fallback_map[key]:
+                        section["content"] = fallback_map[key]
+                        fallback_used = True
+                if fallback_used:
+                    for section in sections:
+                        apply_section_limits(section, 1.0)
+                    payload = build_payload(sections)
+                    trimmed = True
+                    if estimate_tokens(payload) <= budget:
+                        return payload, trimmed, fallback_used
+            for priority in ("low", "medium", "high"):
+                for ratio in (0.7, 0.5, 0.35):
+                    for section in sections:
+                        if section.get("priority") == priority:
+                            apply_section_limits(section, ratio)
+                    payload = build_payload(sections)
+                    if estimate_tokens(payload) <= budget:
+                        return payload, True, fallback_used
+            max_chars = max(1000, estimate_chars_for_tokens(budget))
+            payload = helpers.truncate_text(payload, max_chars)
+            return payload, True, fallback_used
 
         def is_context_overflow(exc: Exception) -> bool:
             message = str(exc).lower()
@@ -939,6 +1230,35 @@ class ReportOrchestrator:
         if state and state.style_hint:
             style_hint = state.style_hint
 
+        reducer_prompt = helpers.resolve_agent_prompt(
+            "reducer",
+            prompts.build_reducer_prompt(language),
+            self._agent_overrides,
+        )
+        reducer_model = helpers.resolve_agent_model("reducer", check_model or args.model, self._agent_overrides)
+        reducer_max, reducer_max_source = agent_max_tokens("reducer")
+        reducer_agent = helpers.create_agent_with_fallback(
+            self._create_deep_agent,
+            reducer_model,
+            [],
+            reducer_prompt,
+            backend,
+            max_input_tokens=reducer_max,
+            max_input_tokens_source=reducer_max_source,
+        )
+
+        def run_reducer(prompt_text: str, source_label: str, max_chars: int) -> str:
+            target = max(200, max_chars)
+            payload = "\n".join([prompt_text, "", f"Target max chars: {target}"])
+            return self._runner.run(
+                "Reducer",
+                reducer_agent,
+                {"messages": [{"role": "user", "content": payload}]},
+                show_progress=False,
+            )
+
+        reducer_runner = run_reducer
+
         source_index = feder_tools.build_source_index(archive_dir, run_dir, supporting_dir)
         source_index_path = notes_dir / "source_index.jsonl"
         feder_tools.write_jsonl(source_index_path, source_index)
@@ -976,14 +1296,36 @@ class ReportOrchestrator:
             max_input_tokens=scout_max,
             max_input_tokens_source=scout_max_source,
         )
-        scout_input = list(context_lines)
+        scout_sections = [
+            make_section("context", None, "\n".join(context_lines), priority="high"),
+        ]
         if report_prompt:
-            scout_input.extend(["", "Report focus prompt:", report_prompt])
+            scout_sections.append(
+                make_section(
+                    "report_prompt",
+                    "Report focus prompt:",
+                    report_prompt,
+                    priority="high",
+                    base_limit=report_prompt_limit,
+                    min_limit=800,
+                )
+            )
         if source_triage_text:
-            scout_input.extend(["", "Source triage (lightweight):", source_triage_text])
+            scout_sections.append(
+                make_section(
+                    "source_triage",
+                    "Source triage (lightweight):",
+                    source_triage_text,
+                    priority="low",
+                    base_limit=triage_limit,
+                    min_limit=400,
+                    max_lines=triage_line_limit,
+                )
+            )
         scout_notes = ""
         if stage_enabled("scout"):
-            scout_payload = "\n".join(scout_input)
+            scout_budget = resolve_stage_budget(scout_max, reserve=3000, minimum=2000)
+            scout_payload, _, _ = build_stage_payload(scout_sections, scout_budget)
             scout_notes, cached = get_cached_output(
                 "scout",
                 scout_model,
@@ -1027,14 +1369,34 @@ class ReportOrchestrator:
                 max_input_tokens=clarifier_max,
                 max_input_tokens_source=clarifier_max_source,
             )
-            clarifier_input = list(context_lines)
-            clarifier_input.extend(["", "Scout notes:", scout_context])
+            clarifier_sections = [
+                make_section("context", None, "\n".join(context_lines), priority="high"),
+                make_section(
+                    "scout_notes",
+                    "Scout notes:",
+                    scout_context,
+                    priority="high",
+                    base_limit=pack_limit,
+                    min_limit=800,
+                ),
+            ]
             if report_prompt:
-                clarifier_input.extend(["", "Report focus prompt:", report_prompt])
+                clarifier_sections.append(
+                    make_section(
+                        "report_prompt",
+                        "Report focus prompt:",
+                        report_prompt,
+                        priority="high",
+                        base_limit=report_prompt_limit,
+                        min_limit=800,
+                    )
+                )
+            clarifier_budget = resolve_stage_budget(clarifier_max, reserve=3000, minimum=2000)
+            clarifier_payload, _, _ = build_stage_payload(clarifier_sections, clarifier_budget)
             clarification_questions = self._runner.run(
                 "Clarification Questions",
                 clarifier_agent,
-                {"messages": [{"role": "user", "content": "\n".join(clarifier_input)}]},
+                {"messages": [{"role": "user", "content": clarifier_payload}]},
                 show_progress=True,
             )
             record_stage("clarifier", "ran")
@@ -1129,23 +1491,80 @@ class ReportOrchestrator:
             max_input_tokens=plan_max,
             max_input_tokens_source=plan_max_source,
         )
-        plan_input = list(context_lines)
-        plan_input.extend(["", "Scout notes:", scout_context])
+        plan_sections = [
+            make_section("context", None, "\n".join(context_lines), priority="high"),
+            make_section(
+                "scout_notes",
+                "Scout notes:",
+                scout_context,
+                priority="high",
+                base_limit=pack_limit,
+                min_limit=800,
+            ),
+        ]
         if source_triage_text:
-            plan_input.extend(["", "Source triage (lightweight):", source_triage_text])
+            plan_sections.append(
+                make_section(
+                    "source_triage",
+                    "Source triage (lightweight):",
+                    source_triage_text,
+                    priority="low",
+                    base_limit=triage_limit,
+                    min_limit=400,
+                    max_lines=triage_line_limit,
+                )
+            )
         if align_scout:
-            plan_input.extend(["", "Alignment notes (scout):", align_scout])
+            plan_sections.append(
+                make_section(
+                    "align_scout",
+                    "Alignment notes (scout):",
+                    align_scout,
+                    priority="medium",
+                    base_limit=alignment_limit,
+                    min_limit=600,
+                )
+            )
         if template_guidance_text:
-            plan_input.extend(["", "Template guidance:", template_guidance_text])
+            plan_sections.append(
+                make_section(
+                    "template_guidance",
+                    "Template guidance:",
+                    template_guidance_text,
+                    priority="low",
+                    base_limit=guidance_limit,
+                    min_limit=400,
+                    max_lines=guidance_line_limit,
+                )
+            )
         if report_prompt:
-            plan_input.extend(["", "Report focus prompt:", report_prompt])
+            plan_sections.append(
+                make_section(
+                    "report_prompt",
+                    "Report focus prompt:",
+                    report_prompt,
+                    priority="high",
+                    base_limit=report_prompt_limit,
+                    min_limit=800,
+                )
+            )
         if clarification_answers:
-            plan_input.extend(["", "User clarifications:", clarification_answers])
+            plan_sections.append(
+                make_section(
+                    "clarification_answers",
+                    "User clarifications:",
+                    clarification_answers,
+                    priority="high",
+                    base_limit=clarification_limit,
+                    min_limit=800,
+                )
+            )
         plan_text = ""
         plan_context = ""
         align_plan = None
         if stage_enabled("plan"):
-            plan_payload = "\n".join(plan_input)
+            plan_budget = resolve_stage_budget(plan_max, reserve=3000, minimum=2000)
+            plan_payload, _, _ = build_stage_payload(plan_sections, plan_budget)
             plan_text, cached = get_cached_output(
                 "plan",
                 plan_model,
@@ -1200,14 +1619,42 @@ class ReportOrchestrator:
                 max_input_tokens=web_max,
                 max_input_tokens_source=web_max_source,
             )
-            web_input = list(context_lines)
-            web_input.extend(["", "Scout notes:", scout_context, "", "Plan:", plan_context])
+            web_sections = [
+                make_section("context", None, "\n".join(context_lines), priority="high"),
+                make_section(
+                    "scout_notes",
+                    "Scout notes:",
+                    scout_context,
+                    priority="high",
+                    base_limit=pack_limit,
+                    min_limit=800,
+                ),
+                make_section(
+                    "plan",
+                    "Plan:",
+                    plan_context,
+                    priority="high",
+                    base_limit=pack_limit,
+                    min_limit=800,
+                ),
+            ]
             if report_prompt:
-                web_input.extend(["", "Report focus prompt:", report_prompt])
+                web_sections.append(
+                    make_section(
+                        "report_prompt",
+                        "Report focus prompt:",
+                        report_prompt,
+                        priority="high",
+                        base_limit=report_prompt_limit,
+                        min_limit=800,
+                    )
+                )
+            web_budget = resolve_stage_budget(web_max, reserve=3000, minimum=2000)
+            web_payload, _, _ = build_stage_payload(web_sections, web_budget)
             web_text = self._runner.run(
                 "Web Query Draft",
                 web_agent,
-                {"messages": [{"role": "user", "content": "\n".join(web_input)}]},
+                {"messages": [{"role": "user", "content": web_payload}]},
                 show_progress=False,
             )
             web_queries = helpers.parse_query_lines(web_text, args.web_max_queries)
@@ -1287,24 +1734,107 @@ class ReportOrchestrator:
                 max_input_tokens=evidence_max,
                 max_input_tokens_source=evidence_max_source,
             )
-            evidence_parts = list(context_lines)
-            evidence_parts.extend(["", "Scout notes:", scout_context])
-            evidence_parts.extend(["", "Plan:", plan_context])
+            evidence_sections = [
+                make_section("context", None, "\n".join(context_lines), priority="high"),
+                make_section(
+                    "scout_notes",
+                    "Scout notes:",
+                    scout_context,
+                    priority="high",
+                    base_limit=pack_limit,
+                    min_limit=800,
+                ),
+                make_section(
+                    "plan",
+                    "Plan:",
+                    plan_context,
+                    priority="high",
+                    base_limit=pack_limit,
+                    min_limit=800,
+                ),
+            ]
             if source_triage_text:
-                evidence_parts.extend(["", "Source triage (lightweight):", source_triage_text])
+                evidence_sections.append(
+                    make_section(
+                        "source_triage",
+                        "Source triage (lightweight):",
+                        source_triage_text,
+                        priority="low",
+                        base_limit=triage_limit,
+                        min_limit=400,
+                        max_lines=triage_line_limit,
+                    )
+                )
             if align_plan:
-                evidence_parts.extend(["", "Alignment notes (plan):", align_plan])
+                evidence_sections.append(
+                    make_section(
+                        "align_plan",
+                        "Alignment notes (plan):",
+                        align_plan,
+                        priority="medium",
+                        base_limit=alignment_limit,
+                        min_limit=600,
+                    )
+                )
             if template_guidance_text:
-                evidence_parts.extend(["", "Template guidance:", template_guidance_text])
+                evidence_sections.append(
+                    make_section(
+                        "template_guidance",
+                        "Template guidance:",
+                        template_guidance_text,
+                        priority="low",
+                        base_limit=guidance_limit,
+                        min_limit=400,
+                        max_lines=guidance_line_limit,
+                    )
+                )
             if report_prompt:
-                evidence_parts.extend(["", "Report focus prompt:", report_prompt])
+                evidence_sections.append(
+                    make_section(
+                        "report_prompt",
+                        "Report focus prompt:",
+                        report_prompt,
+                        priority="high",
+                        base_limit=report_prompt_limit,
+                        min_limit=800,
+                    )
+                )
             if clarification_questions and "no_questions" not in clarification_questions.lower():
-                evidence_parts.extend(["", "Clarification questions:", clarification_questions])
+                evidence_sections.append(
+                    make_section(
+                        "clarification_questions",
+                        "Clarification questions:",
+                        clarification_questions,
+                        priority="medium",
+                        base_limit=clarification_limit,
+                        min_limit=600,
+                    )
+                )
             if clarification_answers:
-                evidence_parts.extend(["", "User clarifications:", clarification_answers])
+                evidence_sections.append(
+                    make_section(
+                        "clarification_answers",
+                        "User clarifications:",
+                        clarification_answers,
+                        priority="high",
+                        base_limit=clarification_limit,
+                        min_limit=800,
+                    )
+                )
             if supporting_summary:
-                evidence_parts.extend(["", "Supporting web research summary:", supporting_summary])
-            evidence_input = "\n".join(evidence_parts)
+                evidence_sections.append(
+                    make_section(
+                        "supporting_summary",
+                        "Supporting web research summary:",
+                        supporting_summary,
+                        priority="low",
+                        base_limit=supporting_limit,
+                        min_limit=400,
+                        max_lines=supporting_line_limit,
+                    )
+                )
+            evidence_budget = resolve_stage_budget(evidence_max, reserve=3000, minimum=2000)
+            evidence_input, _, _ = build_stage_payload(evidence_sections, evidence_budget)
             evidence_notes, cached = get_cached_output(
                 "evidence",
                 evidence_model,
@@ -1327,6 +1857,20 @@ class ReportOrchestrator:
                 )
             (notes_dir / "evidence_notes.md").write_text(evidence_notes, encoding="utf-8")
             align_evidence = run_alignment_check("evidence", evidence_notes)
+            verification_requests = parse_verification_requests(evidence_notes)
+            if verification_requests:
+                verify_limit = min(args.quality_max_chars, 6000)
+                verified = read_verification_chunks(verification_requests, verify_limit)
+                if verified:
+                    evidence_notes = "\n".join(
+                        [
+                            evidence_notes.rstrip(),
+                            "",
+                            "Verification excerpts:",
+                            verified,
+                        ]
+                    )
+                    (notes_dir / "evidence_notes.md").write_text(evidence_notes, encoding="utf-8")
 
             if stage_enabled("plan_check"):
                 plan_check_prompt = helpers.resolve_agent_prompt(
@@ -1490,44 +2034,154 @@ class ReportOrchestrator:
             max_input_tokens=writer_max,
             max_input_tokens_source=writer_max_source,
         )
-        def build_writer_input(evidence_payload: str) -> str:
-            parts = list(context_lines)
-            parts.extend(["", "Evidence notes:", evidence_payload])
-            parts.extend(["", "Updated plan:", plan_for_writer])
+        plan_limit = pack_limit if pack_limit > 0 else 6000
+
+        def build_writer_sections(evidence_payload: str) -> list[dict]:
+            sections = [
+                make_section("context", None, "\n".join(context_lines), priority="high"),
+                make_section(
+                    "evidence",
+                    "Evidence notes:",
+                    evidence_payload,
+                    priority="high",
+                    base_limit=None,
+                    min_limit=1000,
+                ),
+                make_section(
+                    "plan",
+                    "Updated plan:",
+                    plan_for_writer,
+                    priority="high",
+                    base_limit=plan_limit,
+                    min_limit=800,
+                ),
+            ]
             if source_triage_text:
-                parts.extend(["", "Source triage (lightweight):", source_triage_text])
+                sections.append(
+                    make_section(
+                        "source_triage",
+                        "Source triage (lightweight):",
+                        source_triage_text,
+                        priority="low",
+                        base_limit=triage_limit,
+                        min_limit=400,
+                        max_lines=triage_line_limit,
+                    )
+                )
             if is_deep:
                 if claim_map_text:
-                    parts.extend(["", "Claim map (lightweight):", claim_map_text])
+                    sections.append(
+                        make_section(
+                            "claim_map",
+                            "Claim map (lightweight):",
+                            claim_map_text,
+                            priority="medium",
+                            base_limit=guidance_limit,
+                            min_limit=400,
+                        )
+                    )
                 if gap_text:
-                    parts.extend(["", "Gap summary (lightweight):", gap_text])
+                    sections.append(
+                        make_section(
+                            "gap_summary",
+                            "Gap summary (lightweight):",
+                            gap_text,
+                            priority="medium",
+                            base_limit=guidance_limit,
+                            min_limit=400,
+                        )
+                    )
             if align_evidence:
-                parts.extend(["", "Alignment notes (evidence):", align_evidence])
+                sections.append(
+                    make_section(
+                        "align_evidence",
+                        "Alignment notes (evidence):",
+                        align_evidence,
+                        priority="medium",
+                        base_limit=alignment_limit,
+                        min_limit=600,
+                    )
+                )
             if template_guidance_text:
-                parts.extend(["", "Template guidance:", template_guidance_text])
+                sections.append(
+                    make_section(
+                        "template_guidance",
+                        "Template guidance:",
+                        template_guidance_text,
+                        priority="low",
+                        base_limit=guidance_limit,
+                        min_limit=400,
+                        max_lines=guidance_line_limit,
+                    )
+                )
             if style_hint:
-                parts.extend(["", style_hint])
+                sections.append(
+                    make_section(
+                        "style_hint",
+                        None,
+                        style_hint,
+                        priority="high",
+                        base_limit=400,
+                        min_limit=200,
+                    )
+                )
             if report_prompt:
-                parts.extend(["", "Report focus prompt:", report_prompt])
+                sections.append(
+                    make_section(
+                        "report_prompt",
+                        "Report focus prompt:",
+                        report_prompt,
+                        priority="high",
+                        base_limit=report_prompt_limit,
+                        min_limit=800,
+                    )
+                )
             if clarification_questions and "no_questions" not in clarification_questions.lower():
-                parts.extend(["", "Clarification questions:", clarification_questions])
+                sections.append(
+                    make_section(
+                        "clarification_questions",
+                        "Clarification questions:",
+                        clarification_questions,
+                        priority="medium",
+                        base_limit=clarification_limit,
+                        min_limit=600,
+                    )
+                )
             if clarification_answers:
-                parts.extend(["", "User clarifications:", clarification_answers])
+                sections.append(
+                    make_section(
+                        "clarification_answers",
+                        "User clarifications:",
+                        clarification_answers,
+                        priority="high",
+                        base_limit=clarification_limit,
+                        min_limit=800,
+                    )
+                )
             if supporting_summary:
-                parts.extend(["", "Supporting web research summary:", supporting_summary])
-            return "\n".join(parts)
+                sections.append(
+                    make_section(
+                        "supporting_summary",
+                        "Supporting web research summary:",
+                        supporting_summary,
+                        priority="low",
+                        base_limit=supporting_limit,
+                        min_limit=400,
+                        max_lines=supporting_line_limit,
+                    )
+                )
+            return sections
 
         condensed_evidence = condensed or helpers.truncate_text(evidence_notes, pack_limit)
-        writer_input = build_writer_input(evidence_for_writer)
-        condensed_applied = False
         writer_budget = resolve_writer_budget(writer_max)
-        if writer_budget and estimate_tokens(writer_input) > writer_budget:
-            condensed_applied = True
-            evidence_for_writer = condensed_evidence
-            writer_input = build_writer_input(evidence_for_writer)
-            if estimate_tokens(writer_input) > writer_budget:
-                evidence_for_writer = helpers.truncate_text(evidence_for_writer, max(1000, pack_limit // 2))
-                writer_input = build_writer_input(evidence_for_writer)
+        condensed_ready = bool(condensed_evidence and evidence_for_writer == condensed_evidence)
+        writer_sections = build_writer_sections(evidence_for_writer)
+        writer_input, _, fallback_used = build_stage_payload(
+            writer_sections,
+            writer_budget,
+            fallback_map={"evidence": condensed_evidence} if condensed_evidence else None,
+        )
+        condensed_applied = fallback_used or condensed_ready
         try:
             report = self._runner.run(
                 "Writer Draft",
@@ -1537,8 +2191,13 @@ class ReportOrchestrator:
             )
         except Exception as exc:
             if not condensed_applied and is_context_overflow(exc):
-                evidence_for_writer = condensed_evidence
-                writer_input = build_writer_input(evidence_for_writer)
+                writer_sections = build_writer_sections(condensed_evidence or evidence_for_writer)
+                writer_input, _, _ = build_stage_payload(
+                    writer_sections,
+                    writer_budget,
+                    fallback_map={"evidence": condensed_evidence} if condensed_evidence else None,
+                    force_fallback=True,
+                )
                 report = self._runner.run(
                     "Writer Draft",
                     writer_agent,

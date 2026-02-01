@@ -1,0 +1,9 @@
+[2026-02-01 14:19:52] JOB START: 배당주투자법.txt date=2026-02-01 days=365 max_results=8
+[2026-02-01 14:19:52] TAVILY EXTRACT: https://blog.naver.com/yminsong/223619967783?viewType=pc
+[2026-02-01 14:20:04] TAVILY EXTRACT: https://riie.jbnu.ac.kr/sites/riie/down/paper/2011331.pdf
+[2026-02-01 14:20:08] WEB PDF DOWNLOAD: https://riie.jbnu.ac.kr/sites/riie/down/paper/2011331.pdf -> 2011331.pdf
+[2026-02-01 14:20:08] PDF->TEXT: 2011331.pdf
+[2026-02-01 14:20:09] TAVILY SEARCH: 배당주 투자법 (English)
+[2026-02-01 14:20:14] YOUTUBE SEARCH SKIP: no youtube hint or explicit site:youtube.com queries
+[2026-02-01 14:20:14] OPENALEX SEARCH: 배당주 투자법
+[2026-02-01 14:20:15] JOB END

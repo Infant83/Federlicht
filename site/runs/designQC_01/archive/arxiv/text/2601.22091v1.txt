@@ -1,0 +1,1725 @@
+
+
+===== PAGE 1 =====
+Designing quantum technologies with a quantum computer
+Juan Naranjo1
+, Thi Ha Kyaw1
+,∗Gaurav Saxena1
+, Kevin Ferreira1, and Jack S. Baker1
+†
+1LG Electronics Toronto AI Lab
+(Dated: January 30, 2026)
+Interacting spin systems in solids underpin a wide range of quantum technologies, from quantum
+sensors and single-photon sources to spin-defect-based quantum registers and processors. We develop
+a quantum-computer-aided framework for simulating such devices using a general electron spin
+resonance Hamiltonian incorporating zero-field splitting, the Zeeman effect, hyperfine interactions,
+dipole-dipole spin-spin terms, and electron-phonon decoherence. Within this model, we combine
+Gray-encoded qudit-to-qubit mappings, qubit-wise commuting aggregation, and a multi-reference
+selected quantum Krylov fast-forwarding (sQKFF) hybrid algorithm to access long-time dynamics
+while remaining compatible with NISQ and early fault-tolerant hardware constraints. Numerical
+simulations demonstrate the computation of autocorrelation functions up to ∼100 ns, together
+with microwave absorption spectra and the ℓ1-norm of coherence, achieving 18-30% reductions
+in gate counts and circuit depth for Trotterized time-evolution circuits compared to unoptimized
+implementations. Using the nitrogen vacancy center in diamond as a testbed, we benchmark the
+framework against classical simulations and identify the reference-state selection in sQKFF as the
+primary factor governing accuracy at fixed hardware cost. This methodology provides a flexible
+blueprint for using quantum computers to design, compare, and optimize solid-state spin-qubit
+technologies under experimentally realistic conditions.
+I.
+INTRODUCTION
+Solid state materials embedded with spin-active de-
+fects are increasingly attracting attention for their po-
+tential applications as quantum sensors, single-photon
+sources, quantum processors and more. The search for
+new spin defects and suitable host materials is an ac-
+tive area of research, where candidate systems must al-
+low for precise manipulation and readout and permit long
+coherence times [1–4]. Among these systems, nitrogen-
+vacancy (NV) centers have emerged as a leading plat-
+form due to their long coherence, dephasing, and relax-
+ation times, which can be further extended through tech-
+niques such as Ramsey and Hahn echo sequences [5, 6].
+Nevertheless, the complex spin–environment interactions
+and internal spin couplings pose significant challenges for
+classical modeling and analysis [7, 8]. Digital quantum
+computer-aided design [9, 10] offers a promising alter-
+native, enabling the investigation of essential properties,
+such as the coherence times of arbitrary states, the study
+of system dynamics under realistic experimental condi-
+tions, and the numerous useful properties which may
+be computed using these dynamics, including absorption
+spectra and more.
+More broadly, the simulation of quantum systems [11]
+stands as one of the most promising applications of
+quantum computing, alongside drug discovery [12, 13],
+communications [14, 15], optimization [16, 17], machine
+learning [18–20], and cryptography [21, 22]. Neverthe-
+less, current quantum technologies still operate within
+the Noisy Intermediate-Scale Quantum (NISQ) era, tran-
+sitioning toward early fault-tolerant devices, where lim-
+∗thiha.kyaw@lge.com
+† jack.baker@lge.com
+ited resources and intrinsic noise constrain hardware
+[23, 24]. Therefore, a central research direction is the de-
+velopment of efficient algorithms that can approximate
+the time evolution of quantum systems while minimizing
+the required computational resources. Key optimization
+metrics include the number of single- and multi-qubit
+gates, qubit counts, and circuit depth, thereby mitigating
+restrictions imposed by various sources of noise [25, 26].
+Spin Hamiltonians serve as coarse-grained models in
+chemistry and materials science, capturing collective
+magnetic interactions in a simplified form.
+When cal-
+ibrated with accurate parameters, such effective mod-
+els can reproduce complex phenomena, yet they remain
+many-body in nature and are generally intractable for
+classical computation.
+A prominent example is the
+nuclear magnetic resonance (NMR) spin Hamiltonian,
+which has become a focus of recent quantum simulation
+efforts on gate-based processors.
+A recent demonstra-
+tion of quantum advantage, for instance, demonstrated
+that simulation of higher-order out-of-time-ordered cor-
+relators (OTOCs) is likely beyond the reach of classi-
+cal supercomputers [27]. They later showed that OTOC
+data harvested from NMR experiments in what they call
+many-body nuclear spin echo sequences may be used
+to train parameterized OTOC in an NMR Hamiltonian
+learning setup to extract molecular geometric informa-
+tion [28, 29].
+While NMR-type models have provided
+a valuable testbed for quantum simulation, the electron
+spin resonance (ESR) Hamiltonian, which we explore in
+this work, extends this paradigm by incorporating both
+electronic and nuclear spins along with spin–phonon in-
+teractions.
+Together, our approach describes a collection of inter-
+acting spin defects distributed inside a real solid with
+vibrational degrees of freedom. This class of ESR spin-
+defect models, which underpins platforms like the NV
+arXiv:2601.22091v1  [quant-ph]  29 Jan 2026
+
+
+===== PAGE 2 =====
+2
+N
+V
+Spin defects
+Single photon
+sources
+QPU
+design
+CPU
+a)
+Quantum
+System
+b)
+QWC
+Aggregation
+Solve
+c)
+Gate
+Count
+Hadamard
+CNOT
+T
+d)
+Microwave absorption
+spectrum
+FIG. 1. The quantum computer-aided design framework proposed in this work. The process begins by defining a
+quantum system (a) by specifying spin-defect species, the host material, the presence of nuclear spin species, applied
+magnetic fields, and the geometry of the spin ensemble (configurations 1, 2, and 3 in Table I are examples of such a
+specification). Next, the system Hamiltonian is constructed, with its parameters obtained either computationally or
+experimentally, as depicted in (b). With the Hamiltonian defined, the sQKFF algorithm can be executed by specifying
+the system’s initial state. (c) is divided into two parts: the quantum component, which computes the elements of the
+H and S matrices via Hadamard tests and performs the optimization step through QWC aggregation; and the classical
+component, which solves the Schr¨odinger equation within the Krylov subspace. Finally, as shown in (d), the outputs
+of (c) enable the estimation of quantum resource requirements and the computation of key system properties such as
+the system’s autocorrelation function, microwave absorption spectrum, and time-dependent ℓ1-norm of coherence of
+other dynamics-derived properties.
+center, has received comparatively little attention in the
+quantum simulation literature despite its application to
+realistic quantum technologies. Only very recently have
+studies begun exploring quantum algorithms for simu-
+lating spin defects in solids [30–32], often by tackling
+the full electronic structure problem (or a reduced elec-
+tronic structure problem by utilizing embedding theories
+[33, 34]) at great computational cost. By contrast, focus-
+ing on an ESR Hamiltonian with an effective spin–boson
+coupling, as we do in this work, is far more economi-
+cal in quantum resources than treating electron–phonon
+interactions from first principles, yet can retain the es-
+sential physics needed to design and optimize spin-based
+quantum technologies.
+In this work, we present a framework for simulat-
+ing and characterizing spin defects in solid-state mate-
+rials, enabling deeper analysis of current experimental
+platforms and exploration of new candidates for next-
+generation quantum technologies. As illustrated in Fig.
+1, the methodology integrates techniques optimized for
+computational efficiency on existing quantum hardware
+and is validated across three distinct NV−center con-
+figurations.
+The procedure begins by defining a spin
+defect system in a particular material, whose Hamil-
+tonian parameters are either taken from experimental
+data or computed using classical methods on a high
+performance computer.
+We then encode the system’s
+Hamiltonian into a spin-1/2 representation for time-
+evolution simulation and computation of relevant prop-
+erties. However, operational quantities such as coherence
+and dephasing times manifest over long timescales, from
+nanoseconds to microseconds [5], making conventional
+approaches such as the Trotter–Suzuki decomposition
+computationally unfeasible [35]. Hybrid algorithms have
+
+
+===== PAGE 3 =====
+3
+Configuration
+1
+2
+3
+Specific
+parameters
+- 1 NV−centre
+- |φ⟩=
+1
+√
+2 (|0⟩+ |2⟩)
+- 3 NV−centres
+- |φ⟩=
+1
+√
+2 (|000⟩+ |222⟩)
+- 1 NV−centre
+- 2 N 14 impurities
+- |φ⟩=
+1
+√
+2 (|0⟩+ |2⟩)
+Common
+parameters
+- Magnetic field of 2 mT in the z direction
+- Boson bath of dimension 8, with a single frequency mode of 5.8 GHz
+- Spin-boson coupling intensity of 1.78 GHz and coupling operator Sx
+- Initial state of the bath: Ry
+  π
+2
+
+⊗Ry
+  π
+4
+
+⊗Ry
+  π
+8
+
+|000⟩
+- Initial state of each NV−nuclear spin and/or N 14 impurity: |0⟩
+TABLE I. Parameters of the three NV−centre configurations and their interactions. |φ⟩denotes the initial state of
+the electronic spin of the NV−centres, with |2⟩≡|ms = +1⟩. In configurations 2 and 3, the three components, NV−s
+and/or N 14 impurities, are arranged at the vertices of an equilateral triangle with a side length of 1 nm.
+emerged to address this limitation by fast-forwarding
+time evolution with fewer resources [36–40].
+Among
+them, the multi-reference, selected Quantum Krylov Fast-
+Forwarding (sQKFF) algorithm [41] offers a practical ap-
+proach by extending its dependence from the simulated
+time to the number of reference states used to approx-
+imate long-time dynamics, while significantly reducing
+key metrics such as gate count and circuit depth. Our
+framework further integrates an optimization stage based
+on qubit-wise commuting (QWC) aggregation [42, 43],
+which improves the reduction of resource requirements.
+The remainder of this work is organized as follows.
+Section II provides a detailed explanation of each step of
+the proposed framework, including key methodological
+considerations and descriptions of the NV−configura-
+tions used in numerical simulation. Section III presents
+the results, focusing on the comparison between proper-
+ties approximated using both the sQKFF algorithm and
+QuTiP, including an analysis of the influence of vary-
+ing the Trotterization error and the number of reference
+states, R, in the sQKFF algorithm.
+Resource estima-
+tions are presented in this section. Section IV discusses
+additional factors that may affect the results and outlines
+potential directions for future research. Finally, Section
+V summarizes the main findings and conclusions of this
+work.
+II.
+METHODS
+A.
+Hamiltonian Models for Spin-Defects
+Simulations.
+To ensure simulations closely resemble experimental
+conditions, and thus support the prototyping of spin de-
+fects in solid-state materials, the framework incorporates
+a range of relevant interactions: from operational ones,
+such as the coupling to external magnetic fields, to envi-
+ronmental effects including lattice vibrations and nearby
+spin impurities. In addition, recent lines of investigation
+are moving towards designing Hamiltonians of materi-
+als with desired properties [44], which, if expressed in
+terms of Pauli strings, can also be simulated with the
+present framework. A detailed discussion of the Hamil-
+tonian terms used in this work can be found in [5, 7, 45].
+In the remainder of this section, we present the Hamil-
+tonian for a system of interacting NV−spin defects. The
+same form applies to other spin-defect platforms and host
+materials, with the appropriate choice of Hamiltonian pa-
+rameters. To describe the dynamics of a system with N
+NV−centers, the zero-field splitting and Zeeman terms,
+ˆHS = ¯hD
+N
+X
+i=1
+ˆS2
+z,i + gNV µB ⃗B ·
+N
+X
+i=1
+⃗Si,
+(1)
+are included.
+These describe the electronic spins’ in-
+teraction with an external magnetic field ⃗B.
+Here,
+D = 2.87 GHz denotes the zero-field splitting parameter,
+gNV = 2.003 the NV g-factor, µB the Bohr magneton,
+and ⃗Si = [Sx,i, Sy,i, Sz,i] the electronic spin-1 operator of
+the i-th NV−center [5, 46].
+The hyperfine interaction between the electronic spin
+and the 14N nuclear spin of the NV−centers is described
+by
+ˆHN = gNµN ⃗B ·
+N
+X
+i=1
+⃗Ii + ¯h
+N
+X
+i=1
+
+A∥ˆSz,i ˆIz,i + A⊥
+
+ˆSx,i ˆIx,i + ˆSy,i ˆIy,i
+
++ Q
+
+ˆI2
+z,i −2
+3
+ˆ1
+
+,
+(2)
+with gN = 0.403573 the nuclear g-factor, µN the nu-
+clear magneton, A∥= −2.16 MHz and A⊥= −2.7 MHz
+the axial and transverse hyperfine coupling constants,
+
+
+===== PAGE 4 =====
+4
+N
+V
+N
+V
+N
+V
+N
+V
+N
+V
+Configuration 1
+Configuration 2
+Configuration 3
+FIG. 2. Layout of the three configurations of NV −cen-
+ters, represented as yellow and red elements, and 14N
+impurities, represented as purple elements.
+Q = 5 MHz the nuclear electric quadrupole parameter,
+and ⃗Ii = [Ix,i, Iy,i, Iz,i] the spin-1 operator of the i-th
+NV−center’s 14N nucleus [5, 46, 47]. Note that the Zee-
+man and quadrupole terms in Eq. 2 correspond to the
+dynamics of a 14N impurity within the lattice.
+Since one of the primary sources of decoherence in spin
+defects arises from coupling to lattice vibrations, an in-
+teraction modeled through the spin–boson Hamiltonian
+ˆHB = ¯hωˆb†ˆb + ¯hλ
+N
+X
+i=1
+ˆSx,i ⊗
+
+ˆb† + ˆb
+
+,
+(3)
+where ω is the phonon mode frequency, λ the coupling
+strength, and b, b† the annihilation and creation oper-
+ators. Notice that Eq. 3 corresponds to a boson bath
+with a single vibration mode coupled to all NV−centers.
+This Hamiltonian can be extended to include boson baths
+with multiple vibration modes that can be coupled to
+various spin elements within the considered layout. An
+additional source of decoherence is nearby spins, such as
+other NV−centers’ electronic spins or 14N impurities’
+spins. This interaction is captured via the dipole–dipole
+Hamiltonian, described by
+ˆHdd = µ0α1α2
+4πr3
+h
+⃗S1 · ⃗S2 −3
+
+⃗S1 · ˆr
+ 
+⃗S2 · ˆr
+i
+,
+(4)
+with µ0 the vacuum permeability; then, for each spin 1
+and 2: α the product of their respective g-factor and
+magneton, and ⃗S is their spin operator. These spins are
+separated by an r distance, with ˆr the unitary direction
+vector.
+Evidently, a wide range of possible configurations ex-
+ists within each platform, even within the specific case of
+NV−centers, and our framework is designed to be appli-
+cable across all such scenarios. As a testbed for analyz-
+ing the influence of each interaction and enabling cross-
+comparison, three distinct NV−configurations were sim-
+ulated using the proposed framework, with their param-
+eters summarized in Tab. I and their layouts sketched in
+Fig. 2. To enable efficient simulation, the d-level Hamil-
+tonians are mapped into a spin-1/2 representation us-
+ing Gray encoding, yielding a qubit count that scales as
+⌈log2(d)⌉[48].
+B.
+Qubit-wise Commuting Partitioning and Circuit
+Optimization
+The resulting Hamiltonian, ˆH, expressed as a sum of
+Pauli strings, is partitioned into qubit-wise commuting
+(QWC) groups. In each group, all terms commute within
+corresponding qubit subspaces, allowing a set of single-
+qubit Clifford rotations to simultaneously diagonalize the
+group [42, 43]. This property is particularly useful when
+implementing time evolution via Trotterization, as it en-
+ables the use of canonical circuits for exponentiating the
+diagonal Pauli strings [48].
+The grouping further al-
+lows optimal reordering of exponentials, so that adjacent
+adjoint operations cancel, effectively reducing both the
+number of gates and the overall circuit depth.
+C.
+The sQKFF algorithm
+Once an efficient way to approximate the time evolu-
+tion operator is determined, the sQKFF algorithm can be
+applied. It yields an approximation of the time-evolved
+state given by
+|ψ(t)⟩= e−it ˆ
+H/¯h |ψ0⟩≈
+M−1
+X
+m=0
+R
+X
+r=1
+cmr(t) |ϕmr⟩,
+(5)
+with |ψ0⟩the initial state, cmr a time-dependent com-
+plex coefficient, and |ϕmr⟩a reference state.
+This ap-
+proximation constructs the M-order Krylov subspace
+with a number R of reference states.
+These refer-
+ence states have the form |ϕmr⟩= e−imτ ˆ
+H |r⟩, where
+|r⟩∈{|ψ0⟩, |B1⟩, · · · , |BR−1⟩}, and each Br denotes a
+bitstring reference state, obtained by measuring the state
+e−i(M−1)τ ˆ
+H |ψ0⟩and selected according to its measure-
+ment probability.
+Replacing Eq.
+5 into Schr¨odinger’s
+equation and multiplying both sides by ⟨ϕm′r′| yields
+i¯hS ∂
+∂t c = Hc,
+(6)
+where S and H are MR × MR matrices with elements
+⟨ϕm′r′|ϕmr⟩and
+D
+ϕm′r′
+ ˆH
+ϕmr
+E
+, respectively, and c is
+a MR × 1 coefficient vector. Since the reference states
+|ϕmr⟩are defined using the exact time-evolution opera-
+tor, which commutes with ˆH and satisfies eit′ ˆ
+He−it ˆ
+H =
+
+
+===== PAGE 5 =====
+5
+101
+102
+103
+10−4
+10−3
+10−2
+10−1
+100
+101
+M = 5
+101
+102
+103
+10−4
+10−3
+10−2
+10−1
+100
+101
+0.41858
+0.09392
+0.01922
+M = 10
+101
+102
+103
+10−4
+10−3
+10−2
+10−1
+100
+101
+M = 15
+Order
+1st
+2nd
+4th
+6th
+8th
+εT
+Number of Trotterization steps
+FIG. 3. Trotterization error εT , bounded with the Hamiltonian’s 1-norm ∥ˆH∥1, as a function of the number of Trotter
+steps, shown for different values of M: the Krylov subspace order.
+e−i(t−t′) ˆ
+H, a Toeplitz structure for S and H can be con-
+sidered, which reduces the total number of matrix ele-
+ments to be estimated to ≈MR + 1
+2 (2M −1) (R −1) R.
+The form of these elements is
+Sm′r′, mr =
+D
+r′e−i(m−m′)τ ˆ
+Hr
+E
+Hm′r′, mr =
+D
+r′ ˆHe−i(m−m′)τ ˆ
+Hr
+E
+.
+(7)
+Solving Eq. 6 is the classical component of the algo-
+rithm, while the quantum component consists of evalu-
+ating the matrix elements of S and H from Eq. 7, which
+in this work were computed using Hadamard tests with
+second-order Trotterizations to approximate the time-
+evolution operator.
+Cort´es and Gray [49] provide a bound for the sQKFF
+parameter τ based on the spectral range of the Hamilto-
+nian, ∆E, namely τ ≤
+π¯h
+∆E . Using this result and the fact
+that ∥ˆH∥1 ≥∆E/2, where ∥ˆH∥1 denotes the Hamilto-
+nian 1-norm, we set a tighter bound on τ to be τ ≤
+π¯h
+2∥ˆ
+H∥1 .
+Accordingly, we fixed τ =
+π¯h
+10∥ˆ
+H∥1 and set M = 10. We
+then tested three Trotterization error thresholds corre-
+sponding to 9, 19, and 42 steps, as illustrated in Fig. 3.
+For all three configurations, we evaluated the autocorre-
+lation function C(t) = | ⟨ψ0|ψ(t)⟩|2 with R = 5, 10, 15,
+where the reference states were chosen as the bitstrings
+with the largest measurement probabilities from the state
+e−i(M−1)τ ˆ
+H |ψ0⟩, following the procedure in [41]. The ac-
+curacy of the results was validated against time evolution
+approximations obtained using QuTiP [50].
+D.
+Microwave Absorption Spectra Computation
+via sQKFF
+Most spin-defect-based platforms exhibit optical ac-
+tivity when interacting with microwave magnetic fields.
+This property forms the foundation of the Optical Detec-
+tion of Magnetic Resonance (ODMR) technique, which
+has been crucial in achieving precise measurements and
+high-fidelity control over the spin quantum state. Spin
+defects are promising candidates for quantum technolo-
+gies due to the capacity to manipulate the spin state
+reliably, e.g., via coupling to the magnetic component of
+incident electromagnetic waves, combined with coherence
+times long enough to apply these interactions effectively
+[51].
+Research focusing on the applications and operational
+enhancement of spin defects through microwave and opti-
+cal frequency interactions is highly active. The resulting
+applications span a wide range of quantum technologies,
+including quantum memories, scalable quantum comput-
+ing and sensing, as well as enabling connections to pho-
+tonic architectures for the implementation of quantum
+networks [52–55]. Therefore, providing a way to calculate
+the microwave absorption spectra would demonstrate the
+operational utility of simulating these spin-defect-based
+platforms, advancing the study and development of these
+systems for quantum technologies.
+Linear response applies when the perturbation is suf-
+ficiently weak, and the system is initially in a stationary
+state of ˆH0 (typically thermal equilibrium). We assume a
+static bias field defining the ˆz quantization axis and probe
+the system with a weak transverse oscillating magnetic
+field,
+ˆHP (t) = −Bx cos(ωt) ˆ
+Mx.
+(8)
+In the long-wavelength limit λ ≫L, where L is the length
+scale of the system of interest, the driving field is ef-
+fectively uniform across the spin ensemble; this is the
+magnetic dipole approximation, which we adopt in the
+forthcoming. For NV−center configurations, ˆ
+Mx is the
+x-component of the total magnetic moment, including
+the electronic spin operator ˆSx and nuclear spin opera-
+tors ˆI(j)
+x , with each contribution weighted by its gyro-
+magnetic ratio.
+The linear absorption spectrum is derived from the
+imaginary part of the generalized susceptibility χ(ω),
+which corresponds to the Fourier transform of the re-
+
+
+===== PAGE 6 =====
+6
+tarded commutator function,
+C(t) = −i
+D
+ψ0
+[eit ˆ
+H ˆ
+Mxe−it ˆ
+H, ˆ
+Mx]
+ψ0
+E
+(9)
+where ˆH is the stationary system’s Hamiltonian.
+The
+power absorbed per unit of time is proportional to
+ωχ′′(ω), where χ′′(ω) denotes the imaginary part of the
+susceptibility. The function C(t) is related with the imag-
+inary part of a function Z(t), defined as
+Z(t) =
+D
+ψ0
+eit ˆ
+H ˆ
+Mxe−it ˆ
+H ˆ
+Mx
+ψ0
+E
+=
+D
+ψ(t)
+ ˆ
+Mx
+η(t)
+E
+,
+(10)
+with |η(t)⟩
+=
+e−it ˆ
+H ˆ
+Mx |ψ0⟩.
+The sQKFF algo-
+rithm is employed to compute Z(t) by approximat-
+ing the time evolution of the states within the Krylov
+subspace |ψ(t)⟩
+=
+P
+m,r cψ
+mr(t)
+ϕψ
+mr
+
+and |η(t)⟩
+=
+P
+m′,r′ cη
+m′r′(t) |ϕη
+m′r′⟩.
+Note that the sets of reference
+bitstrings used for each state differ. This leads to the
+approximation
+Z(t) ≈(cψ(t))†Ac(t)η,
+(11)
+where the c(t) vectors are obtained by solving Eq.
+6
+for the states |ψ0⟩and |η0⟩
+=
+ˆ
+Mx |ψ0⟩, and A is
+an MR × MR′ matrix with elements A(mr),(m′r′) =
+D
+ϕψ
+mr
+ ˆ
+Mx
+ϕη
+m′r′
+E
+. These matrix elements, which imple-
+ment the non-unitary operator ˆ
+Mx, are computed using
+Hadamard tests combined with an LCU decomposition
+of ˆ
+Mx.
+E.
+ℓ1-norm of coherence with sQKFF
+Assessing the coherence time of a quantum system
+typically requires comparing the coherence of its time-
+evolved state against that of the initial state. A plethora
+of coherence measures have been proposed in the liter-
+ature to quantify this basis-dependent resource [56–65].
+Among these, one of the widely employed resource quan-
+tifiers is the ℓ1-norm of coherence [58] due to its opera-
+tional clarity.
+Expressing the state of an n-qubit quantum system, ˆρ,
+in the computational basis Θ ≡{|i⟩| i ∈{0, 1}n}, the
+ℓ1-norm of coherence, denoted Cℓ1(ˆρ), is given by
+Cℓ1(ˆρ) =
+X
+{i̸=j | i,j∈Θ}
+| ⟨i| ˆρ |j⟩| .
+(12)
+From the above definition, it is evident that measuring
+coherence is experimentally costly. For a density matrix
+representing the state of the system, computing 22n −2n
+off-diagonal parameters is required in the worst-case sce-
+nario. Moreover, when studying dynamics, the cost es-
+calates further, as coherence must be evaluated at every
+time point. However, when the system evolves within a
+Krylov subspace, this overhead can be significantly re-
+duced.
+The system studied in this work is a number N of NV−
+centers coupled with an environment, which includes the
+nuclear spins of each NV−center, the spin of 14N impu-
+rities, and a phonon bath. Considering it as a bipartite
+system composed of subsystems A, the NV−electronic
+spins, and B, their environment, the time-evolved state
+of the complete system is
+|ψ⟩AB ≡|ψ(t)⟩= e−it ˆ
+H/¯h |ψ0⟩,
+(13)
+which is approximated by Eq. 5. Then, in the Krylov
+approximation, the ℓ1-norm as defined in Eq. 12 can be
+expressed as
+Cℓ1 (|ψ⟩⟨ψ|AB) =
+X
+{k̸=l | k,l∈Σ×Γ}
+
+X
+m,r
+X
+m′,r′
+cmr(t)c∗
+m′r′(t) ⟨k|ϕmr⟩⟨ϕm′r′|l⟩
+
+,
+(14)
+with binary alphabets Σ and Γ for subsystems A and
+B, respectively, such that their computational basis are
+{|a⟩| a ∈Σ} and {|b⟩| b ∈Γ}.
+Now, computing the coherence of the state at any time
+is only dependent on classically obtaining c(t) from Eq. 6,
+which doesn’t require an additional quantum effort pro-
+vided we already solved the Krylov subspace problem.
+The amplitudes of the corresponding computational ba-
+sis states that compose the reference states |ϕmr⟩can
+always be obtained via Hadamard tests, and remain the
+same at all times t. However, since it is usual for ref-
+erence states to be classically tractable, and we require
+only inner products of these states with computational
+basis bitstrings, the extra computational efforts required
+to compute the ℓ1 norm are typically classical.
+Thus,
+while the process of computing the amplitudes may scale
+exponentially with the number of qubits, all subsequent
+coherence evaluations are efficient.
+Tracing out the environment and rearranging terms
+yields a simplified expression for computing the ℓ1 norm
+
+
+===== PAGE 7 =====
+7
+0.0
+0.5
+1.0
+εT = 0.41858
+0.0
+0.5
+1.0
+108
+109
+1010
+0.0
+0.5
+1.0
+εT = 0.09392
+108
+109
+1010
+εT = 0.01922
+R = 5
+QuTiP
+R = 10
+QuTiP
+108
+109
+1010
+R = 15
+QuTiP
+ω · χ′′(ω) [Normalized]
+Frequency [Hz]
+FIG. 4. Microwave absorption spectra comparison for Configuration 1. The plot shows the spectrum computed using
+QuTiP versus spectra calculated using sQKFF, for different numbers of reference states and Trotterization error
+thresholds. All spectra are normalized by the maximum intensity value of the spectrum computed using QuTiP.
+0
+10
+20
+30
+40
+50
+0.0
+0.2
+0.4
+0.6
+0.8
+|CQ
+ℓ1(t) −CK
+ℓ1 (t)|
+εT = 0.41858
+0
+10
+20
+30
+40
+50
+0.0
+0.2
+0.4
+0.6
+0.8
+εT = 0.09392
+0
+10
+20
+30
+40
+50
+0.0
+0.2
+0.4
+0.6
+0.8
+εT = 0.01922
+R
+5
+10
+15
+Time (ns)
+FIG. 5. Time evolution of the absolute value of the difference between the ℓ1-norm of coherence computed with
+QuTiP, CQ
+ℓ1, and those computed using the sQKFF algorithm, CQ
+ℓ1, for Configuration 1 and for different values of
+Trotterization thresholds and numbers of reference states, R.
+of coherence of our system of interest: the NV−electronic
+spins, given by
+Cℓ1 (ˆρA) =
+X
+{i̸=j | i,j∈Σ}
+X
+{b | b∈Γ}
+γibγ∗
+jb
+
+(15)
+with γib = P
+mr cmr(t) ⟨ib|ϕmr⟩, where |ib⟩= |i⟩⊗|b⟩.
+Hence, the coherence of the subsystem’s evolved state
+can be computed efficiently once the reference states’ am-
+plitudes are known. As a direct consequence, within the
+Krylov subspace, it is efficient to determine the time t
+when the coherence of the system decays to 1/e of its
+initial value, thus providing valuable information related
+to effective T1 and T2 coherence times.
+III.
+RESULTS,
+The comparison of the microwave absorption spec-
+tra of Configuration 1 is presented in Fig.
+4, and it
+demonstrates that even with low-accuracy Trotterization
+thresholds, the spectra computed within our framework
+provide reliable initial insights into the expected reso-
+nance frequencies of the NV −system under external
+perturbation, such as incident microwave photons.
+As
+anticipated, the agreement with the spectrum calculated
+using QuTiP is improved by reducing the Trotterization
+error and increasing the number of reference states, suc-
+cessfully resolving all significant spectral peaks. Given
+that the absorption spectrum characterizes the dynamic
+response of the system to external fields, the high ac-
+curacy achieved confirms the utility of our framework
+for accurately calculating operational properties of these
+
+
+===== PAGE 8 =====
+8
+0
+20
+40
+60
+80
+100
+0.0
+0.2
+0.4
+0.6
+|CQ(t) −CK(t)|
+εT = 0.41858
+0
+20
+40
+60
+80
+100
+0.0
+0.2
+0.4
+0.6
+εT = 0.09392
+0
+20
+40
+60
+80
+100
+0.0
+0.2
+0.4
+0.6
+εT = 0.01922
+R
+5
+10
+15
+Configuration 1
+0
+1
+2
+3
+4
+5
+0.0
+0.2
+0.4
+0.6
+|CQ(t) −CK(t)|
+0
+1
+2
+3
+4
+5
+0.0
+0.2
+0.4
+0.6
+0
+1
+2
+3
+4
+5
+0.0
+0.2
+0.4
+0.6
+R
+5
+10
+15
+Configuration 2
+0
+20
+40
+60
+80
+100
+0.0
+0.2
+0.4
+0.6
+|CQ(t) −CK(t)|
+0
+20
+40
+60
+80
+100
+0.0
+0.2
+0.4
+0.6
+0
+20
+40
+60
+80
+100
+0.0
+0.2
+0.4
+0.6
+R
+5
+10
+15
+Configuration 3
+Time [ns]
+FIG. 6. Time evolution of the absolute value of the difference between the autocorrelation functions computed with
+QuTiP, CQ(t), and those obtained using sQKFF, CK(t), for all configurations and for different numbers of reference
+states, R.
+spin defect-based platforms, which supports their study,
+modeling, and advancement.
+In addition, the results for the computation of the ℓ1-
+norm of coherence for Configuration 1, shown in Fig. 5,
+exhibit a dependence on both the Trotterization error εT
+and the number of reference states R that is consistent
+with the behavior observed for the microwave absorp-
+tion spectra, Fig. 4. While reducing εT predictably im-
+proves accuracy, increasing the number of reference states
+emerges as an effective way to achieve accurate results at
+operationally relevant timescales while maintaining fea-
+sible quantum resource requirements. This observation
+motivates further investigation into improved methods
+for reference-state selection.
+The results presented in Fig. 6 illustrate the influence
+of εT and R on the performance of the sQKFF algorithm
+when computing the autocorrelation functions. For Con-
+figurations 1 and 3, these reproduce QuTiP results with
+good accuracy up to several tens of nanoseconds. A re-
+markable observation from these configurations is that
+the autocorrelation function can be simulated with rea-
+sonable precision for short times, approximately up to 20
+nanoseconds, even when larger Trotterization errors are
+used. This implies that shorter quantum circuits with
+fewer gates can still yield meaningful results, thereby ex-
+pediting computation. Nonetheless, increasing the num-
+ber of reference states has a more pronounced effect,
+improving both the accuracy of the simulation and the
+achievable time span.
+In particular, the results for Configuration 3 with
+εT = 0.01922 and R = 15 are noteworthy. Despite in-
+volving a more complex system with additional impuri-
+ties, a larger number of qubits, and dipole–dipole inter-
+actions with the NV−center, its autocorrelation function
+exhibits a close agreement with the QuTiP results, com-
+parable with that of Configuration 1, which represents
+a smaller system.
+These findings suggest that the se-
+lection of reference states plays a more decisive role in
+achieving accurate long-time dynamics than either the
+Trotterization error, which in our framework relates to
+the τ parameter, or system size. Consequently, a more
+informed or adaptive selection of reference states, chosen
+to better capture the relevant features of the long-time
+evolution, could enable accurate simulations while sub-
+
+
+===== PAGE 9 =====
+9
+εT
+0.41858
+0.09392
+0.01922
+Metric
+W
+G
+γ
+W
+G
+γ
+W
+G
+γ
+Configuration 1
+Hadamard
+1.6
+1.2
+0.2717
+3.4
+2.5
+0.2720
+7.5
+5.5
+0.2722
+CNOT
+4.4
+3.1
+0.2994
+9.3
+6.5
+0.2994
+20.5
+14.4
+0.2995
+T
+82.3
+64.3
+0.2187
+173.6
+135.6
+0.2189
+383.7
+299.6
+0.2190
+Circuit Depth
+7.5
+5.3
+0.2916
+15.9
+11.3
+0.2917
+35.1
+24.9
+0.2917
+Configuration 2
+Hadamard
+6.4
+4.7
+0.2684
+13.5
+9.9
+0.2685
+29.8
+21.8
+0.2685
+CNOT
+18.5
+13.4
+0.2780
+39.1
+28.2
+0.2780
+86.5
+62.4
+0.2781
+T
+320.6
+250.2
+0.2196
+676.6
+528.0
+0.2197
+1495.4
+1166.9
+0.2197
+Circuit Depth
+31.4
+22.8
+0.2734
+66.3
+48.2
+0.2734
+146.5
+106.5
+0.2735
+Configuration 3
+Hadamard
+3.1
+2.3
+0.2362
+6.5
+4.9
+0.2363
+14.3
+10.9
+0.2364
+CNOT
+8.5
+6.3
+0.2565
+17.9
+13.3
+0.2565
+39.5
+29.4
+0.2565
+T
+156.5
+126.9
+0.1895
+330.3
+267.7
+0.1896
+730.0
+591.6
+0.1897
+Circuit Depth
+14.4
+10.8
+0.2504
+30.5
+22.9
+0.2504
+67.4
+50.5
+0.2505
+TABLE II. Resource estimations for the Hadamard test circuit in all configurations, evaluated under different εT .
+The column W [×104] reports the metric values without QWC aggregation, while G [×104] shows the corresponding
+values when aggregation is applied. The ratio γ quantifies the relative reduction between W and G. The number of
+T gates per Rz rotation was estimated with precision ε = 10−6 [66].
+stantially reducing the computational overhead on quan-
+tum hardware.
+The importance of reference state selection is sup-
+ported by the results for Configuration 2 shown in Fig.
+6. Owing to the larger system size, the set of measured
+bitstrings from the state e−i(M−1)τ ˆ
+H |ψ(t = 0)⟩with the
+highest probabilities, from which the reference states are
+selected, contains a substantially greater number of ele-
+ments. As a result, information about the system dynam-
+ics becomes more sparsely distributed across the possible
+states, making it more difficult to identify reference states
+that effectively capture the features relevant to long-time
+dynamics.
+Another factor distinguishing Configuration 2 from
+Configurations 1 and 3 is the value of the Hamiltonian
+1-norm.
+For Configuration 2, we obtained ∥ˆH∥1/¯h =
+112.265 GHz, whereas Configurations 1 and 3 yielded
+62.1052 and 62.1124 GHz, respectively.
+In our frame-
+work, the Hamiltonian’s 1-norm directly influences the
+sQKFF algorithm through the dependence of τ on ∥ˆH∥1,
+which in turn affects the construction of the reference
+states. This observation naturally leads to the following
+question: Is there a specific time T = (M −1)τ at which
+the measured bitstrings, subsequently used as reference
+states, encode more meaningful information about the
+system’s long-time dynamics? Addressing this question
+would require systematic studies to determine whether
+such a characteristic time exists and how it may depend
+on the interplay between the system’s Hamiltonian norm,
+the number of reference states, and the Trotterization
+error.
+Further investigations towards a better method
+for reference state selection could provide valuable in-
+sight into optimizing the sQKFF algorithm for enhanced
+stability and efficiency in simulating long-time quantum
+dynamics.
+Finally, resource estimations for the quantum circuits
+used to compute the elements of the S and H matrices
+are summarized in Tab. II. These indicate that a sub-
+stantial reduction in computational resources is achieved
+through QWC aggregation. Moreover, the reduction ra-
+tio γ remains nearly constant as the Trotter error thresh-
+old εT increases. Since each step of the Trotterized time-
+evolution operator involves the repeated application of
+the same operator, the resource reduction per step is ex-
+pected to be consistent with that of the overall circuit,
+with minor variations arising only from cancellations of
+adjacent adjoint operations between steps.
+IV.
+ADDITIONAL CONSIDERATIONS AND
+OUTLOOK
+The framework presented in this work shows that sim-
+ulating the dynamics of the quantum system over short
+timescales can enable access to physically and opera-
+tionally relevant regimes.
+In particular, our numerical
+results using a few picoseconds of quantum simulation
+show excellent agreement with exact simulations up to
+50-100 nanoseconds.
+This proof of principle indicates
+that, even under restrained resources and hardware noise,
+quantum computers combined with optimized simulation
+techniques can serve as effective platforms for studying
+the properties and dynamics of spin-defects in solid-state
+materials. Advancing toward practical implementation
+
+
+===== PAGE 10 =====
+10
+on real quantum hardware will require addressing addi-
+tional considerations, such as the number of measure-
+ment shots, crucial for accurately estimating expecta-
+tion values [67, 68], as well as the number of qubits and
+their limited connectivity [69, 70]. The former is relevant
+because the sQKFF algorithm relies on computing the
+expectation value of the Hamiltonian, whereas the lat-
+ter becomes particularly relevant when simulating quan-
+tum systems with non-trivial interactions, such as the
+dipole–dipole coupling present in Configurations 2 and
+3, which introduces a large number of entangled pairs.
+Further analysis of measurement cost will be essential
+to assess the feasibility of sQKFF on real quantum hard-
+ware. Krylov-subspace approaches are notoriously sen-
+sitive to noise because the overlap matrix S is often ill-
+conditioned, so practical implementations typically reg-
+ularize by projecting onto the subspace associated with
+eigenvalues above a chosen threshold [71, 72]. In sQKFF,
+finite-shot Hadamard tests introduce statistical fluctua-
+tions in the estimated elements of S and H, as well as
+in the probability distributions used for reference-state
+selection, and these fluctuations can be amplified by the
+conditioning of S. Consequently, although each circuit
+instance can be shallow, achieving additive precision ϵ
+in the required matrix elements by direct sampling gen-
+erally demands O(1/ϵ2) repetitions, so wall-clock time
+can be dominated by shot count when executions are se-
+rialized. Two complementary mitigations are available:
+using recent advances to reduce shot overhead [73], in-
+cluding new subspace methods that exploit symmetries
+to reduce the number of distinct Hamiltonian terms that
+must be measured, resulting in substantial shot savings
+[74], and circuit repetitions can be parallelized between
+multiple QPUs using distributed execution strategies by
+shot [75, 76]. Alternatively, when coherent access to the
+circuit (and its inverse) is available, one can replace clas-
+sical sampling with amplitude-estimation variants of the
+Hadamard test, which reduce the query complexity to
+O(1/ϵ) at the cost of deeper, controlled circuits [77]. Be-
+yond measurement overhead, our results indicate that
+long-time accuracy is primarily limited by reference-state
+choice: selecting states to maximize overlap with either
+the initial state or a short-time evolved state is insuffi-
+cient, motivating more dynamics-aware selection criteria
+that can achieve reliable long-time evolution with fewer
+Trotter steps and reduced quantum resources.
+V.
+SUMMARY AND CONCLUSIONS
+In this work, a framework for simulating and charac-
+terizing spin-defects in solid-state materials is proposed,
+aiming to support the research of current and new plat-
+forms for quantum technologies.
+The framework inte-
+grates multiple resource-optimization strategies within
+the PennyLane library, including Hamiltonian mapping
+via Gray encoding, qubit-wise commuting aggregation,
+and the multi-reference, selected Quantum Krylov Fast-
+Forwarding algorithm. Three NV−configurations were
+analyzed, incorporating interactions found in experimen-
+tal setups. This hybrid approach enabled the evaluation
+of autocorrelation functions, absorption spectra, and ℓ1-
+norm of coherence at extended timescales, while provid-
+ing detailed estimations of quantum resources under dif-
+ferent Trotterization thresholds and numbers of reference
+states.
+High-precision autocorrelation functions were achieved
+for Configurations 1 and 3; microwave absorption spectra
+and ℓ1-norm of coherence were also computed for Con-
+figuration 1. All these results reproduced QuTiP simu-
+lations over tens of nanoseconds, even under moderate
+Trotterization errors. Increasing the number of reference
+states had the greatest impact on both accuracy and sim-
+ulated time range, while qubit-wise commuting aggrega-
+tion consistently reduced quantum resource requirements
+by 18–30% across all configurations. These results high-
+light the potential of the multi-reference, selected Quan-
+tum Krylov Fast-Forwarding algorithm as a scalable tool
+for simulating complex quantum dynamics on NISQ and
+early fault-tolerant devices.
+While quantum technologies provide promising and
+theoretically advantageous approaches to addressing real-
+world problems, the current hardware available in the
+NISQ and early fault-tolerant eras remains constrained
+by limited resources.
+Our work demonstrates how in-
+tegrating different techniques can harness the natural
+suitability of digital quantum computers for simulat-
+ing quantum systems, enabling reduced resource require-
+ments and extended operational timescales in the design
+and characterization of next-generation quantum tech-
+nologies based on spin defects in solid-state materials.
+The ability to simulate complex dynamics across con-
+figurations that are classically intractable may prove cru-
+cial for advancing quantum device engineering and over-
+coming present technological limitations. Nevertheless,
+this study also highlights the inherent challenges of sim-
+ulating quantum systems with non-trivial interactions,
+both operationally and methodologically. Although the
+digital simulation of the time evolution of such systems
+remains a long-term objective, it is a feasible and worth-
+while pursuit that holds substantial promise for the con-
+tinued development of quantum technologies.
+KEY SOFTWARE PACKAGES
+The framework was implemented using PennyLane
+v0.42 and Catalyst v0.12 [78], with numerical results
+compared against approximated solutions obtained with
+QuTiP v5.2.1 [50]. QuTiP solutions were computed us-
+ing the sesolve function with adams method for ODE
+integration, absolute tolerance 10−5, and relative toler-
+ance 10−6.
+
+
+===== PAGE 11 =====
+11
+ACKNOWLEDGMENTS
+The authors acknowledge the Quantum Open Source
+Foundation Mentorship Program for enabling the partic-
+ipation of students interested in quantum technologies in
+research projects such as the one presented here.
+We extend our thanks to Kevin Ferreira, Yipeng Ji and
+Paria Nejat of the LG Electronics Toronto AI Lab and
+to Sean Kim of LG Electronics, AI Lab, for their ongoing
+support of our research.
+[1] M. Maciaszek and B. Baur, Cbvb-nh complexes as preva-
+lent defects in metal-organic vapor-phase epitaxy-grown
+hexagonal boron nitride (2025), arXiv:2510.14012 [cond-
+mat.mtrl-sci].
+[2] T. Vogl, V. Iv´ady, I. J. Luxmoore, and H. L. Stern, De-
+fects in hexagonal boron nitride for quantum technologies
+(2025), arXiv:2510.04344 [cond-mat.mes-hall].
+[3] O. Rubinas, M. Petrov, E. Bourgeois, J. Hruby, M. Nes-
+ladek, et al., Electrical readout of spin environments in
+diamond for quantum sensing (2025), arXiv:2509.26570
+[quant-ph].
+[4] S. G. Carter, I. Tathfif, C. Burgess, B. VanMil, S. De-
+bata, and P. Dev, The influence of nitrogen doping
+and annealing on the silicon vacancy in 4h-sic (2025),
+arXiv:2506.17478 [cond-mat.other].
+[5] J. F. Barry, J. M. Schloss, E. Bauch, M. J. Turner,
+R.
+L.
+Walsworth,
+et
+al.,
+Sensitivity
+optimiza-
+tion
+for
+NV-diamond
+magnetometry,
+Rev.
+Mod.
+Phys.
+92,
+10.1103/RevModPhys.92.015004
+(2020),
+arXiv:1903.08176.
+[6] B. Rodiek,
+M. Lopez,
+H. Hofer,
+G. Porrovecchio,
+M. Smid, S. Kuck, et al., Experimental realization of an
+absolute single-photon source based on a single nitrogen
+vacancy center in a nanodiamond, Optica 4, 71 (2017).
+[7] H. Park, J. Lee, S. Han, S. Oh, and H. Seo, Decoherence
+of nitrogen-vacancy spin ensembles in a nitrogen electron-
+nuclear spin bath in diamond, npj Quantum Inf. 8, 1
+(2022).
+[8] D. Suter and F. Jelezko, Single-spin magnetic resonance
+in the nitrogen-vacancy center of diamond, Prog. Nucl.
+Magn. Reson. Spectrosc. 98-99, 50 (2017).
+[9] T. H. Kyaw, T. Menke, S. Sim, A. Anand, N. P. D.
+Sawaya, A. Aspuru-Guzik, et al., Quantum Computer-
+Aided Design: Digital Quantum Simulation of Quantum
+Processors, Phys. Rev. Appl. 16, 044042 (2021).
+[10] J. S. Kottmann, M. Krenn, T. H. Kyaw, S. Alperin-Lea,
+and A. Aspuru-Guzik, Quantum computer-aided design
+of quantum optics hardware, Quantum Sci. Technol. 6,
+035010 (2021).
+[11] I. Georgescu, S. Ashhab, and F. Nori, Quantum simula-
+tion, Rev. Mod. Phys. 86, 153–185 (2014).
+[12] W. Li, Z. Yin, X. Li, D. Ma, S. Yi, S. Zhang, et al., A hy-
+brid quantum computing pipeline for real world drug dis-
+covery, Sci. Rep. 14, 10.1038/s41598-024-67897-8 (2024).
+[13] R. Santagati, A. Aspuru-Guzik, R. Babbush, M. De-
+groote, L. Gonz´alez, C. Utschig-Utschig, et al., Drug
+design on quantum computers, Nat. Phys. 20, 549–557
+(2024).
+[14] M. V. Jabir, N. F. R. Annafianto, I. A. Burenkov, A. Bat-
+tou, and S. V. Polyakov, Energy and bandwidth effi-
+ciency optimization of quantum-enabled optical commu-
+nication channels, npj Quantum Inf. 8, 10.1038/s41534-
+022-00573-9 (2022).
+[15] Q.
+Wu,
+D.
+Ribezzo,
+G.
+Di
+Sciullo,
+S.
+Cocchi,
+D. Ann Shaji, C. Antonelli, et al., Integration of quan-
+tum key distribution and high-throughput classical com-
+munications in field-deployed multi-core fibers, Light Sci.
+Appl. 14, 10.1038/s41377-025-01982-z (2025).
+[16] Y. Shao, Y. Gong, X. Wan, X. Huang, T. Zhang, et al.,
+Quantum-enabled topological optimization of distributed
+energy storage for resilient black-start operations, Sci.
+Rep. 15, 10.1038/s41598-025-02286-3 (2025).
+[17] W. Hou, W. Yao, X. Zhao, K. Rehan, J. Du, et al., Com-
+bining energy efficiency and quantum advantage in cyclic
+machines, Nat. Commun. 16, 10.1038/s41467-025-60179-
+5 (2025).
+[18] Z. Yin, I. Agresti, G. de Felice, D. Brown, A. Toumi,
+P. Walther,
+et al., Experimental quantum-enhanced
+kernel-based machine learning on a photonic processor,
+Nat. Photon. 19, 1020–1027 (2025).
+[19] G. Pallavi, A. Altalbe, and R. P. Kumar, Qkdti a quan-
+tum kernel based machine learning model for drug target
+interaction prediction, Sci. Rep. 15, 10.1038/s41598-025-
+07303-z (2025).
+[20] A. Kumar, S. Dhanka, A. Sharma, R. Bansal, M. Aljuaid,
+et al., A hybrid framework for heart disease predic-
+tion using classical and quantum-inspired machine learn-
+ing techniques, Sci. Rep. 15, 10.1038/s41598-025-09957-1
+(2025).
+[21] C. Foreman, S. Wright, A. Edgington, M. Berta, and
+F. J. Curchod, Practical randomness amplification and
+privatisation with implementations on quantum comput-
+ers, Quantum 7, 969 (2023).
+[22] T. Qasim, V. A. Siris, I. Oosthuizen, M. Rajarajan, and
+S. Biswas, Quantum secure biometric authentication in
+decentralised systems (2026), arXiv:2601.04852 [cs.CR].
+[23] J. Preskill, Quantum computing in the NISQ era and
+beyond, Quantum 2, 1 (2018), arXiv:1801.00862.
+[24] A. Katabarwa, K. Gratsea, A. Caesura, and P. D.
+Johnson, Early fault-tolerant quantum computing, PRX
+Quantum 5, 10.1103/prxquantum.5.020101 (2024).
+[25] A. M. Childs, D. Maslov, Y. Nam, N. J. Ross, and
+Y. Su, Toward the first quantum simulation with quan-
+tum speedup, Proc. Natl. Acad. Sci. U.S.A. 115, 9456
+(2018), arXiv:1711.10980.
+[26] K. L. Brown, W. J. Munro, and V. M. Kendon, Using
+Quantum Computers for Quantum Simulation, Entropy
+12, 2268 (2010), arXiv:1004.5528.
+[27] Google Quantum AI and Collaborators, Observation of
+constructive interference at the edge of quantum ergod-
+icity, Nature 646, 825 (2025).
+[28] C. Zhang, R. G. Corti˜nas, A. H. Karamlou, N. Noll,
+J. Provazza, T. E. O’Brien, et al., Quantum computa-
+tion of molecular geometry via many-body nuclear spin
+echoes (2025), arXiv:2510.19550 [quant-ph].
+
+
+===== PAGE 12 =====
+12
+[29] T. E. O’Brien, W. D. Oliver, A. Opremcak, et al., Quan-
+tum computation of molecular structure using data from
+challenging-to-classically-simulate nuclear magnetic res-
+onance experiments, PRX Quantum 3, 030345 (2022).
+[30] B. Huang, M. Govoni, and G. Galli, Simulating the elec-
+tronic structure of spin defects on quantum computers,
+PRX Quantum 3, 010339 (2022).
+[31] J. S. Baker, P. A. M. Casares, M. Shokrian Zini, J. Thik,
+D. Banerjee, J. M. Arrazola, et al., Simulating optically-
+active spin defects with a quantum computer, Phys. Rev.
+A 110, 032606 (2024).
+[32] P. A. M. Casares, Y. Zhou, U. Azad, S. Fomichev, J. S.
+Baker, J. M. Arrazola, et al., Quantum algorithms to
+detect odmr-active defects for quantum sensing applica-
+tions (2025), arXiv:2508.13281 [quant-ph].
+[33] N. Sheng, C. Vorwerk, M. Govoni, and G. Galli, Green’s
+function formulation of quantum defect embedding the-
+ory, J. Chem. Theory Comput. 18, 3512–3522 (2022).
+[34] S. Chen, V. W.-z. Yu, Y. Jin, M. Govoni, and G. Galli,
+Advances in quantum defect embedding theory, J. Chem.
+Theory Comput. 21, 7797–7812 (2025).
+[35] A. M. Childs, Y. Su, M. C. Tran, N. Wiebe, and S. Zhu,
+Theory of trotter error with commutator scaling, Physi-
+cal Review X 11, 10.1103/physrevx.11.011020 (2021).
+[36] S. Gu, R. D. Somma, and B. S¸ahino˘glu, Fast-forwarding
+quantum evolution, Quantum 5, 577 (2021).
+[37] C. Cˆırstoiu, Z. Holmes, J. Iosue, L. Cincio, P. J. Coles,
+and A. Sornborger, Variational fast forwarding for quan-
+tum simulation beyond the coherence time, npj Quantum
+Inf. 6, 10.1038/s41534-020-00302-0 (2020).
+[38] B. Commeau, M. Cerezo, Z. Holmes, L. Cincio, P. J.
+Coles, and A. Sornborger, Variational hamiltonian di-
+agonalization for dynamical quantum simulation (2020),
+arXiv:2009.02559 [quant-ph].
+[39] Z.-X. Shang, N. Guo, P. Rebentrost, A. Aspuru-Guzik,
+T. Li, and Q. Zhao, Fast-forwardable lindbladians im-
+ply quantum phase estimation (2025), arXiv:2510.06759
+[quant-ph].
+[40] T. Ko, S. Choi, H. Park, and X. Li, Classical optimiza-
+tion algorithms for diagonalizing quantum hamiltonians
+(2025), arXiv:2506.17883 [quant-ph].
+[41] C. L. Cortes, A. E. DePrince, and S. K. Gray, Fast-
+forwarding quantum simulation with real-time quan-
+tum krylov subspace algorithms, Phys. Rev. A 106,
+10.1103/physreva.106.042409 (2022).
+[42] V. Verteletskyi, T.-C. Yen, and A. F. Izmaylov, Mea-
+surement optimization in the variational quantum eigen-
+solver using a minimum clique cover, J. Chem. Phys. 152,
+10.1063/1.5141458 (2020).
+[43] J.
+Izaac,
+Measurement
+optimization,
+https:
+//pennylane.ai/qml/demos/tutorial_measurement_
+optimize (2021), date Accessed: 2026-01-27.
+[44] C. Kokail, P. E. Dolgirev, R. van Bijnen, D. Gonzalez-
+Cuadra, M. D. Lukin, and P. Zoller, Inverse quan-
+tum simulation for quantum material design (2026),
+arXiv:2601.12239 [quant-ph].
+[45] G. X. Wang, Y. K. Wu, R. Yao, W. Q. Lian, Z. J.
+Cheng, L. M. Duan, et al., Simulating the spin-boson
+model with a controllable reservoir in an ion trap (2024),
+arXiv:2402.07461 [quant-ph].
+[46] S. Felton, A. M. Edmonds, M. E. Newton, P. M. Mar-
+tineau, D. Fisher, and D. J. Twitchen, Electron paramag-
+netic resonance studies of the neutral nitrogen vacancy in
+diamond, Phys. Rev. B 77, 10.1103/physrevb.77.081201
+(2008).
+[47] M. Steiner, P. Neumann, J. Beck, F. Jelezko, and
+J. Wrachtrup, Universal enhancement of the optical read-
+out fidelity of single electron spins at nitrogen-vacancy
+centers in diamond, Phys. Rev. B 81, 10.1103/phys-
+revb.81.035205 (2010).
+[48] N. P. D. Sawaya, T. Menke, T. H. Kyaw, S. Johri,
+A. Aspuru-Guzik, and G. G. Guerreschi, Resource-
+efficient digital quantum simulation of d-level systems
+for photonic, vibrational, and spin-s hamiltonians, npj
+Quantum Inf. 6, 10.1038/s41534-020-0278-0 (2020).
+[49] C. L. Cortes and S. K. Gray, Quantum krylov subspace
+algorithms for ground- and excited-state energy estima-
+tion, Phys. Rev. A 105, 10.1103/physreva.105.022417
+(2022).
+[50] N. Lambert, E. Gigu`ere, P. Menczel, B. Li, P. Hopf,
+F. Nori, et al., Qutip 5: The quantum toolbox in python
+(2025), arXiv:2412.04705 [quant-ph].
+[51] H.-H. Fang, X.-J. Wang, X. Marie, and H.-B. Sun, Quan-
+tum sensing with optically accessible spin defects in
+van der waals layered materials, Light Sci. Appl. 13,
+10.1038/s41377-024-01630-y (2024).
+[52] J. J. Morton and P. Bertet, Storing quantum information
+in spins and high-sensitivity esr, J. Magn. Reson. 287,
+128–139 (2018).
+[53] F. Cache, Y. Baron, B. Lefaucher, J.-B. Jager, F. Mazen,
+A. Dr´eau, et al., A single optically detectable tumbling
+spin in silicon (2025), arXiv:2510.15590 [quant-ph].
+[54] J. Resch, I. Karapatzakis, M. Elshorbagy, M. Schrodin,
+P. Fuchs, D. Hunger, et al.,
+(2025), arXiv:2509.03354
+[quant-ph].
+[55] M. F. F. Chowdhury, A. Jung, L. L. Spina, A. Bartasyte,
+S. Margueron, and J. Atulasimha, Energy efficient coher-
+ent quantum control of nitrogen vacancy (nv) spin with
+nanoscale magnets (2024), arXiv:2407.14018.
+[56] A. Streltsov, G. Adesso, and M. B. Plenio, Colloquium:
+Quantum coherence as a resource, Rev. Mod. Phys. 89,
+041003 (2017).
+[57] J. Aberg, Quantifying superposition (2006), arXiv:quant-
+ph/0612146 [quant-ph].
+[58] T. Baumgratz, M. Cramer, and M. B. Plenio, Quantify-
+ing coherence, Phys. Rev. Lett. 113, 140401 (2014).
+[59] X. Yuan, H. Zhou, Z. Cao, and X. Ma, Intrinsic random-
+ness as a measure of quantum coherence, Phys. Rev. A
+92, 022124 (2015).
+[60] A. Albrecht, A. Retzker, F. Jelezko, and M. B. Plenio,
+Coupling of nitrogen vacancy centres in nanodiamonds
+by means of phonons, New J. Phys. 15, 083014 (2013).
+[61] A. Winter and D. Yang, Operational resource theory of
+coherence, Phys. Rev. Lett. 116, 120404 (2016).
+[62] E. Chitambar and G. Gour, Comparison of incoherent
+operations and measures of coherence, Phys. Rev. A 94,
+052336 (2016).
+[63] J. I. de Vicente and A. Streltsov, Genuine quantum co-
+herence, J. Phys. A: Math. Theory 50, 045301 (2016).
+[64] T. Theurer, D. Egloff, L. Zhang, and M. B. Plenio, Quan-
+tifying operations with an application to coherence, Phys.
+Rev. Lett. 122, 190405 (2019).
+[65] G. Saxena, E. Chitambar, and G. Gour, Dynamical re-
+source theory of quantum coherence, Phys. Rev. Res. 2,
+023298 (2020).
+[66] M. P. Harrigan, T. Khattar, C. Yuan, A. Peduri, N. C.
+Rubin, et al., Expressing and analyzing quantum algo-
+rithms with qualtran (2024), arXiv:2409.04643 [quant-
+
+
+===== PAGE 13 =====
+13
+ph].
+[67] O. Crawford,
+B. v. Straaten,
+D. Wang,
+T. Parks,
+E. Campbell, and S. Brierley, Efficient quantum measure-
+ment of pauli operators in the presence of finite sampling
+error, Quantum 5, 385 (2021).
+[68] T.-C. Yen and A. F. Izmaylov, Cartan subalgebra ap-
+proach to efficient measurements of quantum observables,
+PRX Quantum 2, 10.1103/prxquantum.2.040320 (2021).
+[69] S. Brierley, Efficient implementation of quantum circuits
+with limited qubit interactions, Quantum Inf. Comput
+17, 1096–1104 (2017).
+[70] A. Holmes, S. Johri, G. G. Guerreschi, J. S. Clarke, and
+A. Y. Matsuura, Impact of qubit connectivity on quan-
+tum algorithm performance, Quantum Sci. Technol. 5,
+025009 (2020).
+[71] W. Kirby, Analysis of quantum krylov algorithms with
+errors, Quantum 8, 1457 (2024).
+[72] N. Yoshioka, M. Amico, W. Kirby, P. Jurcevic, A. Dutt,
+A. Mezzacapo, et al., Krylov diagonalization of large
+many-body hamiltonians on a quantum processor, Nat.
+Commun. 16, 10.1038/s41467-025-59716-z (2025).
+[73] G. Lee, S. Choi, J. Huh, and A. F. Izmaylov, Efficient
+strategies for reducing sampling error in quantum krylov
+subspace diagonalization, Digital Discovery 4, 954–969
+(2025).
+[74] S. Patel, P. Jayakumar, R. Huang, T. Zeng, and A. F.
+Izmaylov, Quantum seniority-based subspace expansion:
+Linear combinations of short-circuit unitary transfor-
+mations for the electronic structure problem (2025),
+arXiv:2509.01061 [quant-ph].
+[75] G. Bisicchia, G. Clemente, J. Garcia-Alonso, J. M.
+Murillo, M. D’Elia, and A. Brogi, Distributing quantum
+computations, shot-wise, Future Internet 17, 507 (2025).
+[76] D. Barral, F. J. Cardama, G. D´ıaz-Camacho, D. Fa´ılde,
+I. F. Llovo, A. G´omez, et al., Review of distributed
+quantum computing:
+From single qpu to high per-
+formance quantum computing, Comput. Sci. Rev. 57,
+100747 (2025).
+[77] G. Brassard, P. Høyer, M. Mosca, and A. Tapp, Quan-
+tum amplitude amplification and estimation, in Quantum
+Computation and Information, Contemporary Mathe-
+matics, Vol. 305, edited by S. J. Lomonaco (Ameri-
+can Mathematical Society, 2002) pp. 53–74, arXiv:quant-
+ph/0005055 [quant-ph].
+[78] V. Bergholm, J. Izaac, M. Schuld, C. Gogolin, S. Ahmed,
+N. Killoran, et al., Pennylane:
+Automatic differentia-
+tion of hybrid quantum-classical computations (2022),
+arXiv:1811.04968 [quant-ph].

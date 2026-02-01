@@ -1,0 +1,41 @@
+{
+  "date": "2026-02-01",
+  "src_file": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\배당주투자법\\instruction\\배당주투자법.txt",
+  "root_dir": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\배당주투자법",
+  "out_dir": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\배당주투자법\\archive",
+  "query_id": "배당주투자법",
+  "lang_pref": "en",
+  "openalex_enabled": true,
+  "openalex_max_results": 8,
+  "youtube_enabled": true,
+  "youtube_max_results": 8,
+  "youtube_transcript": true,
+  "youtube_order": "relevance",
+  "days": 365,
+  "max_results": 8,
+  "download_pdf": true,
+  "arxiv_source": false,
+  "update_run": true,
+  "citations_enabled": true,
+  "queries": [
+    "배당주 투자법"
+  ],
+  "query_specs": [
+    {
+      "text": "배당주 투자법",
+      "hints": []
+    }
+  ],
+  "local_paths": [],
+  "urls": [
+    "https://blog.naver.com/yminsong/223619967783?viewType=pc",
+    "https://riie.jbnu.ac.kr/sites/riie/down/paper/2011331.pdf"
+  ],
+  "arxiv_ids": [],
+  "site_hints": [],
+  "raw_lines": [
+    "배당주 투자법",
+    "https://blog.naver.com/yminsong/223619967783?viewType=pc",
+    "https://riie.jbnu.ac.kr/sites/riie/down/paper/2011331.pdf"
+  ]
+}

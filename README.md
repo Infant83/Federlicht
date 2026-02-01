@@ -2,7 +2,7 @@
 
 Author: Hyun-Jung Kim (angpangmokjang@gmail.com, Infant@kias.re.kr)
 
-Version: 0.8.0
+Version: 0.8.1
 
 Feather-light knowledge intake. This CLI ingests text instructions (`.txt` files), runs Tavily search/extract, fetches arXiv papers, and builds an offline-friendly archive of everything it collected. Input can be a single `.txt` file or a folder of `.txt` files.
 
@@ -160,6 +160,13 @@ print(final.output_path)
 print(reporter.stage_info())                # all stages
 print(reporter.stage_info(["scout", "web"]))  # subset
 ```
+
+### Federlicht context/tool limits
+Federlicht uses multiple guardrails to prevent context overflows and preserve evidence quality:
+- `--max-chars` / `--max-pdf-pages`: per-read limits for `read_document` (single file load).
+- `--max-tool-chars`: cumulative cap for all `read_document` outputs in a run; overflow triggers reducer summaries.
+- Reducer summaries store original chunks under `report_notes/tool_cache/` and mark `NEEDS_VERIFICATION` items.
+- For PDF follow-ups, `read_document` supports `start_page` to read later pages without raising global limits.
 
 ### Figures (PDF extraction & selection)
 Federlicht can extract figures from referenced PDFs and insert them into the report. Candidates are derived from

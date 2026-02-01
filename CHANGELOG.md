@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.1
+- Add shared input trimming across scout/plan/web/evidence/clarifier/writer payloads with priority caps to reduce context overflows.
+- Add `--max-tool-chars` to cap cumulative `read_document` output across a run (CLI/API/Federnett).
+- Add reducer-backed tool output summarization with chunk artifacts under `report_notes/tool_cache/` and NEEDS_VERIFICATION guidance for citation safety.
+- Extend PDF reads with `start_page` support to allow targeted follow-up reads without increasing global limits.
+- Add auto verification loop that re-reads NEEDS_VERIFICATION chunk artifacts and appends verification excerpts to evidence notes.
+- Strengthen evidence/writer prompts to prefer verification excerpts and enforce safe citation handling.
+- Merge orphaned citation-only lines into the preceding sentence to keep inline references readable.
+- Enrich references with authors/year/venue metadata using text indices (OpenAlex/arXiv/local) and clearer source labels.
+- Soften default template tone and add readability guidance while keeping professional structure.
+- Add a Federnett custom template editor panel and refactor server helpers into smaller modules for maintainability.
+
 ## 0.8.0
 - Add **Federnett**: a web studio wrapper around Feather and Federlicht with an HTTP server, SSE log streaming, background jobs, and kill control.
 - Add a static Federnett UI under `site/federnett/` with Feather/Federlicht/Prompt tabs, theme switching, run discovery, and live logs.

@@ -68,19 +68,14 @@
                 <strong id="template-count">0</strong>
                 <small>Loaded from `src/federlicht/templates`</small>
               </div>
-              <div class="hero-card clickable" id="hero-card-root" data-action="root">
-                <span>Workspace Root</span>
-                <strong id="root-badge">-</strong>
-                <small>Site root: <span class="hero-mini" id="site-badge">-</span></small>
-              </div>
               <div
                 class="hero-card clickable"
                 id="hero-card-run-roots"
                 data-action="run-roots"
               >
-                <span>Run Roots</span>
+                <span>Run Folders</span>
                 <strong id="run-roots-badge">-</strong>
-                <small>Comma-separated folders under root</small>
+                <small>Load an existing run folder</small>
               </div>
             </div>
           </div>
@@ -117,7 +112,7 @@
                   <input
                     id="feather-output"
                     name="output"
-                    placeholder="site/runs/20260127_new-run"
+                    placeholder="20260127_new-run"
                     required
                   />
                 </label>
@@ -128,7 +123,7 @@
                     <input
                       id="feather-input"
                       name="input"
-                      placeholder="site/runs/20260127_new-run/instruction/20260127_new-run.txt"
+                      placeholder="20260127_new-run/instruction/20260127_new-run.txt"
                     />
                     <button type="button" id="feather-pick-instruction" class="ghost">
                       Choose
@@ -172,8 +167,8 @@
                     <span>YT Transcript</span>
                   </label>
                   <label class="toggle">
-                    <input type="checkbox" id="feather-update-run" />
-                    <span>Update Run</span>
+                    <input type="checkbox" id="feather-update-run" checked />
+                    <span>Reuse Run Folder</span>
                   </label>
                 </div>
 
@@ -239,7 +234,7 @@
                   <span>Output Report</span>
                   <input
                     id="federlicht-output"
-                    placeholder="site/runs/20260127_new-run/report_full.html"
+                    placeholder="20260127_new-run/report_full.html"
                     required
                   />
                 </label>
@@ -278,7 +273,7 @@
                   <div class="combo">
                     <input
                       id="federlicht-prompt-file"
-                      placeholder="site/runs/20260127_new-run/instruction/generated_prompt_20260127_new-run.txt"
+                      placeholder="20260127_new-run/instruction/generated_prompt_20260127_new-run.txt"
                     />
                     <div class="combo-actions">
                       <button type="button" id="federlicht-prompt-pick" class="ghost">
@@ -380,7 +375,7 @@
                     </label>
                     <label class="wide">
                       <span>Site Output</span>
-                      <input id="federlicht-site-output" placeholder="site/runs/..." />
+                      <input id="federlicht-site-output" placeholder="run/report_full.html" />
                     </label>
                     <label class="wide">
                       <span>Extra Args</span>
@@ -546,6 +541,47 @@
           </div>
         </div>
         <div id="templates-grid" class="templates-grid"></div>
+        <div class="template-editor" id="template-editor">
+          <div class="template-editor-head">
+            <div>
+              <h3>Custom Template</h3>
+              <p>Create or adjust a template, then save it under <code>src/federlicht/templates</code>.</p>
+            </div>
+            <div class="template-editor-actions">
+              <button type="button" class="ghost" id="template-editor-load">Load Base</button>
+              <button type="button" class="primary" id="template-editor-save">Save Template</button>
+            </div>
+          </div>
+          <div class="template-editor-controls">
+            <label>
+              Base template
+              <select id="template-editor-base"></select>
+            </label>
+            <label>
+              Save as
+              <input
+                id="template-editor-name"
+                class="ghost-input"
+                placeholder="custom_my_template"
+              />
+            </label>
+            <label>
+              Save path
+              <input
+                id="template-editor-path"
+                class="ghost-input"
+                placeholder="src/federlicht/templates/custom_my_template.md"
+                disabled
+              />
+            </label>
+          </div>
+          <textarea
+            id="template-editor-body"
+            class="ghost-input template-editor-body"
+            placeholder="Paste or edit template markdown here..."
+          ></textarea>
+          <div class="template-editor-meta" id="template-editor-meta"></div>
+        </div>
       </section>
 
       <div class="modal" id="instruction-modal" aria-hidden="true" role="dialog">
@@ -594,7 +630,7 @@
           <header class="modal-header">
             <div>
               <h3>Choose Run Folder</h3>
-              <p>Select a run under site/runs.</p>
+              <p>Select a run under the configured run root.</p>
             </div>
             <button type="button" class="ghost" data-runpicker-close>Close</button>
           </header>
@@ -677,11 +713,44 @@
                   running.
                 </li>
                 <li>
-                  Output folder defaults to <code>site/runs/&lt;run&gt;</code>. Run name
-                  helps auto-fill paths.
+                  Output folder defaults to <code>&lt;run&gt;</code> under the configured
+                  run root. Run name helps auto-fill paths.
                 </li>
                 <li>
                   Use Advanced for language, days, and max-results tweaks.
+                </li>
+                <li>
+                  <code>--input</code>: instruction folder or single <code>.txt</code> file.
+                </li>
+                <li>
+                  <code>--query</code>: inline instructions (separate with <code>;</code> or newlines).
+                </li>
+                <li>
+                  <code>--output</code>: output archive root (defaults to run root if unset).
+                </li>
+                <li>
+                  <code>--days</code>: lookback window in days (default: 30).
+                </li>
+                <li>
+                  <code>--max-results</code>: results per search step (default: 8).
+                </li>
+                <li>
+                  <code>--download-pdf</code>: fetch arXiv PDFs + extract text.
+                </li>
+                <li>
+                  <code>--update-run</code>: reuse an existing run folder instead of creating
+                  a new <code>_01</code> suffix (UI default: on).
+                </li>
+                <li>
+                  <code>--openalex</code>/<code>--no-openalex</code>: toggle OpenAlex OA search
+                  (defaults on when <code>--download-pdf</code> is set).
+                </li>
+                <li>
+                  <code>--youtube</code>/<code>--no-youtube</code>: toggle YouTube search
+                  (default: off).
+                </li>
+                <li>
+                  <code>--lang</code>: preferred language for search results (soft preference).
                 </li>
               </ul>
             </section>
@@ -698,6 +767,58 @@
                 </li>
                 <li>
                   Run is disabled while a job is active. Stop via Live Logs if needed.
+                </li>
+                <li>
+                  Advanced toggles map to CLI flags (e.g., depth, web search, figures,
+                  max input tokens). Use them to fine-tune report length and quality.
+                </li>
+                <li>
+                  <code>--run</code>: run folder to synthesize.
+                </li>
+                <li>
+                  <code>--output</code>: report output path (<code>.md</code>/<code>.html</code>/<code>.tex</code>).
+                </li>
+                <li>
+                  <code>--template</code>: report template name/path (default: auto).
+                </li>
+                <li>
+                  <code>--prompt</code>/<code>--prompt-file</code>: report focus prompt.
+                </li>
+                <li>
+                  <code>--lang</code>: report language (default: ko).
+                </li>
+                <li>
+                  <code>--depth</code>: brief | normal | deep | exhaustive (auto if unset).
+                </li>
+                <li>
+                  <code>--web-search</code>: enable web research (default: off).
+                </li>
+                <li>
+                  <code>--stages</code>/<code>--skip-stages</code>: control pipeline stages.
+                </li>
+                <li>
+                  <code>--max-input-tokens</code>: per-agent input budget (default: unset; uses model profile).
+                </li>
+              </ul>
+            </section>
+            <section class="help-section" id="help-options">
+              <h4>Options & Limits</h4>
+              <ul>
+                <li>
+                  <code>max-chars</code> / <code>max-pdf-pages</code>: per-file read limits
+                  for <code>read_document</code>.
+                </li>
+                <li>
+                  <code>max-tool-chars</code>: cumulative cap for all <code>read_document</code>
+                  outputs; overflow triggers reducer summaries.
+                </li>
+                <li>
+                  PDF follow-ups can use <code>start_page</code> to read later pages without
+                  raising global limits.
+                </li>
+                <li>
+                  NEEDS_VERIFICATION items prefer tool-cache excerpts; ensure citations
+                  point to verified chunks.
                 </li>
               </ul>
             </section>

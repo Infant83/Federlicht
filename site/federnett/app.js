@@ -320,12 +320,9 @@ function setText(selector, value) {
 }
 
 function updateHeroStats() {
-  if (state.info) {
-    setText("#root-badge", state.info.root || "-");
-    setText("#site-badge", state.info.site_root || "-");
-    const roots = (state.info.run_roots || []).join(", ");
-    setText("#run-roots-badge", roots || "-");
-  }
+  const selected = selectedRunRel();
+  const badge = selected ? runBaseName(selected) : "-";
+  setText("#run-roots-badge", badge);
   setText("#run-count", String(state.runs.length || 0));
   setText("#template-count", String(state.templates.length || 0));
 }
@@ -333,19 +330,15 @@ function updateHeroStats() {
 function setMetaStrip() {
   const strip = $("#meta-strip");
   if (!strip || !state.info) return;
-  const { root, run_roots: runRoots, site_root: siteRoot } = state.info;
-  const pills = [
-    `root: ${root}`,
-    `site: ${siteRoot}`,
-    `run roots: ${runRoots.join(", ")}`,
-  ];
+  const { run_roots: runRoots } = state.info;
+  const runRootsLabel = formatRunRoots(runRoots || []);
+  const pills = [`run root: ${runRootsLabel}`];
   strip.innerHTML = pills.map((p) => `<span class="meta-pill">${p}</span>`).join("");
   updateHeroStats();
 }
 
 function bindHeroCards() {
   if (!state.info) return;
-  const rootCard = $("#hero-card-root");
   const runRootsCard = $("#hero-card-run-roots");
   const templatesCard = $("#hero-card-templates");
   const runsCard = $("#hero-card-runs");
@@ -355,9 +348,6 @@ function bindHeroCards() {
     loadRunPickerItems();
   };
 
-  if (rootCard) {
-    rootCard.addEventListener("click", openRuns);
-  }
   if (templatesCard) {
     templatesCard.addEventListener("click", () => {
       const panel = $("#templates-panel");
@@ -450,6 +440,17 @@ function stripSiteRunsPrefix(value) {
   if (cleaned === base) return "";
   if (cleaned.startsWith(`${base}/`)) return cleaned.slice(base.length + 1);
   return cleaned;
+}
+
+function formatRunRoots(runRoots) {
+  if (!runRoots || runRoots.length === 0) return "-";
+  const base = normalizePathString(siteRunsPrefix());
+  const normalized = runRoots.map((root) => {
+    const cleaned = normalizePathString(root);
+    return cleaned === base ? "." : root;
+  });
+  if (normalized.length === 1 && normalized[0] === ".") return ".";
+  return normalized.join(", ");
 }
 
 function runBaseName(runRel) {
@@ -1149,11 +1150,7 @@ function renderInstructionModalList() {
 }
 
 function runPickerItems() {
-  const base = normalizePathString(siteRunsBase());
-  return (state.runs || []).filter((run) => {
-    const rel = normalizePathString(run.run_rel || "");
-    return rel.startsWith(base);
-  });
+  return state.runs || [];
 }
 
 function renderRunPickerList() {
@@ -1320,12 +1317,112 @@ function renderTemplatesPanel() {
   });
 }
 
+function normalizeTemplateName(raw) {
+  const cleaned = String(raw || "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!cleaned) return "";
+  return cleaned.startsWith("custom_") ? cleaned : `custom_${cleaned}`;
+}
+
+function templateEditorTargetPath(name) {
+  if (!name) return "";
+  return `src/federlicht/templates/${name}.md`;
+}
+
+function refreshTemplateEditorOptions() {
+  const select = $("#template-editor-base");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = state.templates.map((t) => `<option value="${t}">${t}</option>`).join("");
+  if (state.templates.includes(current)) {
+    select.value = current;
+  }
+}
+
+function updateTemplateEditorPath() {
+  const input = $("#template-editor-name");
+  const pathField = $("#template-editor-path");
+  if (!input || !pathField) return;
+  const name = normalizeTemplateName(input.value);
+  pathField.value = templateEditorTargetPath(name);
+}
+
+async function loadTemplateEditorBase() {
+  const baseSelect = $("#template-editor-base");
+  const body = $("#template-editor-body");
+  const meta = $("#template-editor-meta");
+  if (!baseSelect || !body) return;
+  const name = baseSelect.value;
+  if (!name) return;
+  try {
+    const detail = state.templateDetails[name]
+      || (await fetchJSON(`/api/templates/${encodeURIComponent(name)}`));
+    if (!detail?.path) {
+      throw new Error("Template path not found.");
+    }
+    const file = await fetchJSON(`/api/files?path=${encodeURIComponent(detail.path)}`);
+    body.value = file.content || "";
+    if (meta) meta.textContent = `Loaded base template: ${detail.path}`;
+    const nameInput = $("#template-editor-name");
+    if (nameInput && !nameInput.value) {
+      nameInput.value = normalizeTemplateName(name);
+      updateTemplateEditorPath();
+    }
+  } catch (err) {
+    appendLog(`[template-editor] failed to load base: ${err}\n`);
+  }
+}
+
+async function saveTemplateEditor() {
+  const nameInput = $("#template-editor-name");
+  const body = $("#template-editor-body");
+  const meta = $("#template-editor-meta");
+  if (!nameInput || !body) return;
+  const name = normalizeTemplateName(nameInput.value);
+  if (!name) {
+    appendLog("[template-editor] template name is required.\n");
+    return;
+  }
+  const path = templateEditorTargetPath(name);
+  try {
+    await fetchJSON("/api/files", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, content: body.value || "" }),
+    });
+    if (meta) meta.textContent = `Saved template: ${path}`;
+    nameInput.value = name;
+    updateTemplateEditorPath();
+    await loadTemplates();
+    applyTemplateSelection(name);
+  } catch (err) {
+    appendLog(`[template-editor] save failed: ${err}\n`);
+  }
+}
+
 function applyTemplateSelection(name) {
   const templateSelect = $("#template-select");
   const promptTemplateSelect = $("#prompt-template-select");
   if (templateSelect) templateSelect.value = name;
   if (promptTemplateSelect) promptTemplateSelect.value = name;
   renderTemplatesPanel();
+}
+
+function applyRunFolderSelection(runRel) {
+  const runName = runBaseName(runRel);
+  const runInput = $("#feather-run-name");
+  const output = $("#feather-output");
+  const input = $("#feather-input");
+  const updateRun = $("#feather-update-run");
+  if (runInput) runInput.value = runName;
+  featherOutputTouched = false;
+  featherInputTouched = false;
+  if (output) output.value = runRel;
+  if (input) input.value = `${runRel}/instruction/${runName}.txt`;
+  if (updateRun) updateRun.checked = true;
+  updateHeroStats();
 }
 
 function openTemplateModal(name) {
@@ -1406,6 +1503,7 @@ async function loadTemplates() {
   state.templates = await fetchJSON("/api/templates");
   await loadTemplateDetails(state.templates);
   refreshTemplateSelectors();
+  refreshTemplateEditorOptions();
   updateHeroStats();
   renderTemplatesPanel();
 }
@@ -1862,13 +1960,9 @@ function handleTabs() {
     feather: $("#tab-feather"),
     federlicht: $("#tab-federlicht"),
   };
-  const runStudio = $("#run-studio-wrap");
   const setActiveTab = (key) => {
     const resolved = key || "feather";
     document.body.dataset.tab = resolved;
-    if (runStudio) {
-      runStudio.classList.toggle("is-hidden", resolved === "feather");
-    }
     if (resolved === "federlicht") {
       syncPromptFromFile(true).catch((err) => {
         if (!isMissingFileError(err)) {
@@ -2431,6 +2525,7 @@ function handleRunPicker() {
     if (!runRel) return;
     const runSelect = $("#run-select");
     if (runSelect) runSelect.value = runRel;
+    applyRunFolderSelection(runRel);
     refreshRunDependentFields();
     await updateRunStudio(runRel).catch((err) => {
       appendLog(`[studio] failed to refresh run studio: ${err}\n`);
@@ -2492,6 +2587,23 @@ function handleTemplateSync() {
       $("#prompt-template-select").value = $("#template-select").value;
     }
     renderTemplatesPanel();
+  });
+}
+
+function handleTemplateEditor() {
+  $("#template-editor-name")?.addEventListener("input", updateTemplateEditorPath);
+  $("#template-editor-base")?.addEventListener("change", () => {
+    const nameInput = $("#template-editor-name");
+    if (nameInput && !nameInput.value) {
+      nameInput.value = normalizeTemplateName($("#template-editor-base").value);
+    }
+    updateTemplateEditorPath();
+  });
+  $("#template-editor-load")?.addEventListener("click", () => {
+    loadTemplateEditorBase();
+  });
+  $("#template-editor-save")?.addEventListener("click", () => {
+    saveTemplateEditor();
   });
 }
 
@@ -2690,6 +2802,7 @@ async function bootstrap() {
   handleReloadRuns();
   handleLogControls();
   handleTemplateSync();
+  handleTemplateEditor();
   bindTemplateModalClose();
   bindHelpModal();
   handleLayoutSplitter();

@@ -1,7 +1,7 @@
 ---
 name: default
-description: Journal-style technical review (current default).
-tone: Academic, evidence-based, critical.
+description: Professional technical review (current default).
+tone: Professional, evidence-based, readable.
 audience: Technical leaders and researchers.
 css: default.css
 latex: default.tex
@@ -19,4 +19,5 @@ guide Risks & Gaps: highlight missing evidence, constraints, and unknowns.
 guide Critics: short headline + paragraphs + bullets; include contrarian views.
 writer_guidance: Synthesize across sources; avoid lists of summaries.
 writer_guidance: Separate facts from interpretation; label web-derived support.
+writer_guidance: Avoid overly formal phrasing; keep sentences direct and readable.
 ---

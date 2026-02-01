@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>report/run_overview_report_full_1.md</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>report/run_overview_report_full_1.md</h1></header>
+  <main><h1>Report Overview</h1>
+<h2>Report Output</h2>
+<p>Output: <a href="./report_full_1.html">./report_full_1.html</a>
+Template: acs_review
+Format: html
+Language: Korean
+Quality iterations: 0
+Quality strategy: pairwise
+Figures: enabled (auto)</p>
+<h2>Report Prompt (Saved)</h2>
+<p>Source: <a href="../instruction/report_prompt_report_full_1.txt">./instruction/report_prompt_report_full_1.txt</a></p>
+<pre><code>Language: Korean
+
+Template: trend_scan
+Depth: normal
+
+목적/범위: Run ID “배당주투자법”에 대해 배당주 투자/배당 고려 포트폴리오 전략 관련 신호를 스캔하고, 확립된 연구결과(학술논문)와 약한 신호(대중 콘텐츠 부재로 인한 추정)를 분리해 트렌드 테마, 시나리오, 전략적 함의를 도출한다. 독자는 전략/리서치팀이며 문체는 분석적·탐색적·미래지향적으로 유지한다.
+
+핵심 포함 항목(섹션별):  
+- Executive Summary: 5–7문장. 신호 하이라이트 1–2개(예: 배당을 고려한 포트폴리오 스코어링 접근, 배당·성장가능성 결합 프레임)와 전체 결론의 확신수준(High/Med/Low) 명시.  
+- Signal Landscape: 소스 유형별(학술논문 1차, 웹/블로그, 검색 인덱스)로 신호를 묶고 신호 강도(Strong/Moderate/Weak)와 불확실성 요인을 기록. 네이버 블로그 본문은 수집 실패로 “공개정보 한계” 처리.  
+- Trend Themes: 3–5개 테마. 각 테마마다 근거(논문 내 표/방법/결론 등) + 반대 신호/대안 설명(예: 배당무관련이론, 배당컷·세금·섹터 편향 가능성).  
+- Scenarios &amp; Implications: 2–3개 시나리오. 촉발 요인(금리, 이익 변동성, 배당정책 변화, 규제/세제)과 투자전략/리서치 운영 영향(스크리닝, 리밸런싱, 리스크 관리) 제시.  
+- Risks &amp; Gaps: 데이터 공백(대중적 ‘투자법’ 가이드 소스 부재, YouTube/OpenAlex/arXiv 인덱스 없음)과 오탐 위험(단일 논문 의존, 표본/기간/시장 특수성)을 명시.  
+- Critics: “단일 연구 기반 전략의 일반화 위험” 등 헤드라인 1개 + 짧은 문단, 반대 관점 bullet(배당 함정, 가치/저변동성 요인 중복 등).  
+- Appendix: 사용 소스 목록(인용 가능: `archive/web/pdf/2011331.pdf`, `archive/web/text/2011331.txt` 및 교차검증용 tavily_extract)과 인용 불가 인덱스 파일을 구분.
+
+증거/인용 정책: 본문 인용은 아카이브에 실재하는 1차 텍스트/PDF에서만 직접 인용(페이지/절 정보 포함). `tavily_search.jsonl`, `source_index.jsonl`, `source_triage.md`는 “발굴용”으로만 언급하고 본문 근거로 인용 금지. 블로그는 콘텐츠 미확보로 인용 금지(공개정보 한계). 불확실성/신뢰도는 문장 단위로 표기.
+
+언어 지시: 전체 한국어로 작성하되, 고유명사/논문 제목은 원문 표기를 유지. 약한 신호는 “추정/가설”로 라벨링하고 확립된 결과와 혼합 서술 금지.
+
+Language: Korean
+
+Template: trend_scan
+Depth: normal
+
+목적/범위: Run ID “배당주투자법”에 대해 배당주 투자/배당 고려 포트폴리오 전략 관련 신호를 스캔하고, 확립된 연구결과(학술논문)와 약한 신호(대중 콘텐츠 부재로 인한 추정)를 분리해 트렌드 테마, 시나리오, 전략적 함의를 도출한다. 독자는 전략/리서치팀이며 문체는 분석적·탐색적·미래지향적으로 유지한다.
+
+핵심 포함 항목(섹션별):  
+- Executive Summary: 5–7문장. 신호 하이라이트 1–2개(예: 배당을 고려한 포트폴리오 스코어링 접근, 배당·성장가능성 결합 프레임)와 전체 결론의 확신수준(High/Med/Low) 명시.  
+- Signal Landscape: 소스 유형별(학술논문 1차, 웹/블로그, 검색 인덱스)로 신호를 묶고 신호 강도(Strong/Moderate/Weak)와 불확실성 요인을 기록. 네이버 블로그 본문은 수집 실패로 “공개정보 한계” 처리.  
+- Trend Themes: 3–5개 테마. 각 테마마다 근거(논문 내 표/방법/결론 등) + 반대 신호/대안 설명(예: 배당무관련이론, 배당컷·세금·섹터 편향 가능성).  
+- Scenarios &amp; Implications: 2–3개 시나리오. 촉발 요인(금리, 이익 변동성, 배당정책 변화, 규제/세제)과 투자전략/리서치 운영 영향(스크리닝, 리밸런싱, 리스크 관리) 제시.  
+- Risks &amp; Gaps: 데이터 공백(대중적 ‘투자법’ 가이드 소스 부재, YouTube/OpenAlex/arXiv 인덱스 없음)과 오탐 위험(단일 논문 의존, 표본/기간/시장 특수성)을 명시.  
+- Critics: “단일 연구 기반 전략의 일반화 위험” 등 헤드라인 1개 + 짧은 문단, 반대 관점 bullet(배당 함정, 가치/저변동성 요인 중복 등).  
+- Appendix: 사용 소스 목록(인용 가능: `archive/web/pdf/2011331.pdf`, `archive/web/text/2011331.txt` 및 교차검증용 tavily_extract)과 인용 불가 인덱스 파일을 구분.
+
+증거/인용 정책: 본문 인용은 아카이브에 실재하는 1차 텍스트/PDF에서만 직접 인용(페이지/절 정보 포함). `tavily_search.jsonl`, `source_index.jsonl`, `source_triage.md`는 “발굴용”으로만 언급하고 본문 근거로 인용 금지. 블로그는 콘텐츠 미확보로 인용 금지(공개정보 한계). 불확실성/신뢰도는 문장 단위로 표기.
+
+언어 지시: 전체 한국어로 작성하되, 고유명사/논문 제목은 원문 표기를 유지. 약한 신호는 “추정/가설”로 라벨링하고 확립된 결과와 혼합 서술 금지.
+</code></pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

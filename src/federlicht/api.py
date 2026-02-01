@@ -42,6 +42,10 @@ REPORTER_INPUT_SCHEMA = {
         "echo_markdown": {"type": "boolean", "description": "Echo markdown to stdout when output is set."},
         "max_refs": {"type": "integer", "description": "Max references to append."},
         "max_chars": {"type": "integer", "description": "Max chars returned by read tool."},
+        "max_tool_chars": {
+            "type": "integer",
+            "description": "Max cumulative chars returned by read tool across a run.",
+        },
         "max_pdf_pages": {"type": "integer", "description": "Max PDF pages to extract."},
         "pdf_extend_pages": {"type": "integer", "description": "Auto-read next N PDF pages when text is short."},
         "pdf_extend_min_chars": {"type": "integer", "description": "Minimum chars before PDF auto-extension triggers."},

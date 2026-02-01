@@ -1,0 +1,33 @@
+{
+  "date": "2026-02-01",
+  "src_file": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\designQC\\instruction\\designQC.txt",
+  "root_dir": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\designQC_01",
+  "out_dir": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\designQC_01\\archive",
+  "query_id": "designQC_01",
+  "lang_pref": "en",
+  "openalex_enabled": true,
+  "openalex_max_results": 8,
+  "youtube_enabled": false,
+  "youtube_max_results": 8,
+  "youtube_transcript": false,
+  "youtube_order": "relevance",
+  "days": 365,
+  "max_results": 8,
+  "download_pdf": true,
+  "arxiv_source": false,
+  "update_run": false,
+  "citations_enabled": true,
+  "queries": [],
+  "query_specs": [],
+  "local_paths": [],
+  "urls": [
+    "https://arxiv.org/abs/2601.22091"
+  ],
+  "arxiv_ids": [
+    "2601.22091"
+  ],
+  "site_hints": [],
+  "raw_lines": [
+    "https://arxiv.org/abs/2601.22091"
+  ]
+}

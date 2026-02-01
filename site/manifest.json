@@ -1,7 +1,36 @@
 {
-  "revision": "2026-01-30T06:38:15.380729",
-  "generated_at": "2026-01-30T06:38:15.380729",
+  "revision": "2026-02-01T15:49:17.532464",
+  "generated_at": "2026-02-01T15:49:17.532464",
   "items": [
+    {
+      "id": "배당주투자법",
+      "run": "배당주투자법",
+      "report_stem": "report_full_1",
+      "title": "배당주 투자법 분석 보고서",
+      "author": "Hyun-Jung Kim / AI Governance Team",
+      "summary": "배당주 투자법 분석 보고서 Federlicht assisted and prompted by \"Hyun-Jung Kim / AI Governance Team\" — 2026-02-01 15:49 Abstract 본 보고서는 배당주 투자법에 대한 신호를 스캔하여, 확립된 연구와 약한 신호를 구분하고, 이를 기반으로 전략을 제시합니다. 배당을 고려한 포트폴리오 스코어링 접근법과 배당 및 성장 가능…",
+      "lang": "Korean",
+      "template": "acs_review",
+      "format": "html",
+      "model": "gpt-4o-mini",
+      "tags": [
+        "인용",
+        "신호",
+        "배당",
+        "PDF",
+        "신호를"
+      ],
+      "date": "2026-02-01",
+      "timestamp": "2026-02-01T15:49:17.086747",
+      "source_mtime": 1769928557,
+      "source_size": 32506,
+      "paths": {
+        "report": "runs/배당주투자법/report_full_1.html",
+        "overview": "runs/배당주투자법/report/run_overview_report_full_1.md",
+        "workflow": "runs/배당주투자법/report_notes/report_workflow.md",
+        "run": "runs/배당주투자법"
+      }
+    },
     {
       "id": "mytest_01",
       "run": "mytest_01",

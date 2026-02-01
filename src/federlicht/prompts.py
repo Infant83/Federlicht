@@ -86,6 +86,17 @@ def build_web_prompt() -> str:
     )
 
 
+def build_reducer_prompt(language: str) -> str:
+    return (
+        "당신은 리듀서 요약기입니다. 제공된 원문 청크를 요약하되 사실과 수치를 왜곡하지 마세요. "
+        "새로운 정보를 만들어내지 마세요. 정확한 인용/수치/고유명사는 원문 확인이 필요하므로 "
+        "NEEDS_VERIFICATION: 접두어로 표시하세요. "
+        "요약은 간결한 불릿 위주로 작성하고, 출처/청크 식별자(예: CHUNK 1/3)를 유지하세요. "
+        "NEEDS_VERIFICATION 항목에는 해당 청크 파일명을 [chunk_XXX] 형태로 명시하세요. "
+        f"{language}로 작성하세요."
+    )
+
+
 def build_evidence_prompt(language: str) -> str:
     return (
         "당신은 근거(증거) 추출자입니다. 스카우트 노트를 바탕으로 핵심 파일을 읽고 중요한 사실을 추출하세요. "
@@ -99,6 +110,11 @@ def build_evidence_prompt(language: str) -> str:
         "보고서 포커스와 무관한 소스는 건너뛰세요. "
         "파일 경로는 대괄호로 인용하세요. 가능하면 추출 텍스트 파일을 우선하고, 필요할 때만 PDF를 사용하세요. "
         "가능하면 원문 URL도 함께 캡처하세요(아카이브 경로만 남기지 않기). "
+        "인용은 해당 문장 끝에 inline으로 붙이고, 인용만 단독 줄로 두지 마세요. "
+        "도구 출력에 [artifact] Original chunks 경로가 있으면, NEEDS_VERIFICATION 항목은 해당 chunk 파일을 "
+        "read_document로 다시 열어 원문을 확인한 뒤 인용하세요. "
+        "PDF의 뒷부분이 필요하면 read_document의 start_page를 사용해 필요한 페이지를 추가로 읽으세요. "
+        "Verification excerpts 섹션이 있으면 우선 활용하고, 원문 확인 없이 수치/인용을 재구성하지 마세요. "
         f"소스 유형별로 묶은 간결한 불릿 리스트를 {language}로 출력하세요. "
         "고유명사와 소스 제목은 원문 언어를 유지하세요."
     )
@@ -172,7 +188,7 @@ def build_writer_prompt(
     tone_instruction = (
         "PRL/Nature/Annual Review 스타일의 학술 저널 톤으로 작성하세요. "
         if template_spec.name in FORMAL_TEMPLATES
-        else "설명형 리뷰 스타일로, 전문적이면서 자연스러운 서술 톤을 사용하세요. "
+        else "설명형 리뷰 스타일로, 전문적이면서도 읽기 쉬운 서술 톤을 사용하고 과도한 형식주의를 피하세요. "
     )
     return (
         "당신은 시니어 연구 작성자입니다. 지시문, 베이스라인 보고서, 근거 노트를 사용해 인용을 포함한 상세 보고서를 작성하세요. "
@@ -186,6 +202,10 @@ def build_writer_prompt(
         "첨자/윗첨자는 항상 감싸세요 (예: $\\Delta E_{ST}$, $E(S_1)$, $S_1/T_1$). "
         "소스 요약 나열이 아니라, 소스 간을 종합해 명확한 전개와 실행 가능한 인사이트를 제시하세요. "
         "사실/수치/출처 의존 주장에는 인용을 반드시 포함하세요. "
+        "인용은 문장 끝에 inline으로 붙이고, 인용만 단독 줄로 두지 마세요. "
+        "NEEDS_VERIFICATION 태그가 붙은 항목은 tool_cache 원문 청크를 확인한 뒤 인용하세요. "
+        "원문 확인 없이 수치/인용을 재구성하거나 추정하지 마세요. "
+        "Verification excerpts 섹션이 있으면 우선 인용 근거로 사용하세요. "
         "해석/추론/제안/전망은 인용이 필수가 아니지만, 문장에 '(해석)', '(추론)', '(제안)', '(전망)' 중 하나를 명시하세요. "
         "일반적 배경 설명은 인용 없이 작성해도 됩니다. "
         "JSONL 인덱스 내용을 그대로 덤프하지 말고, 실제 문서/기사 내용을 분석하세요. "

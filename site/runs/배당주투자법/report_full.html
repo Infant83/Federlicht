@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>배당 성장가능성 점수화 기반 포트폴리오 성과 분석</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    :root {
+      --bg: #0b0f14;
+      --bg-2: #121821;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f5f7fb;
+      --site-muted: rgba(245, 247, 251, 0.65);
+      --accent: #4ee0b5;
+      --accent-2: #6bd3ff;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(78, 224, 181, 0.25);
+      --ink: #0b1220;
+      --muted: #425066;
+      --accent-strong: #2fb892;
+      --paper: rgba(255, 255, 255, 0.94);
+      --paper-strong: #ffffff;
+      --paper-alt: rgba(240, 245, 255, 0.6);
+      --rule: rgba(15, 23, 42, 0.12);
+      --shadow: 0 28px 70px rgba(15, 23, 42, 0.22);
+      --link: var(--accent-2);
+      --link-hover: var(--accent);
+      --page-bg: radial-gradient(1200px 600px at 12% -10%, var(--glow), transparent 60%),
+        radial-gradient(900px 540px at 92% 8%, rgba(107, 211, 255, 0.18), transparent 55%),
+        linear-gradient(180deg, #0b111d 0%, var(--bg-2) 45%, var(--bg) 100%);
+      --body-font: "Fraunces", "Charter", Georgia, serif;
+      --heading-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --ui-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --mono-font: "JetBrains Mono", "Consolas", monospace;
+    }
+    :root[data-theme="sky"] {
+      --bg: #0b1220;
+      --bg-2: #0f1b2e;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f4f7ff;
+      --site-muted: rgba(244, 247, 255, 0.62);
+      --accent: #64b5ff;
+      --accent-2: #8fd1ff;
+      --edge: rgba(255, 255, 255, 0.18);
+      --glow: rgba(100, 181, 255, 0.28);
+      --accent-strong: #3f8ed1;
+    }
+    :root[data-theme="crimson"] {
+      --bg: #120a0d;
+      --bg-2: #1c0f16;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #fff5f7;
+      --site-muted: rgba(255, 245, 247, 0.62);
+      --accent: #ff6b81;
+      --accent-2: #ff9aa9;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(255, 107, 129, 0.25);
+      --accent-strong: #e3546d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: #e2e8f0;
+      background: var(--page-bg);
+      font-family: var(--body-font);
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+      overflow-x: hidden;
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.6;
+      mix-blend-mode: screen;
+      filter: blur(0px);
+      animation: float 16s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 122, 89, 0.55), transparent 60%);
+      top: -220px;
+      left: -160px;
+    }
+    .orb-2 {
+      width: 440px;
+      height: 440px;
+      background: radial-gradient(circle at 60% 40%, rgba(14, 165, 164, 0.5), transparent 62%);
+      top: 80px;
+      right: -120px;
+      animation-delay: -4s;
+    }
+    .orb-3 {
+      width: 340px;
+      height: 340px;
+      background: radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.35), transparent 70%);
+      bottom: -180px;
+      left: 22%;
+      animation-delay: -8s;
+    }
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1040px;
+      margin: 56px auto 96px;
+      padding: 0 28px;
+    }
+    .masthead {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 22px 22px;
+      border: 1px solid rgba(226, 232, 240, 0.18);
+      border-radius: 18px;
+      background: rgba(10, 14, 20, 0.55);
+      backdrop-filter: blur(8px);
+      margin-bottom: 36px;
+      animation: fadeIn 0.7s ease-out both;
+    }
+    .masthead-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .kicker {
+      font-family: var(--ui-font);
+      font-size: 0.82rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.68);
+    }
+    .back-link {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--ui-font);
+      font-size: 0.78rem;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.78);
+      background: rgba(15, 23, 42, 0.35);
+      transition: all 0.2s ease;
+    }
+    .back-link:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .report-title {
+      font-family: var(--heading-font);
+      font-size: clamp(2.2rem, 3.6vw, 3.6rem);
+      margin: 0;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: #f8fafc;
+    }
+    .report-deck {
+      color: rgba(226, 232, 240, 0.8);
+      font-size: 1.05rem;
+      max-width: 720px;
+    }
+    .article {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 22px;
+      padding: 40px 44px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      animation: rise 0.8s ease-out both;
+    }
+    .article > * { animation: rise 0.6s ease-out both; }
+    .article > *:nth-child(1) { animation-delay: 0.05s; }
+    .article > *:nth-child(2) { animation-delay: 0.1s; }
+    .article > *:nth-child(3) { animation-delay: 0.15s; }
+    .article > *:nth-child(4) { animation-delay: 0.2s; }
+    .article > *:nth-child(5) { animation-delay: 0.25s; }
+    .article h1, .article h2, .article h3, .article h4 {
+      font-family: var(--heading-font);
+      color: var(--ink);
+    }
+    .article h1 { font-size: 2rem; margin-top: 0; }
+    .article h2 {
+      font-size: 1.55rem;
+      margin-top: 2.6rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule);
+      position: relative;
+      padding-left: 18px;
+    }
+    .article h2::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 1.45rem;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent-strong);
+    }
+    .article h3 { font-size: 1.2rem; margin-top: 1.7rem; color: #1f2937; }
+    .article p { font-size: 1.05rem; }
+    .article ul, .article ol { padding-left: 1.4rem; }
+    .article blockquote {
+      border-left: 3px solid var(--accent-strong);
+      margin: 1.6rem 0;
+      padding: 0.7rem 1.4rem;
+      background: var(--paper-alt);
+      color: var(--muted);
+      font-style: italic;
+    }
+    .article a {
+      color: var(--link);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(14, 165, 164, 0.4);
+    }
+    .article a:hover { color: var(--link-hover); border-bottom-color: var(--link-hover); }
+    .article code {
+      background: rgba(15, 23, 42, 0.06);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-family: var(--mono-font);
+      font-size: 0.92em;
+    }
+    .article pre {
+      background: rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 14px;
+      padding: 16px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      font-family: var(--mono-font);
+    }
+    .article table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; }
+    .article th, .article td { border: 1px solid var(--rule); padding: 10px 12px; }
+    .article th { background: rgba(148, 163, 184, 0.15); text-align: left; }
+    .article tr:nth-child(even) td { background: rgba(148, 163, 184, 0.08); }
+    .article hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+    .misc-block {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.6rem;
+    }
+    .misc-block ul { margin: 0.6rem 0 0.8rem 1.2rem; }
+    .misc-block li { margin: 0.2rem 0; }
+    .report-figure {
+      margin: 1.4rem 0;
+      padding: 0.9rem 1.1rem;
+      border: 1px solid var(--rule);
+      border-radius: 14px;
+      background: rgba(248, 250, 252, 0.8);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    .report-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+    .report-figure figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 0.4rem; }
+    .figure-callout { font-size: 0.95rem; color: var(--muted); margin: 0.8rem 0 1rem; font-style: italic; }
+    .viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 10, 17, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .viewer-overlay.open { opacity: 1; pointer-events: auto; }
+    .viewer-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: min(560px, 92vw);
+      height: calc(100% - 40px);
+      background: var(--paper-strong);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 18px;
+      box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+      transform: translateX(120%);
+      transition: transform 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+    }
+    .viewer-panel.open { transform: translateX(0); }
+    .viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--rule);
+      font-family: var(--ui-font);
+      gap: 12px;
+    }
+    .viewer-title { font-size: 0.95rem; color: var(--ink); flex: 1; }
+    .viewer-actions { display: flex; gap: 8px; align-items: center; }
+    .viewer-actions a {
+      font-size: 0.85rem;
+      color: var(--link);
+      text-decoration: none;
+    }
+    .viewer-close {
+      border: none;
+      background: rgba(15, 23, 42, 0.08);
+      color: #0f172a;
+      border-radius: 999px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+    }
+    .viewer-frame { flex: 1; border: none; width: 100%; border-radius: 0 0 16px 16px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(18px); } }
+    @media (max-width: 860px) {
+      .page { margin: 40px auto 64px; padding: 0 20px; }
+      .article { padding: 28px; }
+      .report-deck { font-size: 1rem; }
+    }
+    @media (max-width: 600px) {
+      .report-title { font-size: 2rem; }
+      .article { padding: 22px; }
+      .article h2 { font-size: 1.35rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+body.template-trend_scan {
+  --ink: #1f2120;
+  --muted: #4b5a5d;
+  --accent: #1a7f73;
+  --link: #1b5f73;
+  --page-bg: radial-gradient(1200px 640px at 14% -12%, #e5f1ee 0%, #f4f6f2 50%, #ffffff 100%);
+  --body-font: "Palatino Linotype", "Book Antiqua", "Iowan Old Style", Georgia, serif;
+  --heading-font: "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+  --ui-font: "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+}
+
+body.template-trend_scan .article {
+  border-radius: 18px;
+}
+
+body.template-trend_scan .article h2 {
+  border-top: 2px solid rgba(26, 127, 115, 0.35);
+}
+
+body.template-trend_scan .kicker {
+  color: var(--accent);
+}
+
+    body { background: var(--page-bg) !important; color: var(--site-ink); }
+    .masthead { color: #f8fafc; }
+    .report-deck { color: rgba(226, 232, 240, 0.82); }
+    .kicker { color: rgba(255, 255, 255, 0.7); }
+  </style>
+</head>
+<body class="template-trend_scan">
+  <div class="backdrop">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+  <div class="page">
+    <header class="masthead">
+      <div class="masthead-top">
+        <div class="kicker">Federlicht</div>
+        <a class="back-link" id="back-link" href="#">목록으로</a>
+      </div>
+      <div class="report-title">배당 성장가능성 점수화 기반 포트폴리오 성과 분석</div>
+      <div class="report-deck">Research review and tech survey</div>
+    </header>
+    <main class="article">
+<h1>배당 성장가능성 점수화 기반 포트폴리오 성과 분석</h1>
+<p>Federlicht assisted and prompted by "Hyun-Jung Kim / AI Governance Team" — 2026-02-01 14:28</p>
+<h2>Executive Summary</h2>
+<p>배당주 투자 “방법론” 관점에서 이번 런의 가장 강한 신호는, 단순 고배당률 스크리닝을 넘어 <strong>배당의 ‘질’을 성장가능성으로 분해해 점수화(STGP: Scoring Table for Growth Potential)하고 그 결과로 포트폴리오를 구성</strong>하는 접근이다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.1, p.4, p.7). 해당 연구는 KRX 상장 927개 기업을 대상으로 2007–2010년 기간에 연 1회 포트폴리오를 구성·평가했으며, STGP로 분류한 A그룹 포트폴리오가 Markowitz(1952) 모형 및 KOSPI 지수수익률 대비 우수한 연도별 수익률을 제시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.1, p.9–10). 특히 A그룹은 2007년 96%, 2010년 41%로 제시되어 동일 연도 Markowitz(35%, 27%)와 KOSPI(32%, 21%)를 상회하며, 2008년 하락 국면에서도 -33%로 상대적으로 낙폭이 작게 나타난다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.10–11). 또, 4개 범주 중 <strong>내재성장률(범주4)</strong>이 수익률에 가장 긍정적 영향을 미친다는 요약 및 상관분석 결과(예: 범주4 가중치–A그룹 상관 0.72)가 제시된다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.1, p.12). 반면, 배당정책의 주가 영향에 대한 학계의 이견(배당무관련이론 등)도 같이 정리되어 있어, “배당=성과”의 단선적 서사를 경계해야 한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.2). 종합 결론의 확신수준은 <strong>Medium</strong>(해석)이며, 이유는 핵심 실증이 단일 연구·단일 시장·단일 기간(2007–2010)에 집중되어 있고, 이번 런에서 대중적 투자 가이드/웹 콘텐츠의 본문 확보가 제한되었기 때문이다(<a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>).</p>
+<h2>Signal Landscape</h2>
+<h3>학술논문(1차 근거) — Strong</h3>
+<ul>
+<li><strong>배당 기반 성장가능성 평가 및 스코어링(STGP) 제안</strong>: “배당을 중심으로 한 기업의 성장가능성을 평가하여 효율적 포트폴리오를 선택”하기 위해 4개 범주와 스코어링 테이블을 개발했다고 명시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.1).  </li>
+<li><strong>성장가능성 4개 범주 정의(배당 ‘질’의 분해)</strong>: 배당지급 연속성, 배당지급 안정성, 현금배당지급성향, 내재성장률의 4개 범주로 분류한다고 제시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.4).  </li>
+<li><strong>구체적 채점 규칙 및 그룹핑 기준(A/B/C)</strong>: &lt;표1&gt;에서 범주별 점수기준과 GrowthPotential 값에 따른 A/B/C 그룹 기준(예: A그룹 $+2\sim+4$)을 제시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.7).  </li>
+<li><strong>비교대안 및 실증설계의 명시성</strong>: 비교대안으로 Markowitz(1952) 포트폴리오 선택 모형을 사용한다고 밝히며(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.8), 표본(927개), 기간(2007–2010), 평가주기(1회/년), 수집요인(배당성향·현금배당률·ROE·주가 등)을 명시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.9).  </li>
+<li><strong>성과 신호(연도별)</strong>: A그룹이 Markowitz 및 KOSPI 대비 우수한 수익률을 보였다는 표 및 서술이 있다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.10–11).  </li>
+<li><strong>기여 요인(가중치/상관)</strong>: 범주4(내재성장률) 가중치와 A그룹 성과의 상관 0.72, 범주1과 A그룹 상대수익률 간 -0.86 등의 결과를 제시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.12).</li>
+</ul>
+<p><strong>강도 판단(해석)</strong>: 설계·표본·비교대안·결과표가 원문에 포함되어 있고, 구체 규칙이 재현 가능한 형태로 제시되어 Strong로 분류한다.</p>
+<h3>웹/블로그 등(대중 콘텐츠) — Weak(공개정보 한계)</h3>
+<ul>
+<li>네이버 블로그 URL에 대해 추출이 실패하여 본문 텍스트를 확보하지 못했다(직접 인용 불가)(<a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>; <a href="report_views/archive_tavily_extract_0001_https_blog.naver.com_yminsong_223619967783_viewType_-a7b2487c.html" data-viewer="report_views/archive_tavily_extract_0001_https_blog.naver.com_yminsong_223619967783_viewType_-a7b2487c.html" data-raw="archive/tavily_extract/0001_https_blog.naver.com_yminsong_223619967783_viewType_pc.txt" class="viewer-link">\[5\]</a>).  </li>
+</ul>
+<p><strong>강도 판단(해석)</strong>: 투자 실무 팁/세금/브로커 관행 등 대중적 “투자법” 신호를 보강할 수 있었으나 본문 미확보로 Weak.</p>
+<h3>수집/운영 로그(커버리지·갭 확인용) — Moderate(보조 신호)</h3>
+<ul>
+<li>유튜브 검색은 “쿼리 힌트 없음”으로 스킵되었다(<a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>).  </li>
+<li>OpenAlex 검색 수행 로그는 있으나, 결과 산출물 부재가 확인된다(근거 다양성 갭)(<a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>).  </li>
+<li>수집 대상 URL이 논문 PDF와 네이버 블로그 2개로 설정되어 있었다(<a href="report_views/archive__job.json-5226400e.html" data-viewer="report_views/archive__job.json-5226400e.html" data-raw="archive/_job.json" class="viewer-link">\[4\]</a>).  </li>
+</ul>
+<p><strong>강도 판단(해석)</strong>: 내용 근거라기보다 “이번 런에서 어떤 채널이 비어 있는지”를 확인하는 운영 신호로 Moderate.</p>
+<h2>Trend Themes</h2>
+<h3>1) “고배당률”에서 “배당의 질(quality of dividend)”로의 프레임 전환</h3>
+<p>배당주 투자는 종종 배당수익률(yield) 중심으로 단순화되지만, 연구는 변동성이 확대된 시장에서 “보다 안정적인 배당투자전략” 필요성을 언급하며, 배당을 성장가능성 관점에서 배점해 그룹을 나누는 방식을 제안한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.4). 이때 성장가능성은 연속성·안정성·현금배당지급성향·내재성장률로 분해되어, “배당을 준다”는 사실보다 “어떤 방식으로, 어떤 재무적 맥락에서 주는가”를 구조화한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.4–6). (해석) 이는 배당주 전략이 ‘현금흐름 상품’에서 ‘재무정책/자본배분 신호의 해석’으로 진화하는 트렌드와 맞닿아 있다.</p>
+<ul>
+<li>근거: 4개 범주 정의 및 스코어링 테이블 개발(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.1, p.4, p.7)  </li>
+<li>반대 신호/대안(해석): 배당정책이 주주 부에 영향을 미치지 않는다는 배당무관련이론(Miller and Modigliani, 1961)이 소개되며, 배당의 정보성/세금효과 등 복수 관점이 공존한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.2). 즉, “배당의 질”을 해석하는 프레임 자체가 시장구조·세제·정보비대칭에 따라 성과가 달라질 수 있다.</li>
+</ul>
+<h3>2) 배당 스코어링의 ‘핵심 축’이 내재성장률(ROE–payout 조합)로 이동</h3>
+<p>연구 요약은 4개 범주 중 “내재성장률을 의미하는 범주가 수익률에 가장 긍정적인 영향을” 미친다고 밝힌다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.1). 범주4는 저배당성향 여부와 고ROE 여부를 결합해 배점하는 구조이며(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.6–8), 상관분석에서도 범주4 가중치와 A그룹 상대성과 간 양(+)의 상관 0.72를 제시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.12). (해석) 이는 배당주 전략이 “많이 주는 기업”보다 “배당 여력이 있으면서 자기자본수익성이 높은 기업(재투자/성장 잠재력)”을 더 우선시하는 방향으로 정교화될 수 있음을 시사한다.</p>
+<ul>
+<li>근거: 범주4 정의 및 상관 결과(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.6, p.12)  </li>
+<li>카운터-시그널(해석): 저배당성향+고ROE 조합이 항상 “주주환원”으로 이어지지 않을 수 있으며(재투자 실패·지배구조·과잉투자 등), 배당정책을 둘러싼 정보효과/대리인문제의 맥락에 따라 해석이 바뀔 여지가 있다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.2–3).</li>
+</ul>
+<h3>3) 규칙 기반(룰-베이스드) 배당 퀄리티 스코어링의 재현가능성(operationalizable alpha)</h3>
+<p>STGP는 범주별로 배점 규칙을 명시하고(예: 최근 3년 배당 지급횟수, payout ratio 변화, 현금배당률의 가중 변화), GrowthPotential 값으로 A/B/C 그룹을 구분한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.7–8). 또한 성과 비교에서 “모든 범주의 가중치 값은 동일”로 두고 그룹 성과를 제시해, 규칙 기반 전략의 단순한 실행 형태를 보여준다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.10). (해석) 전략/리서치팀 관점에서는, 설명가능하고 운영 가능한 스코어링 프레임(스크리너 → 그룹 → 리밸런싱)의 형태가 “배당주 투자법”을 문서화·자동화하는 기반이 될 수 있다.</p>
+<ul>
+<li>근거: &lt;표1&gt; 규칙, 그룹핑, 동일가중치 언급(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.7, p.10)  </li>
+<li>반대 신호/대안(해석): 룰이 명시적일수록 시장 참여자에 의해 빠르게 모방·거래될 수 있으며, 과거(2007–2010)에는 유효했던 룰이 현재 시장구조에서는 약화될 가능성이 있다(추론). 또한 Markowitz 모형은 “공매도 없음” 등 가정이 포함됨을 본문이 언급한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.8).</li>
+</ul>
+<h3>4) “연 1회 리밸런싱”과 장기 관점의 배당 전략 설계 신호</h3>
+<p>실증 설계는 평가주기를 “1회/년(연초 포트폴리오 구성 후, 연말 평가)”로 제시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.9). (해석) 이는 잦은 매매보다 배당정책·이익안정성·자본수익성 같은 느린 변수에 베팅하는, 저회전율(낮은 turnover)의 배당 전략 설계가 ‘투자법’의 한 축이 될 수 있음을 시사한다. 다만 동일 문서에서 Markowitz 포트폴리오 관리는 6개월 간격 갱신으로 1년에 2번 수정했다고 언급되어, 비교대안 쪽은 더 빈번한 조정이 존재한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.11).</p>
+<ul>
+<li>근거: 평가주기, Markowitz 관리 방식 언급(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.9, p.11)  </li>
+<li>카운터-시그널(해석): 연 1회 리밸런싱은 배당컷·실적 급변·정책 변화 같은 이벤트 리스크에 둔감할 수 있다(추론).</li>
+</ul>
+<h2>Scenarios &amp; Implications</h2>
+<h3>시나리오 1: “배당 퀄리티 팩터”의 제도화(스크리닝 표준으로 정착)</h3>
+<ul>
+<li>트리거: 변동성 확대 국면에서 “안정적 배당투자전략” 수요가 커지고(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.4), 배당을 연속성/안정성/현금배당/내재성장률로 분해하는 프레임이 리서치·상품화로 확산(전망).  </li>
+<li>전개(추론): 증권사/자산운용 리서치가 STGP 유사 스코어를 “배당+성장” 지표로 패키징하고, 내부 스크리너 기본 템플릿으로 채택.  </li>
+<li>함의(제안):  </li>
+<li>전략팀은 “배당률 단일 지표” 리포팅을 줄이고, 4개 범주(특히 범주4) 기반의 다차원 대시보드를 구축(제안).  </li>
+<li>리서치 운영에서 규칙의 재현가능성을 확보하기 위해 &lt;표1&gt;과 동일/유사 정의를 코드화하고, 연 1회 리밸런싱 기준 백테스트 파이프라인을 표준화(제안)(근거 규칙: <a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.7–9).</li>
+</ul>
+<h3>시나리오 2: 금리/세제/정책 변화로 “배당=방어” 내러티브 약화</h3>
+<ul>
+<li>트리거: 배당수익률만으로는 성과지표로서 매력이 희석될 수 있다는 본문 맥락(주가상승에 따른 배당수익률 하락, 금리상승 등)이 재현(전망)(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.2).  </li>
+<li>전개(추론): 투자자 관심이 배당 그 자체에서 기업의 현금흐름/자본정책 ‘신호’ 해석으로 이동하거나, 반대로 배당 전략이 매크로 환경에서 구조적으로 불리해짐.  </li>
+<li>함의(제안):  </li>
+<li>배당 전략을 “현금수익”이 아니라 “정책/재무 신호”로 재정의하고, 배당무관련이론 등 대안 가설과 함께 설명하는 커뮤니케이션 프레임을 준비(제안)(이론적 이견 근거: <a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.2).  </li>
+<li>성과 평가는 KOSPI 대비뿐 아니라, 배당정책 변화 국면에서의 드로우다운/회복력 등 위험지표를 병행(제안).</li>
+</ul>
+<h3>시나리오 3: 단일 규칙의 과최적화가 드러나며 “범주 가중치 학습”으로 진화</h3>
+<ul>
+<li>트리거: 연구는 범주4 가중치가 커질수록 상대수익률도 커진다는 해석을 제시한다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.12).  </li>
+<li>전개(추론): 시장 국면에 따라 범주별 중요도가 바뀐다면, 고정 룰(STGP)에서 ‘가중치 적응형’(regime-aware) 스코어링으로 발전할 수 있음.  </li>
+<li>함의(제안):  </li>
+<li>범주별 가중치를 고정하지 말고, 국면변수(변동성, 이익변동 등)에 따라 시나리오별 가중치 세트를 운영하는 “멀티-모델” 접근을 검토(제안).  </li>
+<li>다만 원문은 상관분석을 제시할 뿐 예측모형의 외부검증은 제시하지 않으므로, 가중치 학습은 추가 연구/검증이 필요(해석)(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.12).</li>
+</ul>
+<h2>Risks &amp; Gaps</h2>
+<h3>데이터/근거 공백</h3>
+<ul>
+<li><strong>대중적 ‘배당주 투자법’ 콘텐츠 부재</strong>: 네이버 블로그 본문을 확보하지 못해, 실무적 투자법(세금, 거래 관행, 종목 사례, 체크리스트) 신호를 인용 기반으로 보강할 수 없었다(<a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>; <a href="report_views/archive_tavily_extract_0001_https_blog.naver.com_yminsong_223619967783_viewType_-a7b2487c.html" data-viewer="report_views/archive_tavily_extract_0001_https_blog.naver.com_yminsong_223619967783_viewType_-a7b2487c.html" data-raw="archive/tavily_extract/0001_https_blog.naver.com_yminsong_223619967783_viewType_pc.txt" class="viewer-link">\[5\]</a>).  </li>
+<li><strong>멀티 소스 검증 부재</strong>: 이번 런은 실질적으로 단일 학술논문 중심이며, OpenAlex 검색 로그는 있으나 결과 파일이 없고(<a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>), 유튜브 검색도 스킵되어(<a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>) 교차검증 폭이 좁다(해석).  </li>
+<li><strong>기간/시장 특수성</strong>: 실증은 2007–2010년, KRX 927개 기업 표본에 한정된다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.1, p.9). (해석) 금융위기 전후 국면이 포함되어 있어, 다른 국면·다른 시장으로의 일반화에는 추가 검증이 필요하다.</li>
+</ul>
+<h3>오탐(False positive) 위험</h3>
+<ul>
+<li><strong>요인 중복 위험(해석)</strong>: 범주4(저배당성향+고ROE)는 가치/퀄리티/수익성 요인과 중첩될 수 있어, “배당 전략의 알파”로 보이는 것이 사실상 다른 팩터 노출일 수 있다(추론).  </li>
+<li><strong>전략 실행 리스크(해석)</strong>: 연 1회 평가·리밸런싱은 이벤트(배당컷, 실적 급변)에 늦게 반응할 수 있다(추론)(평가주기 근거: <a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.9).  </li>
+</ul>
+<h2>Critics</h2>
+<h3>단일 연구 기반 ‘배당 스코어링’ 일반화의 함정</h3>
+<p>연구는 STGP 기반 A그룹이 2007–2010년 구간에서 비교대안 대비 우수한 연도별 수익률을 제시하지만(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.10–11), 동일한 규칙이 다른 시기·다른 시장에서도 반복될지에 대한 외부검증은 이번 런의 근거만으로 확인하기 어렵다(해석). 또한 배당정책이 주주 부에 영향을 미치지 않을 수 있다는 배당무관련이론을 함께 소개하고 있어(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.2), 배당을 ‘필승 신호’로 간주하는 단순 투자법은 이론적으로도 취약하다(해석).</p>
+<ul>
+<li><strong>배당=성과</strong>의 단선적 내러티브는 위험: 배당정책의 효과를 둘러싼 이론이 다층적이며(배당무관련, 세금효과, 정보효과 등) 단일 관점으로 환원하기 어렵다(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.2).  </li>
+<li><strong>팩터 혼동 가능성</strong>: 범주4가 “내재성장률”과 연결되고 ROE를 포함하므로(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.6), 배당전략 성과가 아니라 수익성/퀄리티 팩터 성과일 수 있다(추론).  </li>
+<li><strong>운영 관점의 제약</strong>: Markowitz 모형이 “공매도 없음” 등 제약을 전제한다는 설명이 있어(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.8), 비교 자체의 전제가 실무 포트폴리오와 다를 수 있다(해석).  </li>
+</ul>
+<h2>Appendix</h2>
+<h3>A) 근거 아카이브(인용 가능) 링크</h3>
+<ul>
+<li>학술논문 텍스트(핵심 근거): <a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>  </li>
+<li>학술논문 PDF(원문): <a href="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-viewer="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-raw="archive/web/pdf/2011331.pdf" class="viewer-link">\[2\]</a>  </li>
+<li>다운로드/수집 로그(커버리지 확인): <a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>  </li>
+<li>작업 설정(수집 대상/파라미터 확인): <a href="report_views/archive__job.json-5226400e.html" data-viewer="report_views/archive__job.json-5226400e.html" data-raw="archive/_job.json" class="viewer-link">\[4\]</a></li>
+</ul>
+<h3>B) 인용 불가/제한 근거(공개정보 한계) 및 사용 원칙</h3>
+<ul>
+<li>네이버 블로그 추출 실패 파일은 “실패 사실”만 확인 가능하며, 블로그 내용 자체를 재구성/인용하지 않았다: <a href="report_views/archive_tavily_extract_0001_https_blog.naver.com_yminsong_223619967783_viewType_-a7b2487c.html" data-viewer="report_views/archive_tavily_extract_0001_https_blog.naver.com_yminsong_223619967783_viewType_-a7b2487c.html" data-raw="archive/tavily_extract/0001_https_blog.naver.com_yminsong_223619967783_viewType_pc.txt" class="viewer-link">\[5\]</a> (해석)  </li>
+<li>OpenAlex/YouTube는 로그 상 수행/스킵 기록만 존재하며, 본문 근거(논지/수치/인용문)로 사용하지 않았다(<a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">\[3\]</a>).  </li>
+</ul>
+<h3>C) 재현성 체크리스트(연구→전략 구현 전환용)</h3>
+<ul>
+<li>(제안) STGP 구현 시 &lt;표1&gt;의 범주별 규칙과 A/B/C 그룹핑 기준을 그대로 코드화하고, 입력 변수(배당성향, 현금배당금, 자기자본, ROE 등)를 문서에 명시(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.7–9).  </li>
+<li>(제안) 평가주기(연 1회)와 동일가중치 가정이 성과에 미치는 영향을 별도 실험으로 분리(예: 분기 리밸런싱 vs 연 1회)(근거: <a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.9–10).  </li>
+<li>(제안) 범주4 가중치/성과 상관(0.72) 결과를 “설명”으로만 두지 말고, 외부기간(out-of-sample)에서 검증해 과최적화 여부를 점검(<a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">\[1\]</a>, p.12).</li>
+</ul>
+<h2>Figures</h2>
+<p class="figure-callout">Figures referenced: <a href="#fig-1">Figure 1</a>: Source PDF: 2011331.pdf; <a href="#fig-2">Figure 2</a>: Source PDF: 2011331.pdf; <a href="#fig-3">Figure 3</a>: Source PDF: 2011331.pdf; <a href="#fig-4">Figure 4</a>: Source PDF: 2011331.pdf</p>
+
+<figure class="report-figure" id="fig-1">
+  <img src="report_assets/figures/._archive_web_pdf_2011331.pdf-b64be243.png" alt="Figure from ./archive/web/pdf/2011331.pdf (page 1)" />
+  <figcaption>Figure 1: <a href="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-viewer="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-raw="archive/web/pdf/2011331.pdf" class="viewer-link">./archive/web/pdf/2011331.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-2">
+  <img src="report_assets/figures/._archive_web_pdf_2011331.pdf-939b09ac.png" alt="Figure from ./archive/web/pdf/2011331.pdf (page 2)" />
+  <figcaption>Figure 2: <a href="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-viewer="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-raw="archive/web/pdf/2011331.pdf" class="viewer-link">./archive/web/pdf/2011331.pdf</a> (page 2)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-3">
+  <img src="report_assets/figures/._archive_web_pdf_2011331.pdf-6cfc673c.png" alt="Figure from ./archive/web/pdf/2011331.pdf (page 3)" />
+  <figcaption>Figure 3: <a href="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-viewer="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-raw="archive/web/pdf/2011331.pdf" class="viewer-link">./archive/web/pdf/2011331.pdf</a> (page 3)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-4">
+  <img src="report_assets/figures/._archive_web_pdf_2011331.pdf-535a7e38.jpeg" alt="Figure from ./archive/web/pdf/2011331.pdf (page 11)" />
+  <figcaption>Figure 4: <a href="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-viewer="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-raw="archive/web/pdf/2011331.pdf" class="viewer-link">./archive/web/pdf/2011331.pdf</a> (page 11)</figcaption>
+</figure>
+
+<h2>Report Prompt</h2>
+<p>Language: Korean</p>
+<p>Template: trend_scan
+Depth: normal</p>
+<p>목적/범위: Run ID “배당주투자법”에 대해 배당주 투자/배당 고려 포트폴리오 전략 관련 신호를 스캔하고, 확립된 연구결과(학술논문)와 약한 신호(대중 콘텐츠 부재로 인한 추정)를 분리해 트렌드 테마, 시나리오, 전략적 함의를 도출한다. 독자는 전략/리서치팀이며 문체는 분석적·탐색적·미래지향적으로 유지한다.</p>
+<p>핵심 포함 항목(섹션별):<br />
+- Executive Summary: 5–7문장. 신호 하이라이트 1–2개(예: 배당을 고려한 포트폴리오 스코어링 접근, 배당·성장가능성 결합 프레임)와 전체 결론의 확신수준(High/Med/Low) 명시.<br />
+- Signal Landscape: 소스 유형별(학술논문 1차, 웹/블로그, 검색 인덱스)로 신호를 묶고 신호 강도(Strong/Moderate/Weak)와 불확실성 요인을 기록. 네이버 블로그 본문은 수집 실패로 “공개정보 한계” 처리.<br />
+- Trend Themes: 3–5개 테마. 각 테마마다 근거(논문 내 표/방법/결론 등) + 반대 신호/대안 설명(예: 배당무관련이론, 배당컷·세금·섹터 편향 가능성).<br />
+- Scenarios &amp; Implications: 2–3개 시나리오. 촉발 요인(금리, 이익 변동성, 배당정책 변화, 규제/세제)과 투자전략/리서치 운영 영향(스크리닝, 리밸런싱, 리스크 관리) 제시.<br />
+- Risks &amp; Gaps: 데이터 공백(대중적 ‘투자법’ 가이드 소스 부재, YouTube/OpenAlex/arXiv 인덱스 없음)과 오탐 위험(단일 논문 의존, 표본/기간/시장 특수성)을 명시.<br />
+- Critics: “단일 연구 기반 전략의 일반화 위험” 등 헤드라인 1개 + 짧은 문단, 반대 관점 bullet(배당 함정, 가치/저변동성 요인 중복 등).<br />
+- Appendix: 사용 소스 목록(인용 가능: <code><a href="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-viewer="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-raw="archive/web/pdf/2011331.pdf" class="viewer-link">archive/web/pdf/2011331.pdf</a></code>, <code><a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">archive/web/text/2011331.txt</a></code> 및 교차검증용 tavily_extract)과 인용 불가 인덱스 파일을 구분.</p>
+<p>증거/인용 정책: 본문 인용은 아카이브에 실재하는 1차 텍스트/PDF에서만 직접 인용(페이지/절 정보 포함). <code>tavily_search.jsonl</code>, <code>source_index.jsonl</code>, <code>source_triage.md</code>는 “발굴용”으로만 언급하고 본문 근거로 인용 금지. 블로그는 콘텐츠 미확보로 인용 금지(공개정보 한계). 불확실성/신뢰도는 문장 단위로 표기.</p>
+<p>언어 지시: 전체 한국어로 작성하되, 고유명사/논문 제목은 원문 표기를 유지. 약한 신호는 “추정/가설”로 라벨링하고 확립된 결과와 혼합 서술 금지.</p>
+<p>Language: Korean</p>
+<p>Template: trend_scan
+Depth: normal</p>
+<p>목적/범위: Run ID “배당주투자법”에 대해 배당주 투자/배당 고려 포트폴리오 전략 관련 신호를 스캔하고, 확립된 연구결과(학술논문)와 약한 신호(대중 콘텐츠 부재로 인한 추정)를 분리해 트렌드 테마, 시나리오, 전략적 함의를 도출한다. 독자는 전략/리서치팀이며 문체는 분석적·탐색적·미래지향적으로 유지한다.
+전략적인 배당주 투장 방법에 대해 설명한다.</p>
+<p>핵심 포함 항목(섹션별):<br />
+- Executive Summary: 5–7문장. 신호 하이라이트 1–2개(예: 배당을 고려한 포트폴리오 스코어링 접근, 배당·성장가능성 결합 프레임)와 전체 결론의 확신수준(High/Med/Low) 명시.<br />
+- Signal Landscape: 소스 유형별(학술논문 1차, 웹/블로그, 검색 인덱스)로 신호를 묶고 신호 강도(Strong/Moderate/Weak)와 불확실성 요인을 기록. 네이버 블로그 본문은 수집 실패로 “공개정보 한계” 처리.<br />
+- Trend Themes: 3–5개 테마. 각 테마마다 근거(논문 내 표/방법/결론 등) + 반대 신호/대안 설명(예: 배당무관련이론, 배당컷·세금·섹터 편향 가능성).<br />
+- Scenarios &amp; Implications: 2–3개 시나리오. 촉발 요인(금리, 이익 변동성, 배당정책 변화, 규제/세제)과 투자전략/리서치 운영 영향(스크리닝, 리밸런싱, 리스크 관리) 제시.<br />
+- Risks &amp; Gaps: 데이터 공백(대중적 ‘투자법’ 가이드 소스 부재, YouTube/OpenAlex/arXiv 인덱스 없음)과 오탐 위험(단일 논문 의존, 표본/기간/시장 특수성)을 명시.<br />
+- Critics: “단일 연구 기반 전략의 일반화 위험” 등 헤드라인 1개 + 짧은 문단, 반대 관점 bullet(배당 함정, 가치/저변동성 요인 중복 등).<br />
+- Appendix: 사용 소스 목록(인용 가능: <code><a href="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-viewer="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-raw="archive/web/pdf/2011331.pdf" class="viewer-link">archive/web/pdf/2011331.pdf</a></code>, <code><a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">archive/web/text/2011331.txt</a></code> 및 교차검증용 tavily_extract)과 인용 불가 인덱스 파일을 구분.</p>
+<p>증거/인용 정책: 본문 인용은 아카이브에 실재하는 1차 텍스트/PDF에서만 직접 인용(페이지/절 정보 포함). <code>tavily_search.jsonl</code>, <code>source_index.jsonl</code>, <code>source_triage.md</code>는 “발굴용”으로만 언급하고 본문 근거로 인용 금지. 블로그는 콘텐츠 미확보로 인용 금지(공개정보 한계). 불확실성/신뢰도는 문장 단위로 표기.</p>
+<p>언어 지시: 전체 한국어로 작성하되, 고유명사/논문 제목은 원문 표기를 유지. 약한 신호는 “추정/가설”로 라벨링하고 확립된 결과와 혼합 서술 금지.</p>
+<h2>References</h2>
+<ol>
+<li>2011331.txt — <a href="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-viewer="report_views/archive_web_text_2011331.txt-fbe70de4.html" data-raw="archive/web/text/2011331.txt" class="viewer-link">file</a></li>
+<li>2011331.pdf — <a href="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-viewer="report_views/archive_web_pdf_2011331.pdf-75e334bc.html" data-raw="archive/web/pdf/2011331.pdf" class="viewer-link">file</a></li>
+<li>_log.txt — <a href="report_views/archive__log.txt-06118313.html" data-viewer="report_views/archive__log.txt-06118313.html" data-raw="archive/_log.txt" class="viewer-link">file</a></li>
+<li>_job.json — <a href="report_views/archive__job.json-5226400e.html" data-viewer="report_views/archive__job.json-5226400e.html" data-raw="archive/_job.json" class="viewer-link">file</a></li>
+<li>0001_https_blog.naver.com_yminsong_223619967783_viewType_pc.txt — <a href="report_views/archive_tavily_extract_0001_https_blog.naver.com_yminsong_223619967783_viewType_-a7b2487c.html" data-viewer="report_views/archive_tavily_extract_0001_https_blog.naver.com_yminsong_223619967783_viewType_-a7b2487c.html" data-raw="archive/tavily_extract/0001_https_blog.naver.com_yminsong_223619967783_viewType_pc.txt" class="viewer-link">file</a></li>
+</ol>
+<h2>Miscellaneous</h2>
+<div class="misc-block">
+<ul>
+<li>Generated at: 2026-02-01 14:28:44</li>
+<li>Duration: 00:05:11 (311.38s)</li>
+<li>Model: gpt-5.2</li>
+<li>Quality model: gpt-4o</li>
+<li>Quality strategy: pairwise</li>
+<li>Quality iterations: 1</li>
+<li>Template: trend_scan</li>
+<li>Language: Korean</li>
+<li>Tags: 인용, 배당, 신호, PDF, 포트폴리오</li>
+<li>Output format: html</li>
+<li>PDF compile: disabled</li>
+<li>Run overview: <a href="report_views/report_run_overview.md-40ef65a9.html" data-viewer="report_views/report_run_overview.md-40ef65a9.html" data-raw="report/run_overview.md" class="viewer-link">./report/run_overview.md</a></li>
+<li>Report overview: <a href="report_views/report_run_overview_report_full.md-d5c00cb8.html" data-viewer="report_views/report_run_overview_report_full.md-d5c00cb8.html" data-raw="report/run_overview_report_full.md" class="viewer-link">./report/run_overview_report_full.md</a></li>
+<li>Report workflow: <a href="report_views/report_notes_report_workflow.md-bd2306de.html" data-viewer="report_views/report_notes_report_workflow.md-bd2306de.html" data-raw="report_notes/report_workflow.md" class="viewer-link">./report_notes/report_workflow.md</a></li>
+<li>Archive index: <a href="./archive/배당주투자법-index.md">./archive/배당주투자법-index.md</a></li>
+<li>Instruction file: <a href="./instruction/generated_prompt_배당주투자법.txt">./instruction/generated_prompt_배당주투자법.txt</a></li>
+<li>Report prompt: <a href="report_views/instruction_report_prompt_report_full.txt-e0a852da.html" data-viewer="report_views/instruction_report_prompt_report_full.txt-e0a852da.html" data-raw="instruction/report_prompt_report_full.txt" class="viewer-link">./instruction/report_prompt_report_full.txt</a></li>
+<li>Figure candidates: <a href="./report_views/figures_preview.html">./report_views/figures_preview.html</a></li>
+</ul>
+</div>
+    </main>
+  </div>
+  <div id="viewer-overlay" class="viewer-overlay"></div>
+  <aside id="viewer-panel" class="viewer-panel" aria-hidden="true">
+    <div class="viewer-header">
+      <div class="viewer-title" id="viewer-title">Source preview</div>
+      <div class="viewer-actions">
+        <a id="viewer-raw" href="#" target="_blank" rel="noopener">Open raw</a>
+        <button class="viewer-close" id="viewer-close" aria-label="Close">x</button>
+      </div>
+    </div>
+    <iframe id="viewer-frame" class="viewer-frame" title="Source preview"></iframe>
+  </aside>
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const themeParam = params.get('theme');
+      const storedTheme = localStorage.getItem('federlicht.theme');
+      const theme = themeParam || storedTheme;
+      if (theme) {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('federlicht.theme', theme);
+      }
+      const backLink = document.getElementById('back-link');
+      if (backLink) {
+        const path = window.location.pathname.replace(/\\/g, '/');
+        const idx = path.lastIndexOf('/runs/');
+        if (idx !== -1) {
+          backLink.href = `${path.slice(0, idx)}/index.html`;
+          backLink.style.display = 'inline-flex';
+        }
+      }
+      const panel = document.getElementById('viewer-panel');
+      const overlay = document.getElementById('viewer-overlay');
+      const frame = document.getElementById('viewer-frame');
+      const rawLink = document.getElementById('viewer-raw');
+      const title = document.getElementById('viewer-title');
+      const closeBtn = document.getElementById('viewer-close');
+      function closeViewer() {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        frame.src = 'about:blank';
+      }
+      function openViewer(viewer, raw, label) {
+        frame.src = viewer;
+        rawLink.href = raw || viewer;
+        title.textContent = label || 'Source preview';
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+      }
+      document.querySelectorAll('a').forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          link.setAttribute('target', '_blank');
+          link.setAttribute('rel', 'noopener');
+        }
+        const viewer = link.getAttribute('data-viewer');
+        if (viewer) {
+          link.addEventListener('click', (event) => {
+            if (event.metaKey || event.ctrlKey) { return; }
+            event.preventDefault();
+            openViewer(viewer, link.getAttribute('data-raw'), link.textContent.trim());
+          });
+        }
+      });
+      overlay.addEventListener('click', closeViewer);
+      closeBtn.addEventListener('click', closeViewer);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { closeViewer(); }
+      });
+    })();
+  </script>
+</body>
+</html>
