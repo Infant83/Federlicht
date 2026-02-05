@@ -340,3 +340,42 @@ def list_dir(root: Path, raw_path: str | None) -> dict[str, Any]:
             }
         )
     return {"path": safe_rel(path, root), "entries": entries}
+
+
+def list_run_logs(root: Path, run_rel: str | None) -> list[dict[str, Any]]:
+    run_dir = resolve_run_dir(root, run_rel)
+    log_paths = sorted(
+        set(
+            list(run_dir.glob("_log*.txt"))
+            + list((run_dir / "archive").glob("_log*.txt"))
+            + list(run_dir.glob("_feather_log*.txt"))
+            + list(run_dir.glob("_federlicht_log*.txt"))
+        ),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    items: list[dict[str, Any]] = []
+    run_rel_safe = safe_rel(run_dir, root)
+    for path in log_paths:
+        stat = path.stat()
+        name = path.name
+        lower = name.lower()
+        if "federlicht" in lower:
+            kind = "federlicht"
+        elif "feather" in lower or lower.startswith("_log"):
+            kind = "feather"
+        else:
+            kind = "log"
+        items.append(
+            {
+                "id": safe_rel(path, root),
+                "name": name,
+                "path": safe_rel(path, root),
+                "run_rel": run_rel_safe,
+                "kind": kind,
+                "status": "history",
+                "updated_at": iso_ts(stat.st_mtime),
+                "size": stat.st_size,
+            }
+        )
+    return items

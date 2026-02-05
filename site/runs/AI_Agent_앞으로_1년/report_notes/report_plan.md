@@ -1,8 +1,9 @@
-- [ ] 요구사항·템플릿 확인 — ./instruction/AI_Agent_앞으로_1년.txt, Template(custom_mit_tech_review), 템플릿 소스, ./report.md를 읽어 섹션·톤·라벨링(관찰/추정/권고) 규칙 정렬
-- [ ] 인벤토리·커버리지 파악 — ./archive/AI_Agent_앞으로_1년-index.md, ./report_notes/source_index.jsonl, ./report_notes/source_triage.md로 우선순위 검증(본문 인용 금지)
-- [ ] 핵심 1차 근거 정독 — OpenAlex 텍스트 2건(./archive/openalex/text/W4412877164.txt, ./archive/openalex/text/W4412787296.txt)에서 평가·신뢰성·보안 근거와 DOI 추출
-- [ ] 프로덕션 신뢰성 리서치 검토 — ReliabilityBench(arXiv HTML) 핵심 개념(신뢰성 표면, fault injection 등) 요약 및 인용 메모화(공개정보 한계 표기)
-- [ ] 오케스트레이션·툴·관측성 보조 근거 스캔 — Comet, CodeAnt, ZenML, LinkedIn 링크에서 체크리스트/도구 비교 추출(홍보성 가능성 주석 부여)
-- [ ] 근거 카드화 — 주장 단위로 ‘관찰/추정/권고’ 라벨과 출처(경로/DOI/URL) 매핑, 증거 공백( arXiv JSONL·YouTube·보안 실증) 표기
-- [ ] 본문 작성 — 템플릿 구조대로 실행 요약→트렌드 스캔→핵심 아이디어→논의(오케스트레이션/툴 사용/신뢰성·평가/보안)→향후 12개월→위험 및 결핍→비판자 관점→부록 순으로 초안 작성 및 인용 삽입
-- [ ] 교차검증·편집 — 베이스라인 ./report.md와 중복/불일치 점검, 라벨 일관성·문장 간결화, “공개정보 한계/홍보성 가능성” 주석 확인 후 최종 저장
+- [ ] 기준·지침 확인 — instruction/AI_Agent_앞으로_1년.txt, source_triage.md, source_index.jsonl를 확인해 업데이트 범위(Executive Summary→표시명 Summary, 라벨 제거, 인용 유지)와 톤/형식 제약을 정렬
+- [ ] 기준 파일 단일화 — 보고서 실사용본(report_full_3.html vs ./report.md)을 열람·비교해 편집 대상 단일화 및 백업 생성(경로 충돌 해소)
+- [ ] 대상 발췌 식별 — 기준 파일에서 “실행 요약” 섹션의 시작/끝을 정밀 지정하고 현재 변경 사항 적용 여부(라벨 잔존·문단 수·문장 수) 점검
+- [ ] Summary 재서술 — 관찰/권고 라벨을 제거하고 2문단(각 ≤3문장) 자연문으로 재구성하되, Mohammadi 2025, ReliabilityBench(공개정보 한계 명시), Romanishyn 2025 인용을 원문 주장과 1:1 대응 유지
+- [ ] 제목·앵커/TOC 동기화 — 섹션 표제 “Summary”로 변경, 내부 앵커/목차/내비 링크를 동기화(템플릿 키는 Executive Summary 유지, 표시명만 Summary로 노출)
+- [ ] 근거 정합성 검증 — archive/openalex/text/W4412877164.txt와 W4412787296.txt를 재확인하고 문장-인용 대응을 검증, arXiv HTML(ReliabilityBench)은 로컬 사본 부재/접근일 표기 검토
+- [ ] 형식·무결성 점검 — Summary 내 불릿 금지, 2문단 구성·문장 수 제한 준수, HTML 구조 유효성, 요약 내 ‘관찰:’/‘권고:’ 잔존 여부 전역 검색(grep)
+- [ ] 산출물 반영 — 편집본 저장 및 인덱스/개요 문서(archive/AI_Agent_앞으로_1년-index.md, report/run_overview_*.md)에서 ‘실행 요약’ 참조가 있으면 ‘Summary’로 갱신, 변경 이력 기록
+- [ ] 변경 검토·승인 — 변경 전/후 diff와 최종 Summary 본문을 공유하고 깨진 링크·앵커 여부 확인 후 승인 요청

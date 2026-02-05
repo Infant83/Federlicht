@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+- Add run log history indexing (`_log.txt`, `_feather_log.txt`, `_federlicht_log.txt`) and surface it in Recent Jobs.
+- Allow historical logs to open in Live Logs with automatic run/form restoration.
+- Simplify Recent Jobs into a compact summary card with a modal list view.
+- Make Run Studio summary chips (reports/index files) open in File Preview.
+- Stabilize Live Logs layout/scroll behavior for consistent visibility.
+- Pass model/check-model/depth through prompt generation in Federnett to avoid internal model mismatches.
+
 ## 1.1.0
 - Add FederHav CLI to draft update requests against an existing report and re-run Federlicht with a chosen agent profile.
 - Add Federnett Agent Profiles panel (list/edit/save/delete) with site-scoped profile storage and memory hooks.

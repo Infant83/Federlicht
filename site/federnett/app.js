@@ -48,6 +48,7 @@ const state = {
   activeSource: null,
   jobs: [],
   jobsExpanded: false,
+  historyLogs: {},
   logsCollapsed: false,
   logBuffer: [],
   pipeline: {
@@ -320,6 +321,29 @@ function closeHelpModal() {
   modal.setAttribute("aria-hidden", "true");
 }
 
+function openJobsModal() {
+  const modal = $("#jobs-modal");
+  if (!modal) return;
+  const runRel = selectedRunRel();
+  if (!runRel) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  const subtitle = $("#jobs-modal-subtitle");
+  if (subtitle) {
+    subtitle.textContent = runRel
+      ? `Latest activity for ${runBaseName(runRel)}.`
+      : "Select a run folder to view activity.";
+  }
+  renderJobs();
+}
+
+function closeJobsModal() {
+  const modal = $("#jobs-modal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
 async function loadSaveAsDir(relPath) {
   const list = $("#saveas-list");
   const pathInput = $("#saveas-path");
@@ -382,13 +406,60 @@ function updateRecentJobsCard() {
   if (!card) return;
   const runRel = selectedRunRel();
   const subtitle = $("#recent-jobs-subtitle");
+  if (subtitle) {
+    subtitle.textContent = runRel
+      ? `Latest activity for ${runBaseName(runRel)}.`
+      : "Select a run folder to view activity.";
+  }
+  updateRecentJobsSummary();
+}
+
+function buildRecentJobs(runRel) {
+  const history = runRel ? state.historyLogs[runRel] || [] : [];
+  const historyJobs = history.map((entry) => ({
+    job_id: `history:${entry.path}`,
+    kind: entry.kind || "log",
+    status: entry.status || "history",
+    updated_at: entry.updated_at,
+    run_rel: entry.run_rel,
+    log_path: entry.path,
+    label: entry.name || entry.path,
+    source: "history",
+  }));
+  const liveJobs = state.jobs
+    .filter((job) => !job.run_rel || !runRel || job.run_rel === runRel)
+    .map((job) => ({ ...job, source: "live" }));
+  return [...liveJobs, ...historyJobs].sort((a, b) => {
+    const ta = a.updated_at ? Date.parse(a.updated_at) : a.started_at || 0;
+    const tb = b.updated_at ? Date.parse(b.updated_at) : b.started_at || 0;
+    return tb - ta;
+  });
+}
+
+function updateRecentJobsSummary() {
+  const runRel = selectedRunRel();
+  const countEl = $("#recent-jobs-count");
+  const lastEl = $("#recent-jobs-last");
+  const openBtn = $("#jobs-open");
+  if (!countEl || !lastEl) return;
   if (!runRel) {
-    card.classList.add("is-hidden");
-    if (subtitle) subtitle.textContent = "Select a run folder to surface jobs.";
+    countEl.textContent = "0";
+    lastEl.textContent = "No run selected.";
+    if (openBtn) openBtn.disabled = true;
     return;
   }
-  card.classList.remove("is-hidden");
-  if (subtitle) subtitle.textContent = `Latest activity for ${runBaseName(runRel)}.`;
+  const jobs = buildRecentJobs(runRel);
+  countEl.textContent = String(jobs.length || 0);
+  if (!jobs.length) {
+    lastEl.textContent = "No recent jobs.";
+    if (openBtn) openBtn.disabled = true;
+    return;
+  }
+  const top = jobs[0];
+  const label = top.label || top.kind || "job";
+  const status = top.status || "";
+  lastEl.textContent = status ? `${label} · ${status}` : label;
+  if (openBtn) openBtn.disabled = false;
 }
 
 function setMetaStrip() {
@@ -504,6 +575,20 @@ function stripSiteRunsPrefix(value) {
   if (cleaned === base) return "";
   if (cleaned.startsWith(`${base}/`)) return cleaned.slice(base.length + 1);
   return cleaned;
+}
+
+function inferRunRelFromPayload(payload) {
+  if (!payload) return "";
+  if (payload.run) {
+    const rel = stripSiteRunsPrefix(payload.run);
+    return rel || payload.run;
+  }
+  if (payload.output) {
+    const rel = stripSiteRunsPrefix(payload.output);
+    if (!rel) return "";
+    return rel.replace(/\/[^/]+$/, "");
+  }
+  return "";
 }
 
 function formatRunRoots(runRoots) {
@@ -1208,12 +1293,17 @@ function renderRunSummary(summary) {
       if (url) links.push(`<a href="${url}" target="_blank" rel="noreferrer">Run Folder</a>`);
     }
     if (summary?.latest_report_rel) {
-      const url = toFileUrlFromRel(summary.latest_report_rel);
-      if (url) {
-        links.push(`<a href="${url}" target="_blank" rel="noreferrer">Latest Report</a>`);
-      }
+      const name = summary.latest_report_rel.split("/").pop() || summary.latest_report_rel;
+      links.push(
+        `<button type="button" class="summary-chip" data-file="${escapeHtml(summary.latest_report_rel)}">${escapeHtml(
+          `Latest Report (${name})`,
+        )}</button>`,
+      );
     }
     linksHost.innerHTML = links.join("");
+    linksHost.querySelectorAll("button[data-file]").forEach((btn) => {
+      btn.addEventListener("click", () => loadFilePreview(btn.dataset.file));
+    });
   }
   const reportsHost = $("#run-summary-reports");
   if (reportsHost) {
@@ -1223,30 +1313,29 @@ function renderRunSummary(summary) {
     if (reportLinks.length) {
       const items = reportLinks
         .map((rel) => {
-          const url = toFileUrlFromRel(rel);
           const name = rel.split("/").pop() || rel;
-          return url
-            ? `<a href="${url}" target="_blank" rel="noreferrer">${escapeHtml(name)}</a>`
-            : "";
+          return `<button type="button" class="summary-chip" data-file="${escapeHtml(
+            rel,
+          )}">${escapeHtml(name)}</button>`;
         })
-        .filter(Boolean)
         .join("");
       parts.push(`<div class="summary-reports">${items}</div>`);
     }
     if (indexLinks.length) {
       const items = indexLinks
         .map((rel) => {
-          const url = toFileUrlFromRel(rel);
           const name = rel.split("/").pop() || rel;
-          return url
-            ? `<a href="${url}" target="_blank" rel="noreferrer">${escapeHtml(name)}</a>`
-            : "";
+          return `<button type="button" class="summary-chip" data-file="${escapeHtml(
+            rel,
+          )}">${escapeHtml(name)}</button>`;
         })
-        .filter(Boolean)
         .join("");
       parts.push(`<div class="summary-links">${items}</div>`);
     }
     reportsHost.innerHTML = parts.join("");
+    reportsHost.querySelectorAll("button[data-file]").forEach((btn) => {
+      btn.addEventListener("click", () => loadFilePreview(btn.dataset.file));
+    });
   }
   renderRunFiles(summary);
   applyRunSettings(summary);
@@ -1300,6 +1389,13 @@ async function loadRunSummary(runRel) {
   if (!runRel) return;
   const summary = await fetchJSON(`/api/run-summary?run=${encodeURIComponent(runRel)}`);
   renderRunSummary(summary);
+}
+
+async function loadRunLogs(runRel) {
+  if (!runRel) return;
+  const logs = await fetchJSON(`/api/run-logs?run=${encodeURIComponent(runRel)}`);
+  state.historyLogs[runRel] = Array.isArray(logs) ? logs : [];
+  renderJobs();
 }
 
 function renderInstructionFiles(runRel) {
@@ -1680,7 +1776,7 @@ async function saveInstruction(runRel) {
 }
 
 async function updateRunStudio(runRel) {
-  await Promise.all([loadRunSummary(runRel), loadInstructionFiles(runRel)]);
+  await Promise.all([loadRunSummary(runRel), loadInstructionFiles(runRel), loadRunLogs(runRel)]);
 }
 
 
@@ -2355,12 +2451,22 @@ function normalizeLogText(text) {
   return text.endsWith("\n") ? text : `${text}\n`;
 }
 
+function setLogBufferFromText(text) {
+  const content = String(text || "");
+  const lines = content.split(/\r?\n/);
+  const buffer = lines.map((line, idx) => {
+    if (idx === lines.length - 1 && line === "") return "";
+    return normalizeLogText(line);
+  });
+  state.logBuffer = buffer.slice(-LOG_LINE_LIMIT);
+  renderLogs();
+}
+
 function renderLogs() {
   const out = $("#log-output");
   if (!out) return;
   out.textContent = state.logBuffer.join("");
-  const shell = out.parentElement;
-  if (shell) shell.scrollTop = shell.scrollHeight;
+  out.scrollTop = out.scrollHeight;
 }
 
 function appendLog(text) {
@@ -2381,9 +2487,38 @@ function shortId(id) {
   return id ? id.slice(0, 8) : "";
 }
 
+async function loadHistoryLog(relPath, runRel) {
+  try {
+    closeActiveSource();
+    setKillEnabled(false);
+    setJobStatus(`History log: ${relPath.split("/").pop() || relPath}`, false);
+    if (runRel) {
+      if ($("#run-select")) $("#run-select").value = runRel;
+      if ($("#prompt-run-select")) $("#prompt-run-select").value = runRel;
+      if ($("#instruction-run-select")) $("#instruction-run-select").value = runRel;
+      refreshRunDependentFields();
+      await updateRunStudio(runRel).catch((err) => {
+        appendLog(`[studio] failed to refresh run studio: ${err}\n`);
+      });
+      applyRunFolderSelection(runRel);
+    }
+    const payload = await fetchJSON(`/api/files?path=${encodeURIComponent(relPath)}`);
+    setLogBufferFromText(payload.content || "");
+    focusPanel("#logs-wrap .logs-block");
+  } catch (err) {
+    appendLog(`[logs] failed to load history: ${err}\n`);
+  }
+}
+
 function upsertJob(jobPatch) {
+  const now = Date.now();
   const idx = state.jobs.findIndex((j) => j.job_id === jobPatch.job_id);
-  const next = { ...(idx >= 0 ? state.jobs[idx] : {}), ...jobPatch };
+  const base = idx >= 0 ? state.jobs[idx] : {};
+  const next = {
+    started_at: base.started_at || now,
+    ...base,
+    ...jobPatch,
+  };
   if (idx >= 0) {
     state.jobs[idx] = next;
   } else {
@@ -2394,12 +2529,13 @@ function upsertJob(jobPatch) {
 }
 
 function renderJobs() {
-  const host = $("#jobs-list");
+  const host = $("#jobs-modal-list");
   if (!host) return;
-  const isCompact = host.classList.contains("compact");
-  const limit = isCompact ? 2 : 3;
+  const runRel = selectedRunRel();
+  const limit = 6;
   const collapsed = !state.jobsExpanded;
-  const jobs = collapsed ? state.jobs.slice(0, limit) : state.jobs;
+  const allJobs = buildRecentJobs(runRel);
+  const jobs = collapsed ? allJobs.slice(0, limit) : allJobs;
   host.classList.toggle("is-collapsed", collapsed);
   host.classList.toggle("is-expanded", !collapsed);
   if (!jobs.length) {
@@ -2410,17 +2546,22 @@ function renderJobs() {
         const status = job.status || "unknown";
         const code =
           typeof job.returncode === "number" ? `rc=${job.returncode}` : "";
+        const title = job.label || job.kind || "job";
+        const when = job.updated_at ? formatDate(job.updated_at) : "";
+        const extraPill = when ? `<span class="job-pill">${escapeHtml(when)}</span>` : "";
         return `
           <div class="job-item">
             <div>
-              <strong>${job.kind || "job"}</strong>
+              <strong>${escapeHtml(title)}</strong>
               <div class="job-meta">
-                <span class="job-pill">${shortId(job.job_id)}</span>
                 <span class="job-pill">${status}</span>
                 ${code ? `<span class="job-pill">${code}</span>` : ""}
+                ${extraPill}
               </div>
             </div>
-            <button class="ghost" data-job-open="${job.job_id}">Open</button>
+            <button class="ghost" data-job-open="${job.job_id}" data-job-source="${job.source}" data-job-path="${escapeHtml(
+              job.log_path || "",
+            )}" data-job-run="${escapeHtml(job.run_rel || "")}">Open</button>
           </div>
         `;
       })
@@ -2428,7 +2569,7 @@ function renderJobs() {
   }
   const toggle = $("#jobs-toggle");
   if (toggle) {
-    toggle.style.display = state.jobs.length > limit ? "inline-flex" : "none";
+    toggle.style.display = allJobs.length > limit ? "inline-flex" : "none";
     toggle.textContent = state.jobsExpanded ? "Show less" : "Show more";
     toggle.onclick = () => {
       state.jobsExpanded = !state.jobsExpanded;
@@ -2438,9 +2579,20 @@ function renderJobs() {
   host.querySelectorAll("[data-job-open]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const jobId = btn.getAttribute("data-job-open");
-      if (jobId) attachToJob(jobId);
+      if (!jobId) return;
+      const source = btn.getAttribute("data-job-source");
+      if (source === "history") {
+        const path = btn.getAttribute("data-job-path");
+        const runRel = btn.getAttribute("data-job-run");
+        if (path) {
+          loadHistoryLog(path, runRel || "");
+        }
+        return;
+      }
+      attachToJob(jobId);
     });
   });
+  updateRecentJobsSummary();
 }
 
 function renderRunHistory() {
@@ -2624,6 +2776,9 @@ function attachToJob(jobId, opts = {}) {
       if (state.activeJobKind === "federlicht") {
         setFederlichtRunEnabled(true);
       }
+      if (opts.runRel) {
+        loadRunLogs(opts.runRel).catch(() => {});
+      }
       state.activeJobKind = null;
       closeActiveSource();
     }
@@ -2649,10 +2804,16 @@ async function startJob(endpoint, payload, meta = {}) {
     body,
   });
   const jobId = res.job_id;
-  upsertJob({ job_id: jobId, status: "running", kind: meta.kind || "job" });
+  const inferredRunRel = inferRunRelFromPayload(payload);
+  upsertJob({
+    job_id: jobId,
+    status: "running",
+    kind: meta.kind || "job",
+    run_rel: meta.runRel || inferredRunRel || "",
+  });
   setJobStatus(`Job ${shortId(jobId)} running…`, true);
   focusPanel("#logs-wrap .logs-block");
-  attachToJob(jobId, meta);
+  attachToJob(jobId, { ...meta, runRel: meta.runRel || inferredRunRel || "" });
   return jobId;
 }
 
@@ -3468,6 +3629,23 @@ function handleRunPicker() {
   });
 }
 
+function handleJobsModal() {
+  const modal = $("#jobs-modal");
+  const openBtn = $("#jobs-open");
+  const card = $("#hero-card-recent");
+  openBtn?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    openJobsModal();
+  });
+  card?.addEventListener("click", (ev) => {
+    if (ev.target.closest("button")) return;
+    openJobsModal();
+  });
+  modal?.querySelectorAll("[data-jobs-close]")?.forEach((el) => {
+    el.addEventListener("click", () => closeJobsModal());
+  });
+}
+
 function handleReloadRuns() {
   $("#reload-runs")?.addEventListener("click", async () => {
     try {
@@ -4127,6 +4305,7 @@ async function bootstrap() {
   handleFederlichtPromptPicker();
   handleFederlichtPromptEditor();
   handleRunPicker();
+  handleJobsModal();
   handleReloadRuns();
   handleLogControls();
   handleTemplateSync();

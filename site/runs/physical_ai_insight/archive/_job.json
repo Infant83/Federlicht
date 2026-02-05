@@ -1,0 +1,52 @@
+{
+  "date": "2026-02-06",
+  "src_file": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\physical_ai_insight\\instruction\\physical_ai_insight.txt",
+  "root_dir": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\physical_ai_insight",
+  "out_dir": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\runs\\physical_ai_insight\\archive",
+  "query_id": "physical_ai_insight",
+  "lang_pref": "en",
+  "openalex_enabled": true,
+  "openalex_max_results": 8,
+  "youtube_enabled": true,
+  "youtube_max_results": 8,
+  "youtube_transcript": true,
+  "youtube_order": "relevance",
+  "days": 365,
+  "max_results": 8,
+  "download_pdf": true,
+  "arxiv_source": false,
+  "update_run": true,
+  "citations_enabled": true,
+  "queries": [],
+  "query_specs": [],
+  "local_paths": [],
+  "urls": [
+    "https://www.nvidia.com/en-us/glossary/generative-physical-ai/"
+  ],
+  "arxiv_ids": [
+    "2405.12213",
+    "2406.09246",
+    "2410.24164",
+    "2411.19650",
+    "2412.14058",
+    "2503.20020",
+    "2503.14734",
+    "2506.07530",
+    "2503.02310",
+    "2506.07339"
+  ],
+  "site_hints": [],
+  "raw_lines": [
+    "https://www.nvidia.com/en-us/glossary/generative-physical-ai/",
+    "Octo : https://arxiv.org/abs/2405.12213",
+    "OpenVLA : https://arxiv.org/abs/2406.09246",
+    "Pi0 : https://arxiv.org/abs/2410.24164",
+    "CogACT : https://arxiv.org/abs/2411.19650",
+    "RoboVLMs : https://arxiv.org/abs/2412.14058",
+    "Gemini Robotics : https://arxiv.org/abs/2503.20020",
+    "NVIDIA GR00T : https://arxiv.org/abs/2503.14734",
+    "BitVLA : https://arxiv.org/abs/2506.07530",
+    "PD-VLA : https://arxiv.org/abs/2503.02310",
+    "RTC : https://arxiv.org/abs/2506.07339"
+  ]
+}

@@ -1,0 +1,2963 @@
+
+
+===== PAGE 1 =====
+1
+Towards Generalist Robot Policies: What Matters in
+Building Vision-Language-Action Models
+Xinghang Li1,2∗, Peiyan Li2,3∗, Minghuan Liu2,4∗, Dong Wang1,2∗, Jirong Liu2,4∗,
+Bingyi Kang2, Xiao Ma2, Tao Kong2,B, Hanbo Zhang5,B, Huaping Liu1,B
+1Tsinghua University, 2ByteDance Research, 3CASIA MAIS-NLPR,
+4Shanghai Jiao Tong University, 5National University of Singapore
+lixingha23@mails.tsinghua.edu.cn, hpliu@tsinghua.edu.cn,
+kongtao@bytedance.com, zhanghb@comp.nus.edu.sg
+Abstract
+Foundation Vision Language Models (VLMs) exhibit strong capabilities in multi-modal representation learning, comprehension,
+and reasoning. By injecting action components into the VLMs, Vision-Language-Action models (VLAs) can be naturally formed
+and also show promising performance. Existing work has demonstrated the effectiveness and generalization of VLAs in multiple
+scenarios and tasks. Nevertheless, the transfer from VLMs to VLAs is not trivial since existing VLAs differ in their backbones,
+action-prediction formulations, data distributions, and training recipes. This leads to a missing piece for a systematic understanding
+of the design choices of VLAs. In this work, we disclose the key factors that significantly influence the performance of VLA and
+focus on answering three essential design choices: which backbone to select, how to formulate the VLA architectures, and when to
+add cross-embodiment data. The obtained results convince us firmly to explain why we prefer VLA and develop a new family of
+VLAs, RoboVLMs, which require very few manual designs and achieve a new state-of-the-art performance in three simulation
+tasks and real-world experiments. Through our extensive experiments, which include over 8 VLM backbones, 4 policy architectures,
+and over 600 distinct designed experiments, we provide a detailed guidebook for the future design of VLAs. In addition to the
+study, the highly flexible RoboVLMs framework, which supports easy integrations of new VLMs and free combinations of various
+design choices, is made public to facilitate future research. We open-source all details, including codes, models, datasets, and
+toolkits, along with detailed training and evaluation recipes at: robovlms.github.io.
+Index Terms
+Robot Foundation Models, Vision-Language-Action Models, Generalist Robot Policies
+What Matters？
+VLMs
+When to use 
+Extra Data
+How To 
+Formulate
+Which 
+Backbone
+Action Space
+History  
+Aggr
+Data Scale
+VLM 
+Structure
+Cross-
+Embodiemt
+In-Domain
+Obs 
+Horizon
+VLMs
+Flamingo
+Language
+open the oven
+Multi-View
+Arbitrary Horizon
+Vision
+Various Scenarios & Tasks
+Multiple Embodiments
+PaliGemma
+RoboVLMs
+…
+Unified Framework
+Fig. 1: This work mainly considers four questions for building VLAs based on VLMs: Why do we prefer VLAs; Which
+backbone to use; How to formulate the VLAs; and When to use cross-embodiment data as an extra data source. With our
+proposed RoboVLMs, we can easily transfer VLMs into generalist robot policies that support multiple embodiments, various
+scenarios, and tasks.
+*The work was accomplished during the authors’ internship at ByteDance Research. BCorresponding authors.
+arXiv:2412.14058v3  [cs.RO]  24 Dec 2024
+
+
+===== PAGE 2 =====
+2
+I. INTRODUCTION
+Building generalizable robot policies capable of perceiving, reasoning, and interacting with the physical environment given
+human instructions has been a long-standing challenge in robotics [4, 5, 7, 35]. Recently, there has been an active exploration
+into learning robot foundation models by fine-tuning the Vision-Language Models (VLMs) on robot data with certain architectural
+adjustments. The resulting models, also referred to as Vision-Language-Action Models (VLAs), show promising results in
+both simulated and real-world tasks [7, 22, 24]1. Except for VLAs, there also exist various generalist policies, e.g., the ones
+from video models or even from scratch. Therefore, a natural question arises: Why do we prefer VLAs built upon large-scale
+pre-trained VLMs? Compared with other generalist policies, a mostly believed reason for utilizing VLM-based VLAs is that
+VLMs have demonstrated strong capabilities in learning generalized and robust representations of multi-modal data, such
+as text, images/videos, through extensive training on web-scale data. Such capabilities can inspire the adaptation of robot
+foundation models to bridge the gap between highly diverse open-world scenes and limited robotic data. However, it remains
+an open problem to what extent large-scale vision-language pre-train facilitates generalist robot policies. Moreover, a large and
+diverse set of different VLMs emerged rapidly with different kinds of LLM backbone, training data, model sizes, architectures,
+and training recipes. Which kind of VLM backbones is more suitable for robot manipulation is also a crucial issue for the
+development of successful VLAs.
+Beyond the diversity of different backbones, for generalist robot policies, including VLAs, the structures are more complex
+and vary in form. Based on the most prevalent existing work [4, 7, 20, 22, 24, 34, 35, 39, 47, 55], we propose a categorization
+based on 1) how the history and action information are incorporated in VLAs and 2) whether the action space is continuous
+or discrete. As shown in Fig.2, four types of structure formulations are considered. For history information modeling, two
+forms are identified: 1) one-step modeling, which utilizes only the current state or observation to produce actions; and 2)
+history modeling, which processes a sliding window of historical states or observations. Regarding the aggregation of history
+information, we classify it into two approaches: a) interleaved modeling, which integrates historical observation and action
+sequences in an interleaved format; and b) policy head, which separately processes each historical step and fuses the information
+at a distinct policy head for action prediction. Different structures leverage the pre-trained VLMs in different ways. Hence, they
+may have different features in terms of robustness, generalization ability, and data efficiency when faced with different types of
+environments and tasks. Therefore, it is practically important but underexplored to understand: How should we formulate
+VLAs to sufficiently leverage the power of VLMs in practice?
+In addition to the VLA itself, the quality and diversity of the training data used to develop VLAs are equally critical. With
+recent progress achieved by well-known VLAs [4, 7, 22, 35, 39], large-scale data from different sources is important to further
+improve performance in terms of robustness and generalization against out-of-distribution tasks and environments. Yet, they
+differ largely in detailed training recipes: some utilize additional data to further pre-train VLMs, refining representations closer to
+robotic manipulation tasks [4], while others co-train VLAs alongside in-domain tasks [7, 22, 35, 39]. Moreover, by sufficiently
+pre-trained on diverse manipulation skills, robot policies are expected to learn new skills with minimal demonstrations [13].
+Consequently, in the case of developing efficient VLAs, When to leverage the large-scale cross-embodiment data becomes an
+intriguing issue.
+To thoroughly study the aforementioned issues and find the most effective solution for VLAs, our study chose 4 VLA
+structures, 8 various backbones, and 3 different training data recipes to train the VLA models. In our experiments, we propose
+a new framework, RoboVLMs, to easily transfer the VLMs into VLAs and implement a fair comparison. We evaluate these
+models on two popular robot manipulation benchmarks in simulation: CALVIN [32] and SimplerEnv [37]. Moreover, we also
+trained and evaluated the built VLAs on a self-collected real-world robot manipulation dataset, consisting of 100 manipulation
+tasks and a total of 74K trajectories. Specifically, we initially selected three commonly used VLMs–LLaVA, Flamingo, and
+KosMos, as backbones, combining each with the four VLA structures to examine the effects of action space, observation
+horizon, and history aggregating methods. With the finding that the policy head modeling with continuous action space performs
+best, we compare 8 various VLMs as the backbone with policy head formulation to answer which backbone is more suitable.
+Meanwhile, we compare the generalization and data efficiency of different VLA structures. For the question of when to leverage
+cross-embodiment data, we compare pre-training (the VLAs trained with Open X-Embodiment), finetuning (the VLAs trained
+with target dataset), and post-training (the VLAs pre-trained with Open X-Embodiment and further finetuned with target dataset).
+Finally, to confirm the real-world applicability of the VLAs with the optimal configuration, we trained and evaluated them in
+real-world robot manipulation scenarios, demonstrating generalization across 1) unseen distractors, 2) unseen backgrounds, 3)
+unseen target objects, and 4) novel skill descriptions.
+Through our extensive and comprehensive studies, we derive important insight into building high-performance VLAs around
+the following questions:
+Why do we prefer VLAs? VLAs built upon pre-trained VLMs have proven to be both effective and efficient for generalist robot
+policies. Across all experiments, including simulations and real-world manipulation tasks, our VLA consistently outperforms
+1Although the rigorous definition of VLAs is not consistent in different works, we regard fine-tuning pre-trained VLMs as the key factor to identify VLAs in
+this work.
+
+
+===== PAGE 3 =====
+3
+Historical
+Discrete
+Continuous
+RoboFlamingo (2023)
+RoboMamba (2023)
+GR-1 (2023)
+GR-2 (2024)
+Octo (2023)
+RT-2-X (2023)
+RT-2 (2023)
+OpenVLA (2024)
+Embodied-COT (2024)
+RT-1-X (2023)
+3D-VLA (2024)
+3D Diffuser (2024)
+R3M (2022)
+LAPA (2024)
+RoboUniview (2024)
+DeeRVLA (2024)
+ACT (2023)
+One-Step
+Policy-Head
+Interleaved
+One-Step
+Open-Sourced
+Close-Sourced
+MVP (2022)
+VIMA (2022)
+BC-Z (2022)
+GATO (2022)
+RoboCat (2023)
+RT-1 (2022)
+π0 (2024)
+Fig. 2: The categorization of the existing generalist policies and recent works with year information under our taxonomy.
+We categorize the VLA structures based on two primary levels: 1) action space (vertical axis); and 2) whether the history
+information is integrated (horizontal axis). Moreover, for the VLAs that involved history, we split the VLAs that involved
+history into policy head and interleaved formulation based on the organization pattern of the history information. Note that this
+categorization not only considers models derived from pre-trained VLMs but also encompasses policy architectures that, while
+not pre-trained on VLMs (and therefore not claimed as VLAs), can provide insights into transforming VLMs into VLAs.
+open-source state-of-the-art VLAs by a significant margin. Furthermore, pre-trained VLMs exhibit notable advantages in
+generalization and data efficiency, making them highly desirable for real-world robotic applications.
+Which VLM backbone is more suitable for VLAs? Our extensive study on 8 different VLM backbones shows two distinguished
+VLM backbones, namely KosMos [36] and Paligemma [3], which significantly outperform the others. These results highlight
+that comprehensive vision-language pretraining is essential for achieving superior VLA performance.
+How should we formulate VLAs? Through extensive study and experiments, continuous actions consistently outperform
+auto-regressive discrete actions, while incorporating historical context is crucial for enhancing performance and addressing partial
+observability. For the model architecture, Vision-Language Models (VLMs) integrated directly with policy heads demonstrate
+superior performance compared to other formulations due to the consistent usage, i.e., vision-language tokens should be processed
+in their original pretraining format, with a policy head added to integrate past visual and proprioceptive observations for effective
+decision-making. Finally, larger VLMs further enhance efficiency, requiring fewer data to achieve higher performance.
+When should we leverage cross-embodiment datasets? While it is widely believed that pre-training or post-training with
+cross-embodiment data improves performance, this belief has not been rigorously validated. Our findings reveal that pre-training
+with cross-embodiment data does not consistently yield significant improvements in final performance. However, post-training
+a cross-embodiment pre-trained model on the target dataset can lead to notable performance gains. Additionally, leveraging
+manipulation data from the same robots or tasks provides a clear boost in performance.
+Throughout the study, we propose a new framework, RoboVLMs, which transfers VLMs into VLAs, and provides a unified,
+flexible, easy-to-use, open-source framework that enables seamless integration of any VLM into VLAs with minimal effort,
+allowing robotics practitioners to investigate, compare, and deploy future VLAs. Further, the VLAs built by RoboVLMs
+demonstrate strong performance in generalization, dexterity, and flexibility across a wide range of benchmarks and real-world
+tasks. We open-source the code, along with model weights, and comprehensive guidelines to facilitate the reproducibility of all
+the results. Our goal is to shed light on the robotics community and help build generalized robots.
+II. MAIN RESULTS AND FINDINGS
+Vision-language-action models (VLAs) are commonly defined as models fine-tuned from pre-trained large-scale vision-
+language models (VLMs) using imitation learning [7, 24]. By leveraging the robust vision-language representation capabilities of
+VLMs, VLAs offer a promising approach for developing generalist robotic policies capable of handling complex tasks. However,
+this approach is not universally accepted as the sole or optimal solution. For instance, modular approaches utilize pre-trained
+vision and language modules to encode latent representations of multi-modal inputs [6, 31], while alternative methods rely on
+direct training with diverse robotic datasets [39]. Even within VLA research, there is no consensus on architectures or training
+recipes [7, 8, 22, 24].
+The primary objective of this work is to establish VLAs as robust generalist robotic policies by thoroughly analyzing
+contemporary VLA architectures and identifying the key factors driving their performance. To this end, we introduce RoboVLMs,
+
+
+===== PAGE 4 =====
+4
+TABLE I: The performance of the built VLAs based on VLMs with different image token numbers and VL pre-train data scales.
+The first three rows are flamingo backbones with encoder-decoder structures, the rest backbones are decoder-only structures.
+Note that for VLMs with multi-stage training, the data scale refers to the data amount utilized for the final stage of fine-tuning.
+“UNK” denotes unknown.
+Essential Questions
+Research Questions
+Research Findings
+Q1: Why VLAs
+Q1.1: Are VLAs a proper choice for building gener-
+alist robot policies?
+A1.1: VLA is a promising path towards generalist robot
+policies.
+Q1.2: How does the best VLA built with RoboVLMs
+perform in real-world scenarios?
+A1.2: The best setup VLA built with RoboVLMs
+appears strong effectiveness and robustness in real-world
+scenarios.
+Q2: Which Backbone
+Q2.1: Which type of VLMs are more suitable for
+constructing VLAs?
+A2.1: Sufficient vision-language pre-trained on large
+vision-language datasets benefit VLAs
+Q3: How to Formulate
+Q3.1: What is the best-performing VLA structure?
+A3.1: Continuous action space with policy head to
+integrate history is the best structure.
+Q3.2: How do different formulations affect the
+generalization and data efficiency for VLAs?
+A3.2: The KosMos backbone with a separate policy head
+for history fusion performs the best in generalization
+and data efficiency.
+Q4: When to Leverage Extra Data
+Q4.1: How do large-scale cross-embodiment datasets
+contribute to VLAs?
+A4.1: Extra in-domain data shows beneficial; 2) Post-
+training further improves overall as well as few-shot
+performance.
+Slide Window
+Stack Block
+Open Drawer
+Open Light
+CALVIN
+SimplerEnv
+Put Spoon on Towel
+Put Eggplant in Basket
+Stack Block
+Put Carrot on Plate
+Real-World
+Open the Oven
+Press Toaster
+Pickup Knife
+Pickup Cucumber
+Fig. 3: Two simulated and one real-world benchmarks. We show environment setups and example tasks involved.
+a unified VLA framework that enables the systematic integration and exploration of essential components in VLA design. Using
+this framework, we conduct extensive experiments to address several critical questions.
+1) Why do we prefer VLAs?
+2) How should we formulate VLAs?
+3) Which VLM backbone is more suitable for VLAs?
+4) When should we leverage cross-embodiment datasets?
+As shown in Tab. I, we further divide the 4 essential problems into 6 research problem, and implement successive experiments
+of VLAs to answer each research problem. The built VLA model with a proper backbone and structure can outperform
+the state-of-the-art generalist robot policies by a large margin. We hope that our findings can practically help build robust,
+generalizable, and well-performing VLAs.
+To comprehensively evaluate the performance of VLAs, in this work, we benchmark all models on a diverse set of benchmarks
+and robotic manipulation tasks in both simulation and the real world. Specifically, as shown in Fig. 3, we choose tow well-known
+and widely used simulation benchmarks (CALVIN [32] and SimplerEnv [40]), and a real-world robot manipulation experiment
+to evaluate VLA models:
+CALVIN [32] is a simulation benchmark for multitask table-top manipulation. The dataset contains four splits A, B, C, and
+D according to different scene settings and provides 34 basic tasks with 24K human teleoperated demonstrations annotated
+with language instructions in total. Evaluation metrics include the success rates of finishing 1 ∼5 consecutive tasks, as well as
+the average number of achieved tasks successfully executed (shorted as Avg. Len.).
+SimplerEnv [25] is designed as a suite of real-to-sim environments and enables the evaluation of robot policies in simulation.
+It creates a comparable arena for benchmarking the success rate of robot policies in private real-world settings such as Google
+Robot [6, 7] and Bridge V2 [45].
+
+
+===== PAGE 5 =====
+5
+Fig. 4: The illustration of the experimental settings in real-world experiments. We evaluate the models in 20 tasks with five
+rollouts for each task, involving Unseen Disctractor, Unseen Target Object and Unseen Background, Novel Skill Description.
+Note that for tasks like Open Drawer, we do not test the unseen object setting, and the object layout for each rollout is
+randomly initialized and different from the one in the training set. Note that the unseen target object is only available for
+picking tasks.
+TABLE II: Simulation performances on CALVIN benchmark, all models are trained on split ABCD/ABC, and evaluated on
+split D. KosMos P.H. represents the VLA utilizing KosMos-2 as backbone and policy head as architecture, built with the
+RoboVLMs framework, and is maximally trained for 5 epochs. We will continue to use the expression of backbone and structure
+to represent the VLAs built with RoboVLMs in the following paper.
+Method
+VLA?
+Train
+Consecutive tasks success rates
+Avg.
+Len.
+1
+2
+3
+4
+5
+MCIL
+✗
+ABCD
+0.373
+0.027
+0.002
+0.000
+0.000
+0.40
+R3M (Frozen)
+✗
+0.085
+0.005
+0.001
+0.000
+0.000
+0.10
+Voltron (Frozen)
+✗
+0.101
+0.003
+0.001
+0.000
+0.000
+0.11
+Voltron (Fine-tuned)
+✗
+0.837
+0.566
+0.352
+0.208
+0.115
+2.08
+RT-1
+✗
+0.844
+0.617
+0.438
+0.323
+0.227
+2.45
+HULC
+✗
+0.889
+0.733
+0.587
+0.475
+0.383
+3.06
+GR-1
+✓
+0.949
+0.896
+0.844
+0.789
+0.731
+4.21
+KosMos P.H. (RoboVLMs)
+✓
+0.967
+0.930
+0.899
+0.865
+0.826
+4.49
+MCIL
+✗
+ABC
+0.304
+0.013
+0.002
+0.000
+0.000
+0.31
+Voltron (Frozen)
+✗
+0.026
+0.001
+0.000
+0.000
+0.000
+0.03
+Voltron (Fine-tuned)
+✗
+0.569
+0.272
+0.105
+0.038
+0.014
+1.00
+RT-1
+✗
+0.533
+0.222
+0.094
+0.038
+0.013
+0.90
+HULC
+✗
+0.418
+0.165
+0.057
+0.019
+0.011
+0.67
+GR-1
+✓
+0.854
+0.712
+0.596
+0.497
+0.401
+3.06
+KosMos P.H. (RoboVLMs)
+✓
+0.980
+0.936
+0.854
+0.778
+0.704
+4.25
+Real Robot Benchmark [8] consists of over 70K teleoperated human trajectories used to fine-tune robot policies, covering
+105 manipulation tasks. To evaluate the performance of models on this benchmark, we adopt the approach outlined in [23],
+testing each model on one Simple setting and four challenging Unseen settings. Examples of these settings are shown in Fig.4.
+In total, we evaluate each VLA across 20 tasks, with 5 settings per task and 3 rollouts per setting, reporting the average success
+rate for each setting. A detailed description of the benchmarks is provided in Appendix K and Appendix D.
+All tasks included in these benchmarks are driven by single-arm robots, leading to a 7-DoF action - the 6D pose 2 of the
+gripper and one-dimensional open/close status. Robot observation is accessible from proprioceptive sensory information, visual
+observation, and language input.
+A. Why do we prefer VLAs?
+This section investigates one of the key questions: Why do we want VLAs? To answer this question, we need to answer the
+following prerequisite sub-question at first:
+Question 1: Are VLAs a proper choice for building generalist robot policies?
+2Represented in Euler angles.
+
+
+===== PAGE 6 =====
+6
+WidowX+Bridge
+Google Robot
+0
+0.2
+0.4
+0.6
+0.8
+1.0
+Average Success Rate
+0.01
+0.16
+0.30
+0.01
+0.38
+0.49
+0.61
+0.15
+0.33
+0.62
+RT-1-X
+Octo-Base
+Octo-Small
+OpenVLA-7b
+RT-2-X
+KosMos P.H. (RoboVLMs)
+Fig. 5: Evaluation results on the SimplerEnv simulation benchmarks, including the WidowX+Bridge and Google Robot
+environments. Performance of baseline methods are referred from Li et al. [25]. The KosMos P.H. built by RoboVLMs is the
+best VLA structure investigated, which is trained over fixed training steps. Detailed numerical results can be further referred to
+Appendix H.
+Concretely, we demonstrate the best-performing VLA resulting from our study, which sets a new state-of-the-art result on
+both CALVIN and SimplerEnv benchmarks, outperforming all other robot policies with a clear margin. All results are shown
+in Tab. II and Fig. 5.
+From these tables, we can see that our strongest RoboVLM exceeds the existing state-of-the-art generalist policies by a large
+margin and establishes a strong baseline for robot manipulation tasks both in simulation and real-world experiments. Concretely,
+we can easily observe the following facts:
+• On CALVIN benchmark, our best model achieves the highest performance in all metrics and demonstrates superior
+generalization ability when transferring from ABC to D (a novel scene unseen in the training splits) with an absolute
+improvement of 12.6% for the execution of a single task and a total improvement of 30.3% for 5 consecutive tasks. On
+average, under zero-shot settings, our model can finish 4.25 tasks out of 5 tasks for each single rollout, outperforming the
+previous SOTA model (GR-1) by 1.09 tasks.
+• On SimplerEnv, our model achieves the highest average performance on both WidowX + Bridge and Google Robot
+environments, demonstrating the general effectiveness and robustness against different settings and diverse manipulation
+tasks.
+We also investigated the impact of vision-language pre-training on the generalization and data efficiently (Fig. 6 and Tab. IV),
+and the detailed result in shown in Appendix H. For the generalization in CALVIN, we adopt the official setting: training
+models on the split of ABC and validating performance on D. To evaluate data efficiency, we conduct experiments on model
+scales ranging from 3B to 9B and various data scales: 10% training data (0.1x ABCD) the standard setting (ABCD), and 500%
+training data (5x ABCD). The additional data originates from the officially released unlabeled datasets, following the setups as
+introduced in Wu et al. [47], the detailed results on different data scales are shown in Appendix E.
+We can see that vision-language pre-training is essential for both generalization and data efficiency. This observation is
+intuitive, as an aligned vision-language representation provides a robust foundation for visual understanding, enabling the policy
+to focus on learning manipulation skills. Therefore, we can conclude that
+Finding 1: VLA is a promising path to generalist robot policies.
+However, although VLAs perform well in simulation, it is still an open problem whether VLAs are suitable for real-robot
+applications due to the sim-to-real gap [54]. We propose the second open question:
+Question 2: How do VLAs perform in real-world scenarios?
+As discussed above, we deploy the best-performing RoboVLM model, that is, the one based on the decoder-only KosMos in
+real-world scenarios to validate its effectiveness. As shown in Fig. 4, our experiment involves 20 tasks with multiple skills,
+
+
+===== PAGE 7 =====
+7
+ABCD
+5x ABCD
+ABC
+0
+1
+2
+3
+4
+5
+Avg. Len.
+4.12
+1.38
+4.49
+2.51
+3.97
+1.69
+4.46
+2.35
+4.51
+2.32
+2.70
+0.65
+4.25
+0.56
+KosMos Inter.
+KosMos Inter. No VL
+KosMos P.H.
+KosMos P.H. No VL
+Flamingo P.H. 9B
+Flamingo P.H. 9B No VL
+Fig. 6: Ablation study of VLAs for vision-language pre-train on different settings of the CALVIN benchmark. “P.H." denotes
+policy head. “No VL" suggests models without VL pre-training. “5x" represents training with 5x re-generated training data.
+Full results on different training setting and data scale are shown in Appendix E.
+Simple
+Novel Skill-DescriptionUnseen Distractor
+Unseen Background
+Unseen Object
+Unseen Average
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Success Rate
+0.75
+0.60
+0.50
+0.55
+0.33
+0.51
+0.45
+0.40
+0.15
+0.25
+0.13
+0.24
+0.55
+0.50
+0.45
+0.20
+0.13
+0.33
+KosMos P.H. (RoboVLMs)
+OpenVLA
+Octo
+Fig. 7: Real-robot performance of our best VLA (KosMos P.H.) built by RoboVLMs against baseline methods over different
+settings. RoboVLM outperforms the existing VLAs over all settings, especially for unseen metrics, demonstrating the effectiveness
+and robustness of our model.
+including Open, Close, Press Button, Pick & Place, etc. For each task, we evaluate five rollouts, with the basic
+setting, novel skill description, unseen distractors, unseen target object, and unseen background.
+Our robot system for real experiments is built on a 7-DoF Kinova Gen3 robot arm paired with a Robotiq 2F-85 gripper,
+please refer to Sec. IV for more details of the real robot. For input, we take the RGB images for the two cameras equipped on
+the robot head and wrist separately. The head camera provides an overview of the workspace while the gripper camera offers a
+close observation of the interaction area between the end effector and the environment.
+We fine-tune Octo-Base, OpenVLA, and KosMos P.H. built by RoboVLMs on the real robot benchmark and compare their
+performance. The result is shown in Fig. 7. We observe that the best VLA (KosMos P.H.) built by RoboVLMs achieves the
+best performance in all evaluation setups, extremely on Simple and Unseen Background, demonstrating their effectiveness and
+generalization ability, which is consistent with the results in SimplerEnv and CALVIN simulation.
+The qualitative results are shown in Appendix K, including success rollouts in various settings and some representative failure
+cases. KosMos P.H. not only outperforms baseline models in basic setting tasks like Open Drawer, Pickup Egglant and
+
+
+===== PAGE 8 =====
+8
+Fig. 8: Visualization for rollouts that the best setting VLA built by RoboVLMs emerges the ability of self-correction. For
+instance, in the Open The Oven task, the robot´s first attempt does not reach the oven handle, and it adjusts the end-effector
+position to re-locate the handle at the second attempt. Note that the training dataset does not contain this kind of data.
+Press the Toaster Switch, but also achieves better performance over unseen objects, distractors, and backgrounds.
+Furthermore, as shown in Fig. 8, KosMos P.H. emerges with self-correction ability, it can realize the incorrect positions of the
+end effector and correct its future trajectory to complete the task successfully. Note that this ability does not appear in the other
+tested baselines, and this kind of data is not contained in the training dataset.
+In the following, we will explain our empirical studies and corresponding findings in detail, including the settings, results,
+and takeaways in building VLAs from pre-trained VLMs.
+Finding 2: The best setup VLA built by RoboVLMs appears strong effectiveness and robustness in real scenarios.
+B. How should we formulate VLAs?
+In this section, our study addresses questions regarding VLA formulations, including different design choices of VLA
+structures and various backbones. To answer these questions, we conduct a series of controlled experimental studies to ablate
+various VLA formulations on the CALVIN benchmark for rapid evaluation.
+Question 3: What is the best-performing VLA structure?
+More specifically, how should we model observations, states, and actions in robot manipulation tasks within the context of
+a VLA? To explore this question, we implement several variants, leveraging various open-source VLM backbones such as
+OpenFlamingo [35], LLaVA [28], and KosMos [36]. These variants incorporate different historical information modeling
+strategies, and action spaces, as discussed and categorized in Sec.I.
+The performance of various VLA structures in CALVIN is summarized in Tab. III. From these results, we draw the following
+key observations:
+• Continuous action matters: By comparing two types of action spaces, continuous and discrete, as shown in Tab. III, we
+observe that under the single-frame formulation, continuous action spaces consistently outperform discrete ones, particularly
+as task horizons increase. This finding is intuitive: continuous actions can represent high-precision floating-point values,
+whereas discrete actions are limited to indexing action intervals. For long-horizon tasks, the accumulation of compounding
+errors significantly degrades the performance of discrete actions.
+• History observation matters: As shown in Tab. III, under the same VLM structure (either Encoder-Decoder or Decoder-
+only), models incorporating history observations as input consistently outperform one-step models, achieving substantially
+higher success rates across all tasks. This improvement holds regardless of the history fusion strategy used. Furthermore,
+increasing the length of an observable history can enhance performance, albeit at the cost of higher computational overhead.
+• Policy head improves history fusion: Among the formulations utilizing history, the interleaved history formulation
+performs worse than merging history via an additional policy head. We hypothesize that the policy head preserves the
+
+
+===== PAGE 9 =====
+9
+TABLE III: The ablation study on CALVIN benchmark over the effect of action space, history integration, and history organizing
+format. All variants are trained on split ABCD and tested on split D. “Disc." is short for discrete and “Cont." represents
+continuous action space. Note that for VLAs with LLaVA backbone, we utilize a perceiver resampler to downsample its vision
+tokens to 64 for fair comparison. Results are reported with models trained maximally within 5 epochs on the ABCD training
+splits.
+Backbone
+Structure
+Action
+Space
+Consecutive tasks success rates
+Avg.
+Len.
+1
+2
+3
+4
+5
+LLaVA
+One-Step
+Disc.
+0.809
+0.484
+0.278
+0.175
+0.103
+1.85
+One-Step
+Cont.
+0.793
+0.592
+0.420
+0.329
+0.235
+2.37
+Interleaved
+Cont.
+0.892
+0.645
+0.436
+0.282
+0.181
+2.44
+Policy-Head
+Cont.
+0.873
+0.678
+0.506
+0.376
+0.275
+2.71
+Flamingo
+One-Step
+Disc.
+0.681
+0.318
+0.133
+0.062
+0.029
+1.22
+One-Step
+Cont.
+0.681
+0.354
+0.158
+0.076
+0.035
+1.30
+Policy-Head
+Cont.
+0.964
+0.896
+0.824
+0.740
+0.662
+4.09
+KosMos
+One-Step
+Disc.
+0.424
+0.097
+0.023
+0.005
+0.002
+0.55
+One-Step
+Cont.
+0.881
+0.599
+0.364
+0.221
+0.124
+2.19
+Interleaved
+Cont.
+0.987
+0.915
+0.824
+0.737
+0.660
+4.12
+Policy-Head
+Cont.
+0.967
+0.930
+0.899
+0.865
+0.826
+4.49
+TABLE IV: The performance of VLAs implemented with different formulations and training data scales. The results for 0.1x
+and 1x data are the best-behaved model checkpoints within 5 epochs, and the results for 5x data are the model performance
+at 1st epoch. We name different implemented VLAs by their VLM backbones and the way of history modeling. Results are
+reported with models trained maximally within 5 epochs on the ABCD training splits.
+VLA
+Architecture
+Data
+Scale
+Consecutive tasks success rates
+Avg.
+Len.
+1
+2
+3
+4
+5
+Flamingo P.H. 3B
+0.1x
+0.120
+0.007
+0.000
+0.000
+0.000
+0.13
+Flamingo P.H. 4B
+0.448
+0.084
+0.014
+0.003
+0.001
+0.55
+Flamingo P.H. 9B
+0.547
+0.190
+0.067
+0.020
+0.003
+0.83
+KosMos Inter.
+0.938
+0.701
+0.445
+0.270
+0.140
+2.49
+KosMos P.H.
+0.958
+0.684
+0.431
+0.270
+0.176
+2.52
+Flamingo P.H. 3B
+1x
+0.964
+0.896
+0.824
+0.740
+0.662
+4.09
+Flamingo P.H. 4B
+0.936
+0.847
+0.750
+0.667
+0.586
+3.79
+Flamingo P.H. 9B
+0.955
+0.879
+0.784
+0.714
+0.634
+3.97
+KosMos Inter.
+0.987
+0.915
+0.824
+0.737
+0.660
+4.12
+KosMos P.H.
+0.967
+0.930
+0.899
+0.865
+0.826
+4.49
+Flamingo P.H. 3B
+5x
+0.971
+0.916
+0.856
+0.794
+0.716
+4.21
+KosMos Inter.
+0.989
+0.940
+0.892
+0.842
+0.795
+4.46
+KosMos P.H.
+0.968
+0.937
+0.903
+0.872
+0.830
+4.51
+VLM’s original vision-language fusion capabilities while effectively integrating historical information. Moreover, the
+interleaved formulation incurs significantly higher memory and FLOP costs during both training and inference. This
+suggests that incorporating history with an additional policy head is a more effective and efficient approach for VLAs.
+Finding 3: The VLA achieves its best performance when using multi-step historical observations as inputs and
+continuous actions as outputs. For integrating history with continuous action space, the policy head structure performs
+better.
+However, beyond the performance itself, one of the most important challenges for modern VLAs is achieving generalization
+to novel objects and environmental settings, which is critical for practical deployment across various robots and scenarios.
+Conversely, when generalization is insufficient, fine-tuning the policy with a few new demonstrations becomes ideal. Thus,
+VLAs should inherit the generalization capabilities of VLMs in open-world settings while maintaining high data efficiency
+when additional in-domain training samples are available. Therefore, we further investigate the following question:
+Question 4: How do different formulations affect the generalization and data efficiency for VLAs?
+To address the question, we empirically study and evaluate the generalization and data efficiency of various VLA formulations,
+aiming to provide practical insights for training high-performing VLAs. Specifically, we assess the generalization and data
+efficiency of different VLAs built with RoboVLMs by training models with different architectures and formulations on varying
+data scales using the CALVIN datasets. As discussed earlier, we focus on comparing the interleaved and policy head formulations
+
+
+===== PAGE 10 =====
+10
+Task 1
+Task 2
+Task 3
+Task 4
+Task 5
+Task Length
+0
+0.2
+0.4
+0.6
+0.8
+1.0
+Consecutive Tasks Success Rates
+Flamingo P.H. 3B
+Flamingo P.H. 4B
+Flamingo P.H. 9B
+KosMos Inter.
+KosMos P.H.
+1
+2
+3
+4
+5
+Avg. Len.
+4.09
+3.79
+3.97
+4.12
+4.49
+(a) Trained on split ABCD.
+Task 1
+Task 2
+Task 3
+Task 4
+Task 5
+Task Length
+0
+0.2
+0.4
+0.6
+0.8
+1.0
+Consecutive Tasks Success Rates
+Flamingo P.H. 3B
+Flamingo P.H. 9B
+KosMos Inter.
+KosMos P.H.
+1
+2
+3
+4
+5
+Avg. Len.
+2.47
+2.20
+2.70
+4.25
+(b) Trained on split ABC.
+Fig. 9: Performance on CALVIN benchmark, all models are trained on split ABCD/ABC, and evaluated on split D. We report
+the success rates of five consecutive tasks (left axis) and the averaged task length (right axis), using the model checkpoint at 5th
+epoch.
+using the OpenFlamingo and KosMos backbones, which have shown strong potential among all configurations. Note that the
+interleaved formulation can only be paired with a decoder-only structure. The results presented in Fig. 9 and Tab. IV, lead to
+the following observations:
+• For generalization performance (Fig. 9), our best model, based on the KosMos backbone and leveraging a policy head
+for history fusion, exhibits only a slight performance drop in zero-shot settings. In contrast, other formulations experience
+significant performance declines. This finding highlights that the model architecture significantly impacts generalization.
+This conclusion is further supported by results in Fig. 5, where tasks in the evaluation set are paired with novel instructions,
+and Fig. 7, where our best model outperforms others by a large margin across all unseen tasks.
+• For data efficiency, we observe trends similar to those for generalization. Our best model consistently achieves the highest
+performance when training data is scaled down, with a notably slower performance decline compared to other formulations.
+Additionally, comparisons of encoder-decoder VLAs at different scales reveal that larger models tend to be more data
+efficient.
+Finding 4: Leveraging policy head for history fusion is the best in terms of generalization and data efficiency.
+C. Which VLM backbone is better for VLAs?
+Following such a finding, the choice of using a policy head for history fusion in VLA can be finalized. However, a critical
+question remains when selecting the most appropriate VLM to build our VLA:
+Question 5: Which type of VLMs is most suitable for constructing VLAs?
+
+
+===== PAGE 11 =====
+11
+TABLE V: The performance of the built VLAs based on VLMs with different image token numbers and VL pre-train data
+scales. The first three rows are flamingo backbones with encoder-decoder structures, the rest backbones are decoder-only
+structures. Note that for VLMs with multi-stage training, the data scale refers to the data amount utilized for the final stage of
+fine-tuning. “UNK” denotes unknown. Results are reported with the model checkpoints trained with 5 epochs on the ABCD
+training splits, all models are trained with a single side view image for fair comparison. We surprisingly found that both LLaVA
+and Qwen behave badly without an additional resampler to downsample the number of tokens.
+Backbone
+#Token
+Data
+Scale
+Model
+Size
+Consecutive tasks success rates
+Avg.
+Len.
+1
+2
+3
+4
+5
+Flamingo
+64
+1B+
+3B
+0.692
+0.418
+0.241
+0.14
+0.074
+1.57
+Flamingo
+64
+1B+
+4B
+0.689
+0.456
+0.281
+0.181
+0.107
+1.71
+Flamingo
+64
+1B+
+9B
+0.744
+0.485
+0.298
+0.187
+0.112
+1.83
+Qwen-VL
+256
+350K
+9B
+0.221
+0.062
+0.014
+0.002
+0.000
+0.30
+MoonDream
+576
+UNK
+3B
+0.717
+0.473
+0.296
+0.198
+0.127
+1.81
+Uform
+256
+10M
+1.3B
+0.778
+0.577
+0.407
+0.300
+0.216
+2.28
+KosMos
+64
+90M
+2B
+0.922
+0.807
+0.701
+0.615
+0.549
+3.59
+Paligemma
+256
+10B
+3B
+0.931
+0.836
+0.752
+0.683
+0.616
+3.82
+To thoroughly investigate this question, it would be ideal to conduct experiments in highly controlled settings. However,
+training VLMs on large-scale vision-language datasets is extremely resource-intensive. Therefore, we base our VLAs on a
+diverse selection of pre-trained large-scale vision-language backbones with varying architectures, training data scales, model
+sizes, and latent embeddings. These include Flamingo model family [1] (Encoder-Decoder), and a series of decoder-only VLMs,
+including LLaVA [28], Qwen-VL [2], MoonDream [44], UForm [41], Paligemma [3], and KosMos [36]. Noticeably, in this
+section, for fair comparisons, all the models are trained with static images instead of both static and hand cameras.
+Although this approach may not offer a fully controlled comparison, our extensive experiments aim to provide insights into
+the impact of different VLM backbones on VLAs. The results, presented in Tab. V, reveal the following observations:
+• KosMos and Paligemma demonstrate the distinctively better performance: From Tab. V, we can see that these two
+backbones are much better than others with a significantly clear margin. Their superior performance benefits from sufficient
+vision-language pre-trained on large vision-language datasets. This outcome is intuitive, as extensive pre-training facilitates
+stronger alignment between visual and linguistic features—an alignment critical for language-conditioned manipulation
+tasks.
+We discuss more influencing factors and interesting findings in Sec. III.
+Finding 5: VLAs benefit from the sufficient vision-language pre-training on large vision-language datasets of VLMs
+backbone.
+D. When should we leverage cross-embodiment datasets?
+In recent work, it has been a dominant trend to leverage large-scale cross-embodiment robot manipulation datasets to improve
+the performance of VLAs [4, 7, 22, 35]. However, it is still not fully clear if it helps and an important question remains:
+Question 6: How do large-scale cross-embodiment datasets contribute to VLAs?
+To address this, we break the question into two sub-questions:
+1) What types of data from large-scale cross-embodiment datasets are the most beneficial for building VLAs?
+2) When and how should these data be utilized effectively?
+In this section, we conduct a series of experiments to investigate different strategies for using external large-scale cross-
+embodiment datasets. Specifically, we explore two primary settings:
+• Pre-train: Pre-training the model with in-domain manipulation data and cross-embodiment datasets. This approach has
+been explored in RT-2 [7], OpenVLA [22], and OCTO [39].
+• Post-train: First, training the VLMs on cross-embodiment datasets, followed by fine-tuning with in-domain manipulation
+tasks. This strategy has been adopted by π0 [4].
+Our experiments in this section use the best-performing KosMos backbone with a policy head for history fusion as the base
+model. We use Open X-Embodiment (OXE) [35] as the cross-embodiment dataset, which comprises a diverse range of robot
+manipulation data collected worldwide and is the most widely used one in recent works [4, 7, 22, 39].
+For comparison, we also evaluate a baseline setting, Finetune, where the VLA is trained exclusively on in-domain data. Addi-
+tionally, for Google Robot, we include both RT Partial Finetune and RT Finetune, where RT Partial Finetune involves only
+the trajectories with the same task type as the evaluating tasks, and RT Finetune involves co-finetuning the policy with additional
+
+
+===== PAGE 12 =====
+12
+Put Spoon on Towel
+Put Carrot on Plate
+Stack Green Block on Yellow Block
+Put Eggplant in Yellow Bucked
+Average
+0
+0.2
+0.4
+0.6
+0.8
+1.0
+Success Rate
+0.29
+0.25
+0.12
+0.58
+0.31
+0.21
+0.25
+0.08
+0.00
+0.14
+0.46
+0.21
+0.04
+0.79
+0.38
+WidowX+Bridge
+Bridge Finetune
+OXE Pre-Train
+Post-Train
+Pick Coke Can
+Move Near
+Open/Close Drawer
+Open Drawer & Place Apple
+Average
+0
+0.2
+0.4
+0.6
+0.8
+1.0
+Success Rate
+0.21
+0.29
+0.42
+0.00
+0.23
+0.90
+0.62
+0.33
+0.06
+0.48
+0.73
+0.66
+0.27
+0.36
+0.50
+0.77
+0.62
+0.43
+0.24
+0.52
+Google Robot
+RT-Partial Finetune
+RT Finetune
+OXE Pre-Train
+Post-Train
+Fig. 10: Ablation studies for cross-embodiment training on SimpleEnv. We evaluate four different training recipes. On the
+WidowX+Bridge environments, we test (1) Bridge Finetune finetunes the VLA directly on the full Bridge datasets (tested tasks
+not included); (2) OXE Pre-Train pre-train the VLA on OXE dataset [35]; (3) Post-Train train the OXE pre-trained VLA on
+Bridge datasets. On the Google Robot environments, we test (1) RT-Partial Finetune finetunes the VLA on tested RT tasks
+only; (2) RT Finetune finetunes the VLA on the full RT dataset (tested tasks included), along with (3) OXE Pre-Train and (4)
+Post-Train on tested RT tasks stage.
+data from the same robot across different tasks. For Bridge, we only evaluate Bridge Finetune which finetune the policy with the
+entire Bridge-V2 dataset, since the training dataset does not contain trajectories with the same instructions of the evaluated tasks.
+Task 1
+Task 2
+Task Length
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+Consecutive Tasks Success Rates.
+0.43
+0.26
+0.11
+0.04
+Few-shot w. OXE Pre-Train
+Few-shot w.o. OXE Pre-Train
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Avg. Len.
+0.57
+0.32
+Fig. 11: The effect of cross-embodiment pre-training
+on OXE datasets for few-shot learning.
+To evaluate the impact of cross-embodiment datasets more comprehen-
+sively, we also perform experiments on CALVIN, which is not part
+of OXE. For CALVIN, we omit the co-train setting and mainly focus
+on whether cross-embodiment datasets benefit few-shot learning for
+robot manipulation on out-of-distribution tasks. Therefore, we conduct
+experiments on CALVIN using only 10 trajectories per task (CALVIN
+few-shot). To keep settings consistent, we only take the image from the
+static on-head camera as input.
+The comparison of leveraging cross embodiment at different training
+stage is shown in Fig. 10. From up to down, the figure shows the evaluation
+results for SimplerEnv-Google Robot and SimplerEnv-Bridge. Further,
+the comparison for whether to integrate cross embodiment pre-train on
+CALVIN few-shot is shown in Fig. 11. The following observations can
+be drawn:
+• Pre-training with cross-embodiment data does not help significantly. Comparing OXE Pre-train and RT-Partial
+Finetune reveals that for both Google Robot and Bridge, co-training with cross-embodiment data does not lead to substantial
+performance improvements. In particular, for Google Robot, training with additional in-domain data (RT Finetune)—even
+from different tasks—achieves higher success rates (compared with RT-Partial Finetune). This indicates that in-domain
+
+
+===== PAGE 13 =====
+13
+data, even if task-agnostic, are more effective for improving model performance than cross-embodiment data.
+• Post-training after cross-embodiment pre-training shows potential benefits. The average performance of the post-trained
+model (52% on Google Robot and 38% on Bridge) exceeds that of the model fine-tuned exclusively on in-domain data
+(48% on Google Robot and 31% on Bridge). This suggests that cross-embodiment pre-training can provide a useful
+initialization that benefits subsequent fine-tuning.
+• Pre-training improves few-shot learning performance. In the few-shot setting for CALVIN, with a single-view on-head
+camera, pre-training significantly improves the performance by 17.2% in terms of single-task execution and 0.25 more
+executed tasks in each rollout. It can be concluded that pre-training on large-scale cross-embodiment datasets benefits the
+learning of more effective representations for robot manipulation, which can quickly adapt to novel manipulation tasks
+with unseen objects and environmental settings.
+Finding 6: Extra in-domain data, even from different tasks, shows beneficial, and large-scale cross-embodiment
+pre-training further improves overall as well as few-shot performance.
+III. DISCUSSION
+This empirical study mainly focuses on what matters in building Visual-Language-Action models (VLAs). We raise four
+essential questions for building a VLA: Why do we need VLAs instead of other generalist policies, and by outperforming
+the existing methods by a large margin, we illustrate the necessity of studying VLAs. For the next step, we describe the key
+components for building a VLM-based VLA: Which kind of VLM backbone to utilize, How to train the model to generate
+action, and When should we add cross-embodiment data into training stages. To answer these questions, we built a unified
+framework for a fair comparison of VLAs and designed a series of bottom-up systematic experiments. To answer these questions,
+we conduct extensive experiments across three simulators and more than 240 rollouts within 20 tasks in real-world scenarios, and
+we can conclude from the experiments that: For the Why question, VLAs could achieve high performance and generalization,
+and is a promising path to generalist robotics policy; For the Which problem, we find that VLMs with sufficient vision-language
+pre-training over large scale vision-language datasets is suitable for constructing VLAs. For the How problem, we can investigate
+the performance, generalization, and data efficiency of different VLA structures, and find that integrating history observations is
+essential for VLAs, and policy head is a more effective and efficient history aggregating method compared with interleaved;
+For the When problem, we compare three training recipes with cross-embodiment integrated at different stages, and conclude
+that extra in-domain data shows beneficial, and large-scale cross-embodiment pre-training further improves overall as well
+as few-shot performance. As a byproduct of answers to the raised questions, we built an easy-to-use framework for easily
+integrating arbitrary VLMs and turning them into VLAs, named RoboVLMs.
+Under investigated observations. During our experiments, we found that VLAs built upon Qwen-VL and LLaVA, the
+performance is surprisingly low, compared with their original performance on vision-language tasks. After adding a perceiver
+resampler after the vision encoder, we found that the VLAs based on Qwen-VL and LLaVA could obtain great performance
+gain and reach reasonable performance. We hypothesize that the performance gain is related to the image resolution and number
+of vision tokens in the input token sequence.
+Limitations. Although we make every effort to investigate the key challenges in building Vision-Language Agents (VLAs), this
+work remains preliminary and has several limitations at the current stage. (1) For the sake of quick and simple expansion over
+existing Vision-Language Models (VLMs), we retain the multi-modal interaction structure within the VLM (e.g., attention
+masks, mixture of experts). On top of this, we further develop the interaction between vision, language, and actions, which
+is a common approach in most existing works [22, 24]. However, a specialized design for the architecture and multi-modal
+interaction with actions has the potential to yield superior performance (e.g., the π0 model [4]), and warrants further exploration.
+(2) The categorizations and formulations of VLAs considered here are simplified and limited for the reasons outlined in (1). (3)
+The action tokenization, policy head, and corresponding training objectives are not fully explored in this work. For example,
+techniques like VQ-VAE [42], diffusion models [9, 17], and flow matching [4, 12, 26] remain under-explored in the context of
+VLAs. (4) The set of VLM backbones considered in this study is limited and can be actively expanded. (5) Deploying such
+large models for real-time robotic control remains a significant challenge.
+Future works. For future work, we envision several potential directions for advancing generalist robot policies. 1) As
+aforementioned, our current approach faces limitations in the design of internal structures for VLMs, policy heads, and
+corresponding training objectives. Further investigation into more fine-grained design choices for VLAs could be highly
+valuable, as recent studies suggest they play a significant role in improving efficiency and effectiveness [4]. 2) Beyond semantic
+generalization, an ideal generalist robot policy should be capable of handling long-horizon, complex task instructions (e.g.,
+make breakfast), reasoning through executable actions step by step, and generating meaningful physical interactions with
+its environment (e.g., [52]). In our future work, we aim to explore the key elements required to develop policies with these
+advanced capabilities.
+
+
+===== PAGE 14 =====
+14
+We have open-sourced our codebase with detailed guidelines, model weights of the strongest VLAs built by RoboVLMs,
+along with the real-world dataset used in our experiments. We anticipate that our research will bolster the community and
+expedite progress in the realms of vision-language learning and foundational models for robotics.
+IV. METHOD AND MATERIAL
+We consider the problem of controlling a robot to accomplish a set of tasks, based on language instructions l, and historical
+observations ot−H+1:t at every time step t with the maximum historical length H. In this paper, we mainly consider a table-top
+robot arm, therefore the observations ot are sensor inputs and images, e.g., ot = (st, It), from either a third-view camera,
+a gripper camera, or both. We build a controlling policy π(a|ot−H+1:t, l), where the action a is modeled as a 7-dim vector,
+including the 6-DoF pose of the gripper, along with its open/close status. In this section, we will first introduce the formulation
+of vision-language models (Section IV-A), based on which we build our VLA formulations.
+A. Vision Language Model
+Vision-language models (VLMs), also referred to as multi-modal large language models, integrate vision into their input
+modality, enabling them to process and reason about both visual and textual information. Typically, VLMs are prompted with
+images and/or text to generate text [1, 2, 3, 28, 41, 44], facilitating applications such as image captioning, visual question
+answering, and goal-directed planning. This process can be formally described as:
+ˆl = VLM(I, lprompt) .
+(1)
+Here, I and lprompt denote the image and text prompts, respectively, while ˆl represents the text output generated by the VLM.
+For instance, in a visual question-answering task, lprompt corresponds to the question, and ltarget corresponds to the generated
+answer. Training a VLM typically involves minimizing a cross-entropy loss to predict discrete language tokens, which can be
+expressed as:
+ℓVLM = CrossEntropy(ˆl, ltarget)
+(2)
+where ltarget is the ground truth text. By pre-training on millions or even billions of paired vision-language data, VLMs acquire
+robust representations of both visual and textual modalities. To effectively handle these two distinct modalities, VLMs typically
+employ a vision processor and a language decoder, connected through various vision-language feature fusion mechanisms.
+Among the available options, vision transformer (ViTs) [11] and perceiver resampler [18] are widely adopted choices for the
+vision processor [24, 29, 39, 47]. The ViT module reshapes each input image I into patches and encodes them as visual tokens
+[OBS]:
+[OBS] = (xv
+1, · · · , xv
+N) = ViT(I),
+(3)
+where N represents the token number, xv
+i represents the ith token, which, in ViT, is an embedding vector encoding a patch of
+the input image.
+Existing VLMs can be broadly categorized into two structural paradigms: encoder-decoder and decoder-only architectures.
+These two structures differ mainly in their multi-modal fusion strategies.
+Encoder-decoder. Encoder-decoder architectures are composed of two main components: an encoder that is typically responsible
+for extracting features from inputs using input embedding modules as discussed above, and a decoder that generates the
+output (e.g., text or multi-modal predictions) auto-regressive. Feature fusion between the encoder and decoder is usually
+achieved by cross-attention layers in the decoder. This structure excels in tasks requiring a detailed understanding of the input
+modalities, such as image captioning and visual reasoning, due to its ability to explicitly encode multi-modal information prior
+to generation [33, 48]. Representative models include Flamingo [1] and OFA [46].
+Decoder-only. Decoder-only architectures, in contrast, rely on a unified transformer framework where both the input modalities
+(vision and text) and the output sequences are processed in the same auto-regressive decoder. In these models, visual features
+are first embedded into token-like representations (via vision processors), which are then concatenated with textual tokens
+and passed through the decoder. Multi-modal feature fusion occurs naturally through the self-attention mechanism, allowing
+the decoder to model dependencies between visual and textual inputs during token generation. Decoder-only architectures are
+more flexible and scalable, making them well-suited for tasks like instruction following, multi-modal question answering, and
+open-ended generation. Examples of decoder-only models include GPT-4V [49] and LLaVA [28].
+B. Vision-Language-Action Models
+Vision-language-action models (VLAs) are predominantly applied to robotic tasks, where they serve as a generalist robot
+policy π capable of handling complicated tasks. In formal, VLAs predict action sequences based on previous observations at
+the current time step t:
+at:t+L−1 = VLA(ot−H+1:t, lprompt) ,
+(4)
+
+
+===== PAGE 15 =====
+15
+Interleaved-Continuous-Action-Models
+One-Step-Continuous-Action Models
+Text
+Tokens
+Vision 
+Tokens
+VLM
+Text
+Tokens
+Vision 
+Tokens
+……
+Action Decoder
+One-Step-Discrete-Action Models
+Policy-Head-Continuous-Action-Models
+RoboVLMs
+VLM
+Detokenizer & Reprojection
+……
+Text
+Tokens
+Vision 
+Tokens
+VLM
+Action Decoder
+Policy Head
+VLM
+…
+⋯
+⋯
+Text
+Tokens
+Vision 
+Tokens
+⋯
+⋯
+……
+Text
+Tokens
+Vision 
+Tokens
+⋯
+⋯
+⋯
+⋯
+⋯
+⋯
+Vision
+Text
+History
+Current
+Discrete 
+Fig. 12: The illustration of considered VLA formulations, including several popular designs. For example, RoboFlamingo [24] is a
+Policy-Head-Continuous-type VLA, RT-2 [7] and OpenVLA [22] corresponds to the One-Step-Discrete-Action-
+type VLA. Octo [39] and GR [47] correspond to the Interleaved-Continuous-Action-type VLA with a fixed window
+size.
+where at:t+L−1 are a sequence of predicted 7-dim actions, L is the action sequence length and H is the history observation
+length. Different from VLMs, the observations of VLAs ot−H+1:t usually contain proprioceptive states st−H+1:t like the
+joint angles and end-effector positions besides the visual inputs It−H+1:t. As is discussed in Section IV-B, we abstract and
+categorized VLAs into four representative structures based on 1) historical information modeling and 2) action space. Before
+we describe these distinct models in form, we first introduce the general pre-process and prediction principles when dealing
+with robot actions in different action spaces.
+1) Action Pre-process: Action Normalization. For both continuous and discrete action spaces, we normalize each dimension
+of the 7-DoF action. Following Kim et al. [22], we count the 1st and 99th quantile of the actions in the training data and use
+the quantiles to clamp each dimension of the action [7]:
+ai′ = min(ai
+99th, max(ai
+1st, ai))
+(5)
+where ai′ is the clamped value of the i-th dimension of action a. For the next step, we normalize each dimension of the
+clamped action a
+′ with the 1st and 99th quantile of the actions:
+˜ai = 2 × (ai′ −ai
+1st)/(ai
+99th −ai
+1st) −1
+(6)
+˜a = [˜a1, ˜a2, · · · , ˜a7] is the normalized action, each dimension is in the range of [−1, 1], the last dimension representing
+the open/close status of the gripper ∈{−1, 1}. During inference time, we will reversely map the predicated actions into
+unnormalized actions.
+Action Discretization. For discrete action representation, we need to further discretize the normalized action ˜a. Following
+Brohan et al. [7], Kim et al. [22], we map continuous robot actions to discrete tokens used by the VLM’s tokenizer. Specifically,
+we discretize each robot action dimension into one of 256 bins separately. For each dimension, we set the width of the bin to
+uniformly divide the interval between the quantile of 1st and 99th of actions in the training data.
+Using this discretization, we transform ˜a to a with 7 discrete integers ∈[0 . . . 255]. To avoid damaging the original special
+token positions in the language tokenizer, we add an offset (default set to 10) and replace the last offset ∼256+offset tokens
+with a discretized index.
+
+
+===== PAGE 16 =====
+16
+2) Action Prediction: Continuous Actions. We optimize the mean square error (MSE) and binary cross entropy (BCE) for
+the predicted action sequence at:t+L−1 with the ground truth action sequence ˜at:t+L−1:
+lVLA =
+t+L−1
+X
+i=t
+MSE(ˆai,pose, ˜ai,pose) + λ ∗BCE(ai,gripper, ˜ai,gripper)
+(7)
+where the MSE loss is computed for the first six dimensions, and BCE loss is for the last gripper dimension between the
+predicted action ˆat:t+L−1 and the ground truth ˜at:t+L−1, λ is the balancing weight.
+Discrete Actions. Discrete-action models predict action tokens ACTi for each action dimension i. These tokens are the index
+of discretized bins from continuous action by dimension, which can be easily de-tokenized to recover the action vector. The
+optimization object has a similar cross-entropy (CE) format as text generation widely used in VLM training:
+lVLA =
+t+L−1
+X
+i=t
+7
+X
+j=1
+CE([ACT]j
+i, ˜aj
+i)
+(8)
+where [ACT]j
+i represents the index of bins of the jth dimension of the predicted action token [ACT] at time i, and aj
+i is the
+corresponding ground truth. During inference time, after getting the predicted action token ACTi, we re-project the discrete
+tokens to the center of the corresponding bins into a continuous form for achieving tasks.
+C. VLA Structures
+As shown in Fig. 12, there are mainly four kinds of VLA structures categorized by action space and history aggregating
+method, namely one-step-continuous-action models, one-step-discrete-action models, interleaved-continuous-action models, and
+policy-head-continuous-action models. Note that our proposed framework RoboVLMs could transfer VLMs to arbitrary VLA
+structures with no effort. We will illustrations the considered four VLA structures in detail in the following section.
+1) One-step Models: One-step models predict future action sequences using only the observation at the current time step t,
+i.e., a history length of 1.
+ˆat:t+L−1 = VLA(ot, lprompt) ,
+(9)
+For one-step models, we formulate two variants: continuous-action model and discrete-action model:
+Continuous-action model: In the continuous-action formulation, the VLM model first predicts a learnable token [LRN] using
+the VLM backbone. This is achieved by fusing visual and language tokens (in an encoder-decoder architecture) or concatenating
+multi-modal tokens (in a decoder-only architecture). An MLP is then used to predict the action vector:
+[LRN] = VLM(ot, lprompt) ,
+ˆat:t+L−1 = MLP([LRN])
+(10)
+The one-step continuous-action models include ACT [53], BC-Z [19], MVP [37], R3M [34], VIMA [20], 3D Diffuser [21],
+RoboMamba [29], and π0 [4].
+Discrete-action model: For discrete action prediction, we directly follow the straightforward next-word prediction same as
+VLMs, where actions are discretized into tokens like texts:
+[ACT]1:7
+t:t+L−1 = VLM(ot, lprompt) ,
+(11)
+The one-step discrete-action models include RT-1 [6], RT-2 [7], 3D-VLA [55], LAPA [50], OpenVLA [22], and Embodied-
+COT [52].
+2) Interleaved-Continuous-Action Models: Interleaved models receive observation-action sequences:
+Ot = ([OBS]t−H+1, [LRN]), ..., ([OBS]t, [LRN]) ,
+where Ot represents the input token sequence at time instant t, [OBS] denotes observation tokens and [LRN] denotes the
+learnable action token and is duplicated for H times and insert into Ot with an interleaved format. The VLM backbone fuses
+this sequence (in a decoder-only structure) and predicts the action sequence through an MLP based on each action token:
+[LRN]t−H+1:t = VLM(Ot) ,
+ˆat:t+L−1 = MLP([LRN]t) ,
+(12)
+The [LRN]t which is utilized to predict the action chunk ˆat:t+L−1, represents the [LRN] inserted after [OBS]t and fused
+with the observations before t. The loss and action unnormalization procedure is identity with one-step continuous action
+models. At time instant t of inference, the input sequence contains only the current observation [OBS]t and the language
+instruction lprompt, we add the learnable token [ACT] at the end of the input sequence and pass the sequence to the VLM
+to predict the action. After the robot executes the predicted action, we add the new observation [OBS]t+1 and language
+instruction lprompt to the input sequence to predict the action in the current step. The interleaved-continuous-action models
+include GR-1 [47], OCTO [39], GR-2 [8]. Note that the interleaved-discrete-action models like GATO [38] and RoboCat [5]
+are out of consideration.
+
+
+===== PAGE 17 =====
+17
+Side Camera
+Wrist Camera
+Work Space
+Kinova Gen 3
+Fig. 13: The demonstration of our real robot platform. The platform is equipped with a side camera and a wrist camera.
+3) Policy-Head-Continuous-Action Models: Unlike interleaved models, which fuse historical information within the VLM
+backbone, policy-head VLAs only require the VLM to provide single-step multi-modal representations at each time step t:
+ot = ([OBS]t, [LRN]) ,
+[LRN]t = VLM(ot, lprompt)
+(13)
+Historical information is then modeled and actions are predicted through an additional policy head h, such as an RNN [10, 15, 30],
+transformer [14, 43], or diffusion model [9]:
+at:t+L−1 = h([LRN]t−H+1, ..., [LRN]t)
+(14)
+The action chunk at:t+L−1 with sequence length L is predicted based on learnable tokens [LRN]t−H+1, ..., [LRN]t. Each
+of [LRN]t is identical. Note that the interleaved-continuous-action model is only available for decoder-only backbones. The
+policy-head-continuous-action model can be built based on VLM backbones with both encoder-decoder and decoder-only
+structures. The main difference comes from the language decoder. The input sequence of the encoder-decoder VLM fuses
+only contains the text and learnable action tokens, it fuses the multi-modal input with cross-attention where the text tokens
+combined with the learnable tokens are the keys and values, and vision tokens are the queries. The decoder-only backbone
+directly concatenates the vision, language, and learnable tokens as input and utilizes self-attention to fuse the multi-modal
+features. The policy-head-continuous-action models include RoboFlamingo [24], RoboUniview [27], and DeeRVLA [51].
+At every inference step t, the current observation [OBS]t and language instruction lprompt along with a learnable token
+[LRN] is concatenated as a complete input sequence, which is further passed into the VLM backbone. After the policy
+head takes [LRN] and predicts the current action sequences, the robot steps with the predicted actions and obtains the new
+observation for the next round of prediction.
+D. Real Robot Platform
+As shown in Fig. 13, our real robot platform consists of a Kinova Gen-3 robot arm, equipped with a Robotiq 2F-85 parallel-jaw
+gripper and two cameras: one static camera for capturing the workspace and another camera mounted on the end-effector. The
+static camera is a Kinect Azure, while the wrist-mounted camera is a RealSense D435i. The workspace is a 55 cm x 24 cm
+table, and there are more than 40 objects distributed across the evaluated scenes.
+As described in Section II, we define one simple setting and four unseen settings for evaluation on this platform. For the
+convenience of readers, we provide a more detailed introduction to these settings here. In the Simple setting, the scene is
+designed to closely resemble those in the training data. This setting is used to assess the model’s ability to fit the training
+distribution. In the Unseen Distractors setting, previously unseen distractor objects are introduced into the scene, but the
+manipulated objects are still part of the training data. The Unseen Backgrounds setting changes the background by adding two
+new tablecloths that were not present in the training data. One tablecloth differs in color from the white background, while the
+other features entirely different patterns. In the Unseen Objects setting, the robot is tasked with manipulating objects that were
+not included in the training dataset. The unseen objects used in this setting are the same as those in the Unseen Distractors
+setting. Finally, in the Novel Skill Description setting, we use GPT-4 to generate three unseen synonyms for the verbs in the
+instructions and randomly select one to replace the original verb, creating a novel skill description. For instance, "press" may
+be replaced with "hit," "pick up" with "take," "close" with "shut," "pour" with "sprinkle," and so on.
+E. Discussions about Structures
+Although we have discussed four representative VLA structures, by a two-level categorization of historical information and
+action space, readers may notice that these two dimensions are not entirely orthogonal, and not all combinations are discussed
+
+
+===== PAGE 18 =====
+18
+and implemented in this work. This is due to architectural limitations and implementation challenges. For instance, interleaved
+and policy-head models with discrete action spaces have not been implemented so far, because interleaved models are typically
+combined with action chunk prediction, where the default lower triangular attention mask cannot effectively mask subsequent
+actions for later steps.
+
+
+===== PAGE 19 =====
+19
+APPENDIX A
+ACKNOWLEDGMENTS
+We thank all the members of the robotics research team at ByteDance Research for their assistance in real-world data
+collection, setup design, robot maintenance, and experiments. The author Minghuan Liu is supported by the ByteDance
+Scholarship. We also want to thank @YouJiacheng for his active and instructive discussion on X.
+APPENDIX B
+CONTRIBUTIONS
+Project Leads: Xinghang Li, Hanbo Zhang, Minghuan Liu
+Methodology and Codebase: Xinghang Li
+Model Training and Evaluation (experimental design, implementation): Xinghang Li, Hanbo Zhang, Dong Wang, Minghuan
+Liu, Xiao Ma, Jirong Liu
+Real-Robot Deployment & Experiments: Xinghang Li, Peiyan Li
+Paper (logic, figures, visualizations, writing): Xinghang Li, Minghuan Liu, Hanbo Zhang, Bingyi Kang, Xiao Ma, Peiyan Li,
+Jirong Liu, Huaping Liu, Tao Kong
+Advising: Huaping Liu, Tao Kong, Hanbo Zhang, Xiao Ma, Bingyi Kang
+APPENDIX C
+IMPLEMENTATION DETAILS
+a) Hyper-parameters and Training Details.: With different formulations, the best setting of hyperparameters like batch
+size, weight decay, and learning rate could be varied. Although OpenVLA suggests utilizing the same hyper-param as in the
+VLM pretrain phase, we find that a varied setting of the hyper-param could improve the performance.
+The hyperparameters for fine-tuning VLAs are mainly derived from the VLMs training setups, for example, we select the
+weight decay from [0, 1e −1], and the learning rate as one of [1e −4, 2e −5, 1e −5]. We conduct a grid search over and select
+the one with the best performance. We set the global batch size as 128 and the warmup ratio is 0.25 epoch (5K steps for
+OpenX Embodiment pre-train). All models included in this paper are trained on a cluster of 4 x 8 A100 GPUs.
+TABLE VI: Hyper Parameters setup for different experiments.
+Experiment Name
+Backbone
+Window
+Size
+Chunk
+Size
+Input
+View
+Batch
+Size
+Warmup
+Scheduler
+Optimizer
+Learning
+Rate
+Total
+Epochs/Iters
+CALVIN Perform (Tab. II)
+All
+16
+10
+Side+Wrist
+128
+0.25 Ep
+Constant
+AdamW
+1e-4
+5 Ep
+SimplerEnv Perform (Fig. 14)
+All
+16
+10
+Side
+128
+5K Iters
+Constant
+AdamW
+1e-4
+50K Iters
+CALVIN VL Pre-train (Fig. 6)
+All
+16
+10
+Side+Wrist
+128
+0.25 Ep
+Constant
+AdamW
+1e-4
+5 Ep
+Real Perform (Fig. 7)
+All
+8
+10
+Side+Wrist
+128
+0.25 Ep
+Constant
+AdamW
+1e-4
+5 Ep
+VLA Structure (Tab.III)
+LLaVA
+8
+10
+Side+Wrist
+128
+0.25 Ep
+Constant
+AdamW
+2e-5
+5 Ep
+Else
+16
+10
+Side+Wrist
+128
+0.25 Ep
+Constant
+AdamW
+1e-4
+5 Ep
+CALVIN Generalization (Fig. 9)
+All
+16
+10
+Side+Wrist
+128
+0.25 Ep
+Constant
+AdamW
+1e-4
+5 Ep
+CALVIN Data Efficiency (Tab. IV)
+All
+16
+10
+Side+Wrist
+128
+0.25 Ep
+Constant
+AdamW
+1e-4
+5 Ep
+CALVIN Backbone (Tab V)
+All
+8
+10
+Side
+128
+0.25 Ep
+Constant
+AdamW
+2e-5
+5 Ep
+Simpler Training Recipe (Fig 10)
+All
+16
+10
+Side
+128
+5K Iters
+Constant
+AdamW
+2e-5
+50K Iters
+CALVIN few-shot (Fig. 11)
+All
+16
+10
+Side
+128
+0 Iter
+Constant
+AdamW
+2e-5
+5K Iters
+b) Checkpoint selection.: We find out that, normally, the performance of robot policies does not fully depend on offline
+evaluation metrics [16], such as the validation loss, due to the compounding error in long-horizon rollouts. Therefore, it is
+challenging to select the best checkpoint during training. For fair comparisons, we train all VLAs for a fixed number of epochs
+or timesteps. Concretely, on CALVIN, we train each model for 5 epochs with a batch size of 128 truncated trajectories and
+report the performance of the final model. For SimplerEnv, we train the model for 100K iterations with a batch size of 512
+truncated trajectories and report the best-performing model with a 10K-iteration training interval. In real-world experiments, we
+train the model for 5 epochs with a batch size of 512 truncated trajectories, and we only report the performance of the last
+model.
+APPENDIX D
+BENCHMARK DETAILS
+CALVIN [32] is a simulated benchmark for multi-task table-top manipulation. It provides 24k human-teleoperated demonstrations
+annotated with language instruction. Each trajectory is less than 64-time steps, which includes 34 pre-defined basic skills:
+rotate blue block right, move slider right, lift red block slider, place slider, turn off
+
+
+===== PAGE 20 =====
+20
+light bulb, turn off led light, push in drawer, lift blue block drawer, close drawer, lift
+pink block slider, lift pink block table, move slider left, open drawer, turn on light bulb,
+rotate blue block left, push blue block left,rotate red block right, turn on led light,
+push pink block right, push red block left, lift blue block table, place in drawer, rotate
+red block left, push pink block left, lift stacked blocks, lift blue block slider, push red
+block right. The dataset contains four splits as scene A, B, C, and D. We train and test VLAs on different training/test
+splits to fully analyze the capabilities, data and training efficiencies. During evaluation, the robot is required to complete a
+set of 5 consecutive tasks. The metrics are the the success rates of finishing these sequential tasks and the average length of
+achieved tasks. All evaluations are implemented on D split, with 1000 rollouts and 5 consecutive sub-tasks for each rollout.
+SimplerEnv [25] are designed as a suite of real-to-sim environments, which enables evaluating robotic policies in simulation as
+efficient, scalable, and informative alternative to real-world evaluation. SimplerEnv created a comparable arena for benchmarking
+robotics policies on private real-world setups as Google [6, 7] and BridgeData V2 [45].
+We adopt the following tasks in the Google Robot setting:
+• pick coke can. The task assigned to the robot is to pick up an empty Coke can from the table and lift it. Under the
+standard configuration, the environment is kept free of any distracting elements. The Coke can is arranged in three distinct
+positions: lying flat horizontally, lying flat vertically, and standing upright. For each of these positions, the can is placed at
+25 specific grid points within a defined rectangular area on the table. This setup results in 25 experiments per position,
+totaling 75 trials across all orientations.
+• move {obj1} near {obj2}. In the experiment, a set of three objects was arranged on the table in a triangular
+formation. For each trial, one object was assigned the role of the source, another was designated as the target, and the
+third served as a distractor. This setup resulted in six distinct trials for each triplet and triangular configuration. From a
+total of eight objects—blue plastic bottle, Pepsi can, orange, 7up can, apple, sponge, Coke can, and Redbull can—five
+triplets were randomly selected. Additionally, two triangular patterns, upright and inverted, were employed. This design
+produced a total of 60 trials.
+• (open/close) (top / middle/bottom) drawer. In this setup, the robot is placed facing a cabinet equipped
+with three drawers and tasked with opening or closing a specific drawer. This experiment evaluates the robot’s capability
+to handle articulated objects. The robot is positioned at nine distinct locations on a predefined grid within a rectangular
+area on the floor. With three drawers and two possible actions (opening or closing), the setup results in a total of 54 trials.
+• open top drawer; place apple into top drawer. In this experiment, the robot is tasked with opening the
+top drawer and transferring an apple from the surface of the cabinet into the drawer. This setup evaluates the robot’s
+ability to execute tasks that require multiple sequential actions. The robot is positioned in three distinct locations on the
+floor, while the apple is placed at nine specific grid points on the cabinet surface, resulting in a total of 27 trials. At the
+start, the robot operates under the instruction to open the top drawer. Once the robot either signals task completion with a
+"terminate" token or reaches the midpoint of the allotted time, the instruction transitions to directing the robot to place the
+apple into the drawer.
+For the WidowX + Bridge setting, we test the following tasks:
+• put the spoon on the towel. In this setup, the spoon is positioned at one corner of a square on the tabletop,
+with the towel placed at a different corner. The square has sides measuring 15 cm in length. The orientation of the spoon
+alternates between horizontal and vertical, requiring the robot to adjust the orientation of its gripper accordingly. This
+configuration results in a total of 24 trials.
+• put carrot on plate. This setup is similar to put the spoon on the towel, but the spoon is replaced with
+a carrot and the towel is substituted with a plate.
+• stack the green block on the yellow block. In this experiment, a green block is positioned at one corner
+of a square on the tabletop, while a yellow block is placed at a different corner. Both blocks measure 3 cm in size. Two
+square configurations with 10 cm and 20 cm side lengths are used. This setup results in a total of 24 trials.
+• put eggplant into yellow basket. An eggplant is positioned randomly within the right basin of a sink, while
+a yellow basket is placed in the left basin. The eggplant’s placement varies in both location and orientation but is carefully
+arranged to remain easily graspable, avoiding proximity to the sink’s edges. A total of 24 trials are conducted under this
+setup.
+
+
+===== PAGE 21 =====
+21
+APPENDIX E
+DETAILED PERFORMANCE ON CALVIN
+TABLE VII: Generalization and data efficiency of VLAs with or without vision-language pre-train on different settings of the
+CALVIN benchmark. “Inter." denotes interleaved modeling. “P.H." denotes policy head. “No VL" suggests models without VL
+pre-training. “5x" represents training with 5x re-generated training data. The results for 5x data are the model performance at 1
+epoch, and the best-behaved model checkpoints within 5 epochs for the others.
+Architecture
+Train
+Consecutive tasks success rates
+Avg.
+Len.
+1
+2
+3
+4
+5
+KosMos Inter. No VL
+ABCD
+0.692
+0.382
+0189
+0.085
+0.036
+1.38
+KosMos Inter.
+0.987
+0.915
+0.824
+0.737
+0.660
+4.12
+KosMos P.H. No VL
+0.815
+0.626
+0.473
+0.349
+0.245
+2.51
+KosMos P.H.
+0.967
+0.930
+0.899
+0.865
+0.826
+4.49
+Flamingo P.H. 9B No VL
+0.733
+0.444
+0.270
+0.161
+0.077
+1.69
+Flamingo P.H. 9B
+0.955
+0.879
+0.784
+0.714
+0.634
+3.97
+KosMos Inter. No VL
+5x ABCD
+0.833
+0.588
+0.421
+0.297
+0.209
+2.35
+KosMos Inter.
+0.989
+0.940
+0.892
+0.842
+0.795
+4.46
+KosMos P.H. No VL
+0.893
+0.755
+0.644
+0.564
+0.462
+3.32
+KosMos P.H.
+0.968
+0.937
+0.903
+0.872
+0.830
+4.51
+KosMos Inter. No VL
+ABC
+0.432
+0.162
+0.044
+0.007
+0.002
+0.65
+KosMos Inter.
+0.824
+0.684
+0.524
+0.376
+0.296
+2.70
+KosMos P.H. No VL
+0.389
+0.121
+0.038
+0.008
+0.001
+0.56
+KosMos P.H.
+0.980
+0.936
+0.854
+0.778
+0.704
+4.25
+
+
+===== PAGE 22 =====
+22
+APPENDIX F
+DIVERSE BACKBONE
+TABLE VIII: Sub-task level success rates by tasks in CALVIN under different VLM backbones. All models trained with 5
+epochs on CALVIN ABCD training splits.
+Task Name
+Flamingo-
+3B
+Flamingo-
+4B
+Flamingo-
+9B
+KosMos
+MoonDream
+Paligemma
+Qwen
+Uform
+rotate blue block right
+0.222
+0.300
+0.322
+0.493
+0.234
+0.816
+0.057
+0.689
+move slider right
+0.736
+0.989
+0.805
+0.987
+0.988
+1.000
+0.442
+1.000
+lift red block slider
+0.681
+0.620
+0.301
+0.856
+0.500
+0.975
+0.051
+0.387
+place in slider
+0.683
+0.813
+0.765
+0.874
+0.361
+0.957
+0.308
+0.490
+turn off lightbulb
+0.935
+0.920
+0.857
+0.927
+0.988
+0.992
+0.051
+0.907
+turn off led
+0.990
+0.925
+0.966
+0.970
+0.990
+0.987
+0.793
+0.754
+push into drawer
+0.422
+0.318
+0.296
+0.705
+0.688
+0.814
+0.000
+0.743
+lift blue block drawer
+1.000
+1.000
+0.250
+0.917
+0.833
+1.000
+–
+0.917
+close drawer
+0.118
+1.00
+0.990
+0.986
+0.991
+1.000
+0.160
+0.950
+lift pink block slider
+0.754
+0.633
+0.471
+0.861
+0.444
+0.945
+0.059
+0.703
+lift pink block table
+0.708
+0.541
+0.630
+0.543
+0.544
+0.936
+0.229
+0.892
+move slider left
+0.952
+0.952
+0.961
+0.970
+1.000
+1.000
+0.787
+0.994
+open drawer
+0.986
+0.796
+0.983
+0.980
+1.000
+1.000
+0.231
+0.992
+turn on lightbulb
+0.737
+0.225
+0.561
+0.949
+0.990
+1.000
+0.170
+0.775
+rotate blue block left
+0.358
+0.588
+0.596
+0.636
+0.500
+0.955
+0.000
+0.964
+push blue block left
+0.554
+0.509
+0.696
+0.677
+0.424
+0.727
+0.000
+0.661
+rotate red block right
+0.267
+0.317
+0.355
+0.591
+0.444
+0.853
+0.162
+0.610
+turn on led
+0.962
+0.864
+0.902
+0.985
+0.973
+0.970
+0.562
+0.526
+push pink block right
+0.365
+0.574
+0.538
+0.627
+0.271
+0.559
+0.027
+0.412
+push red block left
+0.383
+0.542
+0.727
+0.562
+0.338
+0.653
+0.043
+0.435
+lift blue block table
+0.470
+0.474
+0.564
+0.611
+0.691
+0.955
+0.111
+0.889
+place in drawer
+0.969
+0.932
+0.928
+0.971
+0.958
+0.994
+0.750
+0.931
+rotate red block left
+0.469
+0.562
+0.588
+0.677
+0.327
+0.937
+0.000
+0.978
+push pink block left
+0.661
+0.672
+0.697
+0.747
+0.338
+0.857
+0.000
+0.554
+stack block
+0.130
+0.029
+0.070
+0.569
+0.448
+0.646
+0.000
+0.495
+lift blue block slider
+0.458
+0.405
+0.282
+0.769
+0.867
+0.953
+0.211
+0.367
+push red block right
+0.233
+0.561
+0.557
+0.457
+0.194
+0.414
+0.103
+0.350
+lift red block table
+0.629
+0.608
+0.554
+0.606
+0.640
+0.967
+0.091
+0.835
+lift pink block drawer
+0.800
+0.667
+0.333
+0.778
+0.667
+0.929
+–
+0.400
+rotate pink block right
+0.182
+0.358
+0.377
+0.478
+0.462
+0.620
+0.179
+0.431
+unstack block
+1.000
+0.500
+1.000
+0.946
+0.950
+0.935
+–
+0.880
+rotate pink block left
+0.578
+0.442
+0.479
+0.698
+0.146
+0.964
+0.034
+1.000
+push blue block right
+0.091
+0.421
+0.320
+0.400
+0.066
+0.324
+0.000
+0.500
+lift red block drawer
+0.400
+0.625
+0.800
+0.769
+0.667
+1.000
+–
+0.556
+
+
+===== PAGE 23 =====
+23
+APPENDIX G
+DIVERSE PH
+TABLE IX: Sub-task level success rates by tasks in CALVIN under different training splits and VLM backbones. All models
+are trained with maximal 5 epochs.
+Task Name
+flamingo-
+3b-abc
+flamingo-
+3b-abcd
+flamingo-
+4b-abcd
+flamingo-
+9b-abc
+flamingo-
+9b-abcd
+kosmos-
+abc
+kosmos-
+abcd
+rotate blue block right
+0.831
+0.893
+0.770
+0.722
+0.882
+0.960
+0.974
+move slider right
+0.163
+0.993
+0.992
+0.471
+0.996
+1.000
+1.000
+lift red block slider
+0.642
+0.970
+0.858
+0.610
+0.927
+0.906
+0.993
+place in slider
+0.739
+0.828
+0.911
+0.654
+0.910
+0.744
+0.960
+turn off lightbulb
+0.852
+1.000
+0.956
+0.135
+0.964
+1.000
+1.000
+turn off led
+0.835
+1.000
+0.994
+0.765
+0.981
+0.970
+1.000
+push into drawer
+0.656
+0.821
+0.770
+0.688
+0.703
+0.805
+0.849
+lift blue block drawer
+0.818
+0.950
+1.000
+0.800
+0.737
+0.944
+1.000
+close drawer
+1.000
+1.000
+1.000
+0.978
+0.995
+1.000
+1.000
+lift pink block slider
+0.674
+0.971
+0.862
+0.733
+0.918
+0.925
+0.993
+lift pink block table
+0.871
+0.851
+0.892
+0.872
+0.899
+0.913
+0.961
+move slider left
+0.517
+0.996
+1.000
+0.798
+0.996
+0.992
+1.000
+open drawer
+1.000
+0.997
+0.982
+0.991
+0.997
+1.000
+1.000
+turn on lightbulb
+0.922
+0.994
+0.988
+0.241
+0.988
+0.989
+1.000
+rotate blue block left
+0.915
+0.939
+0.925
+0.755
+0.848
+0.985
+1.000
+push blue block left
+0.909
+0.955
+0.836
+0.736
+0.909
+0.914
+0.826
+rotate red block right
+0.893
+0.972
+0.905
+0.727
+0.959
+1.000
+0.973
+turn on led
+0.956
+0.988
+0.976
+0.777
+0.994
+0.977
+0.995
+push pink block right
+0.706
+0.754
+0.651
+0.652
+0.750
+0.708
+0.779
+push red block left
+0.983
+0.920
+0.949
+0.911
+0.908
+0.910
+0.848
+lift blue block table
+0.936
+0.956
+0.927
+0.876
+0.931
+0.995
+0.995
+place in drawer
+1.000
+0.989
+0.975
+0.969
+0.976
+1.000
+1.000
+rotate red block left
+0.942
+0.908
+0.953
+0.961
+0.952
+1.000
+1.000
+push pink block left
+0.889
+0.920
+0.973
+0.959
+0.933
+0.959
+0.883
+stack block
+0.489
+0.641
+0.595
+0.588
+0.604
+0.801
+0.908
+lift blue block slider
+0.607
+0.963
+0.826
+0.595
+0.869
+0.835
+0.978
+push red block right
+0.825
+0.732
+0.451
+0.764
+0.653
+0.871
+0.681
+lift red block table
+0.891
+0.939
+0.975
+0.958
+0.989
+0.989
+0.984
+lift pink block drawer
+0.444
+0.800
+0.714
+0.333
+0.923
+0.846
+0.857
+rotate pink block right
+0.768
+0.896
+0.794
+0.787
+0.789
+0.985
+0.986
+unstack block
+0.880
+0.982
+0.980
+0.909
+0.979
+0.985
+1.000
+rotate pink block left
+0.974
+0.839
+0.818
+0.947
+0.927
+1.000
+0.965
+push blue block right
+0.620
+0.597
+0.478
+0.511
+0.594
+0.870
+0.657
+lift red block drawer
+0.714
+1.000
+1.000
+0.833
+0.933
+0.950
+1.000
+
+
+===== PAGE 24 =====
+24
+APPENDIX H
+DETAILED PERFORMANCE ON SIMPLERENV
+TABLE X: Simulation performance on SimplerEnv-WidowX+Bridge environments. We report both the final success rates (final)
+along with the sub-task success rates (e.g., Grasp Spoon).
+Method
+Put Spoon on Towel
+Put Carrot on Plate
+Stack Green Block on Yellow Block
+Put Eggplant in Yellow Basket
+Grasp Spoon
+final
+Grasp Carrot
+final
+Grasp Green Block
+final
+Grasp Eggplant
+final
+RT-1-X
+0.167
+0.000
+0.208
+0.042
+0.083
+0.000
+0.000
+0.000
+Octo-Base
+0.347
+0.125
+0.528
+0.083
+0.319
+0.000
+0.667
+0.431
+Octo-Small
+0.778
+0.472
+0.278
+0.097
+0.403
+0.042
+0.875
+0.569
+OpenVLA-7b
+0.041
+0.000
+0.333
+0.000
+0.125
+0.000
+0.083
+0.041
+RoboVLMs (Ours)
+0.708
+0.458
+0.333
+0.208
+0.542
+0.042
+0.917
+0.792
+TABLE XI: Simulation performance on SimplerEnv-Google Robot environments.
+Method
+Pick Coke Can
+Move Near
+Open/Close Drawer
+Open Top Drawer
+and Place Apple
+Horizontal
+Laying
+Vertical
+Laying
+Standing
+Average
+Average
+Open
+Close
+Average
+Average
+RT-1 (Converged)
+0.960
+0.900
+0.710
+0.857
+0.442
+0.601
+0.861
+0.730
+0.000
+RT-1 (15%)
+0.860
+0.790
+0.480
+0.710
+0.354
+0.463
+0.667
+0.565
+0.000
+RT-1-X
+0.820
+0.330
+0.550
+0.567
+0.317
+0.296
+0.891
+0.597
+0.213
+RT-2-X
+0.740
+0.740
+0.880
+0.787
+0.779
+0.157
+0.343
+0.250
+0.037
+Octo-Base
+0.210
+0.210
+0.090
+0.170
+0.042
+0.009
+0.444
+0.227
+0.000
+RT-1 (Begin)
+0.050
+0.000
+0.030
+0.027
+0.050
+0.000
+0.278
+0.139
+0.000
+OpenVLA-7b
+0.270
+0.030
+0.190
+0.163
+0.462
+0.194
+0.518
+0.356
+0.000
+RoboVLMs (Ours)
+0.940
+0.470
+0.910
+0.773
+0.617
+0.333
+0.531
+0.435
+0.241
+APPENDIX I
+SUB-TASK PERFORMANCE WITH CROSS-EMBODIMENT DATASET
+TABLE XII: SimplerEnv simulation evaluation results for the WidowX + Bridge setup.
+Method
+Put Spoon on Towel
+Put Carrot on Plate
+Stack Green Block on Yellow Block
+Put Eggplant in Yellow Basket
+Grasp Spoon
+final
+Grasp Carrot
+final
+Grasp Green Block
+final
+Grasp Eggplant
+final
+Cross-Emb Pre-Train
+0.375
+0.208
+0.333
+0.250
+0.083
+0.083
+0.000
+0.000
+In-domain Full Finetune
+0.542
+0.292
+0.250
+0.250
+0.458
+0.125
+0.583
+0.583
+Post Train
+0.708
+0.458
+0.333
+0.208
+0.542
+0.042
+0.917
+0.792
+TABLE XIII: SimplerEnv simulator evaluation results across different policies on Google Robot tasks.
+Method
+Pick Coke Can
+Move Near
+Open/Close Drawer
+Open Top Drawer
+and Place Apple
+Horizontal
+Laying
+Vertical
+Laying
+Standing
+Average
+Average
+Open
+Close
+Average
+Average
+Cross-Emb Pre-Train
+0.850
+0.430
+0.900
+0.727
+0.663
+0.287
+0.25
+0.268
+0.361
+Target Task Finetune
+0.210
+0.160
+0.260
+0.210
+0.292
+0.167
+0.667
+0.417
+0.000
+In-domain Full Finetune
+0.920
+0.810
+0.980
+0.903
+0.625
+0.213
+0.454
+0.333
+0.056
+Post Train
+0.940
+0.470
+0.910
+0.773
+0.617
+0.333
+0.531
+0.435
+0.241
+
+
+===== PAGE 25 =====
+25
+APPENDIX J
+ROLLOUT EXAMPLES IN SIMPLERENV
+Fig. 14: Qualitative results for SimplerEnv tasks.
+
+
+===== PAGE 26 =====
+26
+APPENDIX K
+ROLLOUT EXAMPLES IN REAL-WORLD EXPERIEMENTS
+Fig. 15: This figure illustrates the experimental setup of some real-world tasks. The models are evaluated across 20 tasks, each
+with 5 rollouts, involving unseen distractors, unseen backgrounds, unseen target objects, and novel skill descriptions. Note that
+some tasks exclude the unseen target object setting due to the lack of suitable alternative unseen objects.
+
+
+===== PAGE 27 =====
+27
+Fig. 16: Qualitative results for basic setting in real-world experiments.
+
+
+===== PAGE 28 =====
+28
+Fig. 17: Qualitative results for unseen background.
+
+
+===== PAGE 29 =====
+29
+Fig. 18: Qualitative results for unseen distractors and objects.
+
+
+===== PAGE 30 =====
+30
+Fig. 19: Our model exhibits several typical failure cases. For instance, it might prematurely close the gripper, fail to accurately
+grasp the target object, exhibit repeated oscillations, or successfully pick up an object but cannot place it in the correct location.
+
+
+===== PAGE 31 =====
+31
+REFERENCES
+[1] Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch,
+Katherine Millican, Malcolm Reynolds, et al. Flamingo: a visual language model for few-shot learning. Advances in
+neural information processing systems, 35:23716–23736, 2022.
+[2] Jinze Bai, Shuai Bai, Shusheng Yang, Shijie Wang, Sinan Tan, Peng Wang, Junyang Lin, Chang Zhou, and Jingren Zhou.
+Qwen-vl: A frontier large vision-language model with versatile abilities. arXiv preprint arXiv:2308.12966, 2023.
+[3] Lucas Beyer, Andreas Steiner, André Susano Pinto, Alexander Kolesnikov, Xiao Wang, Daniel Salz, Maxim Neumann,
+Ibrahim Alabdulmohsin, Michael Tschannen, Emanuele Bugliarello, et al. Paligemma: A versatile 3b vlm for transfer.
+arXiv preprint arXiv:2407.07726, 2024.
+[4] Kevin Black, Noah Brown, Danny Driess, Adnan Esmail, Michael Equi, Chelsea Finn, Niccolo Fusai, Lachy Groom,
+Karol Hausman, Brian Ichter, et al. π0: A vision-language-action flow model for general robot control. arXiv preprint
+arXiv:2410.24164, 2024.
+[5] Konstantinos Bousmalis, Giulia Vezzani, Dushyant Rao, Coline Devin, Alex X Lee, Maria Bauza, Todor Davchev, Yuxiang
+Zhou, Agrim Gupta, Akhil Raju, et al. Robocat: A self-improving foundation agent for robotic manipulation. arXiv
+preprint arXiv:2306.11706, 2023.
+[6] Anthony Brohan, Noah Brown, Justice Carbajal, Yevgen Chebotar, Joseph Dabis, Chelsea Finn, Keerthana Gopalakrishnan,
+Karol Hausman, Alex Herzog, Jasmine Hsu, et al. Rt-1: Robotics transformer for real-world control at scale. arXiv
+preprint arXiv:2212.06817, 2022.
+[7] Anthony Brohan, Noah Brown, Justice Carbajal, Yevgen Chebotar, Xi Chen, Krzysztof Choromanski, Tianli Ding, Danny
+Driess, Avinava Dubey, Chelsea Finn, et al. Rt-2: Vision-language-action models transfer web knowledge to robotic
+control. arXiv preprint arXiv:2307.15818, 2023.
+[8] Chi-Lam Cheang, Guangzeng Chen, Ya Jing, Tao Kong, Hang Li, Yifeng Li, Yuxiao Liu, Hongtao Wu, Jiafeng Xu, Yichu
+Yang, et al. Gr-2: A generative video-language-action model with web-scale knowledge for robot manipulation. arXiv
+preprint arXiv:2410.06158, 2024.
+[9] Cheng Chi, Zhenjia Xu, Siyuan Feng, Eric Cousineau, Yilun Du, Benjamin Burchfiel, Russ Tedrake, and Shuran Song.
+Diffusion policy: Visuomotor policy learning via action diffusion. The International Journal of Robotics Research, page
+02783649241273668, 2023.
+[10] Junyoung Chung, Caglar Gulcehre, KyungHyun Cho, and Yoshua Bengio. Empirical evaluation of gated recurrent neural
+networks on sequence modeling. arXiv preprint arXiv:1412.3555, 2014.
+[11] Alexey Dosovitskiy. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint
+arXiv:2010.11929, 2020.
+[12] Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim Entezari, Jonas Müller, Harry Saini, Yam Levi, Dominik Lorenz,
+Axel Sauer, Frederic Boesel, et al. Scaling rectified flow transformers for high-resolution image synthesis. In Forty-first
+International Conference on Machine Learning, 2024.
+[13] Chelsea Finn, Pieter Abbeel, and Sergey Levine. Model-agnostic meta-learning for fast adaptation of deep networks. In
+International conference on machine learning, pages 1126–1135. PMLR, 2017.
+[14] Luciano Floridi and Massimo Chiriatti. Gpt-3: Its nature, scope, limits, and consequences. Minds and Machines, 30:
+681–694, 2020.
+[15] Alex Graves and Alex Graves. Long short-term memory. Supervised sequence labelling with recurrent neural networks,
+pages 37–45, 2012.
+[16] Pranav Guruprasad, Harshvardhan Sikka, Jaewoo Song, Yangyue Wang, and Paul Pu Liang. Benchmarking vision, language,
+& action models on robotic learning tasks. arXiv preprint arXiv:2411.05821, 2024.
+[17] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. Advances in neural information
+processing systems, 33:6840–6851, 2020.
+[18] Andrew Jaegle, Felix Gimeno, Andy Brock, Oriol Vinyals, Andrew Zisserman, and Joao Carreira. Perceiver: General
+perception with iterative attention. In International conference on machine learning, pages 4651–4664. PMLR, 2021.
+[19] Eric Jang, Alex Irpan, Mohi Khansari, Daniel Kappler, Frederik Ebert, Corey Lynch, Sergey Levine, and Chelsea Finn.
+Bc-z: Zero-shot task generalization with robotic imitation learning, 2022.
+[20] Yunfan Jiang, Agrim Gupta, Zichen Zhang, Guanzhi Wang, Yongqiang Dou, Yanjun Chen, Li Fei-Fei, Anima Anandkumar,
+Yuke Zhu, and Linxi Fan. Vima: General robot manipulation with multimodal prompts. arXiv preprint arXiv:2210.03094,
+2022.
+[21] Tsung-Wei Ke, Nikolaos Gkanatsios, and Katerina Fragkiadaki.
+3d diffuser actor: Policy diffusion with 3d scene
+representations. arXiv preprint arXiv:2402.10885, 2024.
+[22] Moo Jin Kim, Karl Pertsch, Siddharth Karamcheti, Ted Xiao, Ashwin Balakrishna, Suraj Nair, Rafael Rafailov, Ethan
+Foster, Grace Lam, Pannag Sanketi, et al. Openvla: An open-source vision-language-action model. arXiv preprint
+arXiv:2406.09246, 2024.
+[23] Peiyan Li, Hongtao Wu, Yan Huang, Chilam Cheang, Liang Wang, and Tao Kong. Gr-mg: Leveraging partially annotated
+
+
+===== PAGE 32 =====
+32
+data via multi-modal goal conditioned policy. arXiv preprint arXiv:2408.14368, 2024.
+[24] Xinghang Li, Minghuan Liu, Hanbo Zhang, Cunjun Yu, Jie Xu, Hongtao Wu, Chilam Cheang, Ya Jing, Weinan Zhang,
+Huaping Liu, et al. Vision-language foundation models as effective robot imitators. arXiv preprint arXiv:2311.01378,
+2023.
+[25] Xuanlin Li, Kyle Hsu, Jiayuan Gu, Karl Pertsch, Oier Mees, Homer Rich Walke, Chuyuan Fu, Ishikaa Lunawat, Isabel Sieh,
+Sean Kirmani, et al. Evaluating real-world robot manipulation policies in simulation. arXiv preprint arXiv:2405.05941,
+2024.
+[26] Yaron Lipman, Ricky TQ Chen, Heli Ben-Hamu, Maximilian Nickel, and Matt Le. Flow matching for generative modeling.
+arXiv preprint arXiv:2210.02747, 2022.
+[27] Fanfan Liu, Feng Yan, Liming Zheng, Chengjian Feng, Yiyang Huang, and Lin Ma. Robouniview: Visual-language model
+with unified view representation for robotic manipulation. arXiv preprint arXiv:2406.18977, 2024.
+[28] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. Visual instruction tuning. Advances in neural information
+processing systems, 36, 2024.
+[29] Jiaming Liu, Mengzhen Liu, Zhenyu Wang, Lily Lee, Kaichen Zhou, Pengju An, Senqiao Yang, Renrui Zhang, Yandong
+Guo, and Shanghang Zhang. Robomamba: Multimodal state space model for efficient robot reasoning and manipulation.
+arXiv preprint arXiv:2406.04339, 2024.
+[30] Larry R Medsker, Lakhmi Jain, et al. Recurrent neural networks. Design and Applications, 5(64-67):2, 2001.
+[31] Oier Mees, Lukas Hermann, and Wolfram Burgard. What matters in language conditioned robotic imitation learning over
+unstructured data. IEEE Robotics and Automation Letters, 7(4):11205–11212, 2022.
+[32] Oier Mees, Lukas Hermann, Erick Rosete-Beas, and Wolfram Burgard. Calvin: A benchmark for language-conditioned
+policy learning for long-horizon robot manipulation tasks. IEEE Robotics and Automation Letters, 7(3):7327–7334, 2022.
+[33] Arsha Nagrani, Shan Yang, Anurag Arnab, Aren Jansen, Cordelia Schmid, and Chen Sun. Attention bottlenecks for
+multimodal fusion. Advances in neural information processing systems, 34:14200–14213, 2021.
+[34] Suraj Nair, Aravind Rajeswaran, Vikash Kumar, Chelsea Finn, and Abhinav Gupta. R3m: A universal visual representation
+for robot manipulation. arXiv preprint arXiv:2203.12601, 2022.
+[35] Abby O’Neill, Abdul Rehman, Abhinav Gupta, Abhiram Maddukuri, Abhishek Gupta, Abhishek Padalkar, Abraham Lee,
+Acorn Pooley, Agrim Gupta, Ajay Mandlekar, et al. Open x-embodiment: Robotic learning datasets and rt-x models.
+arXiv preprint arXiv:2310.08864, 2023.
+[36] Zhiliang Peng, Wenhui Wang, Li Dong, Yaru Hao, Shaohan Huang, Shuming Ma, and Furu Wei. Kosmos-2: Grounding
+multimodal large language models to the world. arXiv preprint arXiv:2306.14824, 2023.
+[37] Ilija Radosavovic, Tete Xiao, Stephen James, Pieter Abbeel, Jitendra Malik, and Trevor Darrell. Real-world robot learning
+with masked visual pre-training, 2023.
+[38] Scott Reed, Konrad Zolna, Emilio Parisotto, Sergio Gomez Colmenarejo, Alexander Novikov, Gabriel Barth-Maron, Mai
+Gimenez, Yury Sulsky, Jackie Kay, Jost Tobias Springenberg, et al. A generalist agent. arXiv preprint arXiv:2205.06175,
+2022.
+[39] Octo Model Team, Dibya Ghosh, Homer Walke, Karl Pertsch, Kevin Black, Oier Mees, Sudeep Dasari, Joey Hejna, Tobias
+Kreiman, Charles Xu, et al. Octo: An open-source generalist robot policy. arXiv preprint arXiv:2405.12213, 2024.
+[40] Marcel Torne, Anthony Simeonov, Zechu Li, April Chan, Tao Chen, Abhishek Gupta, and Pulkit Agrawal. Reconciling
+reality through simulation: A real-to-sim-to-real approach for robust manipulation. arXiv preprint arXiv:2403.03949, 2024.
+[41] Unum-cloud. Uform: Pocket-sized multimodal ai for content understanding and generation, 2024. URL https://huggingface.
+co/unum-cloud/uform-gen2-qwen-500m.
+[42] Aaron Van Den Oord, Oriol Vinyals, et al. Neural discrete representation learning. Advances in neural information
+processing systems, 30, 2017.
+[43] A Vaswani. Attention is all you need. Advances in Neural Information Processing Systems, 2017.
+[44] Vikhyat. Moondream, tiny vision language model, 2024. URL https://github.com/vikhyat/moondream.
+[45] Homer Walke, Kevin Black, Abraham Lee, Moo Jin Kim, Max Du, Chongyi Zheng, Tony Zhao, Philippe Hansen-Estruch,
+Quan Vuong, Andre He, Vivek Myers, Kuan Fang, Chelsea Finn, and Sergey Levine. Bridgedata v2: A dataset for robot
+learning at scale, 2023.
+[46] Peng Wang, An Yang, Rui Men, Junyang Lin, Shuai Bai, Zhikang Li, Jianxin Ma, Chang Zhou, Jingren Zhou, and Hongxia
+Yang. Ofa: Unifying architectures, tasks, and modalities through a simple sequence-to-sequence learning framework, 2022.
+[47] Hongtao Wu, Ya Jing, Chilam Cheang, Guangzeng Chen, Jiafeng Xu, Xinghang Li, Minghuan Liu, Hang Li, and Tao
+Kong. Unleashing large-scale video generative pre-training for visual robot manipulation. arXiv preprint arXiv:2312.13139,
+2023.
+[48] Hu Xu, Gargi Ghosh, Po-Yao Huang, Prahal Arora, Masoumeh Aminzadeh, Christoph Feichtenhofer, Florian Metze,
+and Luke Zettlemoyer. Vlm: Task-agnostic video-language model pre-training for video understanding. arXiv preprint
+arXiv:2105.09996, 2021.
+[49] Zhengyuan Yang, Linjie Li, Kevin Lin, Jianfeng Wang, Chung-Ching Lin, Zicheng Liu, and Lijuan Wang. The dawn of
+lmms: Preliminary explorations with gpt-4v (ision). arXiv preprint arXiv:2309.17421, 9(1):1, 2023.
+
+
+===== PAGE 33 =====
+33
+[50] Seonghyeon Ye, Joel Jang, Byeongguk Jeon, Sejune Joo, Jianwei Yang, Baolin Peng, Ajay Mandlekar, Reuben Tan,
+Yu-Wei Chao, Bill Yuchen Lin, et al. Latent action pretraining from videos. arXiv preprint arXiv:2410.11758, 2024.
+[51] Yang Yue, Yulin Wang, Bingyi Kang, Yizeng Han, Shenzhi Wang, Shiji Song, Jiashi Feng, and Gao Huang. Deer-vla:
+Dynamic inference of multimodal large language models for efficient robot execution. arXiv preprint arXiv:2411.02359,
+2024.
+[52] Michał Zawalski, William Chen, Karl Pertsch, Oier Mees, Chelsea Finn, and Sergey Levine. Robotic control via embodied
+chain-of-thought reasoning. arXiv preprint arXiv:2407.08693, 2024.
+[53] Tony Z Zhao, Vikash Kumar, Sergey Levine, and Chelsea Finn. Learning fine-grained bimanual manipulation with low-cost
+hardware. arXiv preprint arXiv:2304.13705, 2023.
+[54] Wenshuai Zhao, Jorge Peña Queralta, and Tomi Westerlund. Sim-to-real transfer in deep reinforcement learning for
+robotics: a survey, 2020.
+[55] Haoyu Zhen, Xiaowen Qiu, Peihao Chen, Jincheng Yang, Xin Yan, Yilun Du, Yining Hong, and Chuang Gan. 3d-vla: A
+3d vision-language-action generative world model. arXiv preprint arXiv:2403.09631, 2024.

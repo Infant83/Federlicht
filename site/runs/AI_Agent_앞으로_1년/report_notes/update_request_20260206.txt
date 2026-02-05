@@ -1,0 +1,18 @@
+Update request:
+현재 "실행 요약" 이라고 섹션 제목을 썼는데, 이것을 "Summary" 로 바꾸고, "관찰"/"권고" 형식으로 문단을 구성한 것을, 그냥 구분하지 말고 자연스럽게 문장을 구성해줘.
+
+Target excerpt:
+<<<
+실행 요약
+관찰: AI 에이전트는 ‘앱’이 아니라 LLM이 도구와 환경을 통해 작업을 이어가는 운영형 워크플로우로 재정의되고 있으며, 연구 커뮤니티는 평가 목적(행동/능력/신뢰성/안전)과 평가 과정(상호작용 모드/데이터/지표/도구/환경)의 이원 분류로 체계를 잡고 있다(Mohammadi et al., 2025 [paper]). 관찰: 엔터프라이즈 도입에서 추가 요구(권한통제, 신뢰성 보장, 장기 상호작용, 컴플라이언스)가 부각되며, 단발 벤치마크를 넘는 운영 평가와 거버넌스 결합이 필수 과제로 떠올랐다(Mohammadi et al., 2025 [paper]). 관찰: 프로덕션 신뢰성은 입력 변화·장애·외부 시스템 오류에 대한 강건성 점검(fault injection, 반복성·예외 처리 측정 등)으로 이동 중이다(공개정보 한계: 로컬 사본 부재, ReliabilityBench arXiv HTML [arXiv]).
+
+권고: 향후 12개월은 오케스트레이션(흐름/상태 관리)과 관측성(트레이싱/지표), 에이전트 전용 평가(agent evals), 가드레일/보안(권한/감사)의 4축을 우선 구축하라(제안). 권고: 벤더 블로그/목록형 글은 참고하되 홍보성 가능성을 명시하고 1차 연구 및 내부 텔레메트리로 교차검증하라(제안). 권고: 정보무결성·악용 리스크를 거버넌스 요구사항(감사로그·승인흐름·콘텐츠 출처표시)으로 선반영하라(Romanishyn et al., 2025 [Frontiers]).
+>>>
+
+Base report: report_full_3.html
+
+Instructions:
+- Read the base report file and keep its structure unless the update requests a change.
+- Apply only the requested edits; avoid rewriting everything from scratch.
+- Preserve citations and update them only if you change the referenced content.
+- Limit edits to the target excerpt unless the update requests broader changes.

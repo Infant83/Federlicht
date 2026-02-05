@@ -79,13 +79,18 @@
                 <strong id="run-roots-badge">-</strong>
                 <small>Load an existing run folder</small>
               </div>
-              <div class="hero-card hero-recent" id="hero-card-recent" aria-live="polite">
+              <div class="hero-card hero-recent clickable" id="hero-card-recent" aria-live="polite">
                 <div class="hero-card-head">
                   <span>Recent Jobs</span>
-                  <button type="button" id="jobs-toggle" class="ghost mini">Show more</button>
                 </div>
-                <small id="recent-jobs-subtitle">Select a run folder to surface jobs.</small>
-                <div id="jobs-list" class="jobs-list compact"></div>
+                <small id="recent-jobs-subtitle">Select a run folder to view activity.</small>
+                <div class="hero-recent-summary">
+                  <strong id="recent-jobs-count">0</strong>
+                  <span id="recent-jobs-last">No recent jobs.</span>
+                </div>
+                <div class="hero-recent-actions">
+                  <button type="button" id="jobs-open" class="ghost mini">View jobs</button>
+                </div>
               </div>
             </div>
           </div>
@@ -827,6 +832,23 @@
           <div class="modal-footer">
             <button type="button" id="run-picker-use" class="primary">Use Selected</button>
           </div>
+        </div>
+      </div>
+
+      <div class="modal" id="jobs-modal" aria-hidden="true" role="dialog">
+        <div class="modal-backdrop" data-jobs-close></div>
+        <div class="modal-card" role="document">
+          <header class="modal-header">
+            <div>
+              <h3>Recent Jobs</h3>
+              <p id="jobs-modal-subtitle">Latest activity for the selected run.</p>
+            </div>
+            <div class="modal-controls">
+              <button type="button" id="jobs-toggle" class="ghost">Show more</button>
+              <button type="button" class="ghost" data-jobs-close>Close</button>
+            </div>
+          </header>
+          <div id="jobs-modal-list" class="modal-list"></div>
         </div>
       </div>
 

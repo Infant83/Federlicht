@@ -26,6 +26,7 @@ from .filesystem import (
     list_run_dirs,
     move_run_to_trash,
     summarize_run,
+    list_run_logs,
     list_instruction_files as _list_instruction_files,
     read_text_file as _read_text_file,
     read_binary_file as _read_binary_file,
@@ -45,7 +46,7 @@ from .utils import json_bytes as _json_bytes, safe_rel as _safe_rel
 
 
 class FedernettHandler(BaseHTTPRequestHandler):
-    server_version = "federnett/1.1.0"
+    server_version = "federnett/1.2.0"
 
     def _cfg(self) -> FedernettConfig:
         return self.server.cfg  # type: ignore[attr-defined]
@@ -238,6 +239,15 @@ class FedernettHandler(BaseHTTPRequestHandler):
             run_rel = (qs.get("run") or [None])[0]
             try:
                 payload = summarize_run(cfg.root, run_rel)
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, status=400)
+                return
+            self._send_json(payload)
+            return
+        if path == "/api/run-logs":
+            run_rel = (qs.get("run") or [None])[0]
+            try:
+                payload = list_run_logs(cfg.root, run_rel)
             except ValueError as exc:
                 self._send_json({"error": str(exc)}, status=400)
                 return

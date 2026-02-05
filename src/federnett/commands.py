@@ -176,6 +176,15 @@ def _build_generate_prompt_cmd(cfg: FedernettConfig, payload: dict[str, Any]) ->
     lang = payload.get("lang")
     if lang:
         cmd.extend(["--lang", str(lang)])
+    depth = payload.get("depth")
+    if depth:
+        cmd.extend(["--depth", str(depth)])
+    model = expand_env_reference(payload.get("model"))
+    if model:
+        cmd.extend(["--model", str(model)])
+    check_model = expand_env_reference(payload.get("check_model"))
+    if check_model:
+        cmd.extend(["--check-model", str(check_model)])
     cmd.extend(extra_args(payload.get("extra_args")))
     return cmd
 

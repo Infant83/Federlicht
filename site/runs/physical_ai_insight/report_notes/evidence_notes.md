@@ -1,0 +1,28 @@
+- **웹(용어 정의/스택)**
+  - **Physical AI 정의(직접 인용용)**: NVIDIA는 Physical AI를 “자율 시스템(autonomous systems)이 실제 물리 세계에서 **지각(perceive)·이해(understand)·행동(take actions)** 하도록 하는 것”으로 설명합니다. (원문: “What is Physical AI?” https://www.nvidia.com/en-us/glossary/generative-physical-ai/ ; 추출본: [archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt])
+  - **(NEEDS_VERIFICATION)** 위 정의 문장의 정확한 문구(‘lets autonomous systems…’)는 현재 로드된 구간에 정의 섹션이 완전히 포함되지 않아, 같은 URL에서 정의 문장이 포함된 본문 위치를 추가로 확인해 정확히 발췌해야 합니다. (URL: https://www.nvidia.com/en-us/glossary/generative-physical-ai/ ; 추출본: [archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt])
+
+- **arXiv 논문(10) — 핵심 사실(다이제스트/비교표에 바로 쓰는 근거)**
+  - **Octo (2405.12213v2)**  
+    - Octo는 “open-source, generalist policy for robotic manipulation”로, **Open X-Embodiment 데이터셋의 800k 로봇 에피소드(trajectories/episodes)**로 사전학습된 **transformer 기반 정책**이라고 밝힙니다. 또한 **언어 명령 또는 목표 이미지(goal images)**로 지시 가능하며, **표준 소비자용 GPU에서 수 시간 내** 새 관측/액션 공간으로 효율적 파인튜닝이 가능하다고 설명합니다. (http://arxiv.org/abs/2405.12213v2 ; [archive/arxiv/text/2405.12213v2.txt])
+  - **OpenVLA (2406.09246v3)**  
+    - OpenVLA는 **7B 파라미터** 오픈소스 VLA로, **Open X-Embodiment의 970k 로봇 에피소드**로 학습되었고, “RT-2-X (55B)” 같은 폐쇄형 모델 대비 **29개 과제/다중 로봇 embodiment**에서 **절대 성공률 +16.5%p**, **파라미터 수 7× 적음**을 주장합니다. 또한 체크포인트/학습 파이프라인을 **fully open-source**, 모델을 **HuggingFace에서 다운로드 및 파인튜닝** 가능하다고 명시합니다. (http://arxiv.org/abs/2406.09246v3 ; [archive/arxiv/text/2406.09246v3.txt])
+  - **π0 (2410.24164v4)**  
+    - π0는 사전학습된 VLM 백본 위에 **별도의 action expert**를 추가하고, **flow matching으로 연속 액션(continuous actions)**을 생성해 “precise and fluent manipulation”을 목표로 한다고 설명합니다. 또한 프롬프트로 직접 수행하거나, 고품질 데이터로 파인튜닝해 **복잡한 multi-stage 작업(예: 빨래 개기/박스 조립)**을 가능하게 한다고 제시합니다. (http://arxiv.org/abs/2410.24164v4 ; [archive/arxiv/text/2410.24164v4.txt])
+  - **CogACT (2411.19650v1)**  
+    - 기존 VLM→VLA 전환에서 “단순 action quantization” 접근을 대비하며, **componentized VLA architecture**를 제안한다고 문제의식과 방향을 명시합니다. 또한 그림 캡션에서 OpenVLA/RT-2-X/Octo/RT-1 계열 등과 **성공률 비교 평가**를 수행한다고 밝힙니다(시뮬레이션+실세계, 여러 로봇). (http://arxiv.org/abs/2411.19650v1 ; [archive/arxiv/text/2411.19650v1.txt])
+  - **RoboVLMs (2412.14058v3)**  
+    - “What matters…” 논문으로, VLA 설계의 핵심 선택지(백본 선택, 아키텍처 공식화, cross-embodiment 데이터 투입 시점)를 체계화하고, **8개+ VLM 백본, 4개 정책 아키텍처, 600개+ 실험**을 수행했다고 밝힙니다. 또한 RoboVLMs 프레임워크를 공개하며 “codes, models, datasets, and toolkits” 및 학습/평가 레시피 공개를 명시합니다(robovlms.github.io). (http://arxiv.org/abs/2412.14058v3 ; [archive/arxiv/text/2412.14058v3.txt])
+  - **Gemini Robotics (2503.20020v1)**  
+    - Gemini 2.0 기반의 로보틱스용 모델 패밀리로, **Gemini Robotics(VLA로 로봇 직접 제어)** 및 **Gemini Robotics-ER(Embodied Reasoning; 공간·시간 이해 강화)**를 소개합니다. 또한 파인튜닝으로 **종이접기/카드게임 같은 장기·고난도 과제**, **100개 데모만으로 단기 과제 학습**, **새로운 로봇 embodiment(양팔, 고자유도 휴머노이드)** 적응을 주장하며, **안전 고려(safety considerations)**를 논의한다고 명시합니다. (http://arxiv.org/abs/2503.20020v1 ; [archive/arxiv/text/2503.20020v1.txt])
+  - **GR00T N1 (2503.14734v2)**  
+    - NVIDIA는 GR00T N1을 휴머노이드용 오픈 파운데이션 모델로 소개하며, **VLA + dual-system architecture**(System 2: vision-language, System 1: diffusion transformer가 실시간으로 motor actions 생성), **end-to-end 공동학습**을 명시합니다. 또한 **실로봇 궤적+인간 비디오+합성 데이터**를 혼합해 학습했고, **Fourier GR-1 휴머노이드**에 배치하여 언어 조건 양손 조작을 수행했다고 서술합니다. (http://arxiv.org/abs/2503.14734v2 ; [archive/arxiv/text/2503.14734v2.txt])
+  - **PD‑VLA (2503.02310v1)**  
+    - action chunking이 chunk 크기 증가 시 액션 차원을 선형적으로 키워 **추론 효율을 저해**한다는 문제를 제기하고, **병렬 디코딩(parallel decoding)**으로 가속하는 **PD‑VLA**를 제안합니다. “훈련 없이(training-free) 가속(아키텍처 변경 없이)” 가능하다고 주장하며, 시뮬레이션에서 **기본 VLA 대비 7-DoF 매니퓰레이터 실행 주파수 2.52×**를 보고합니다. (http://arxiv.org/abs/2503.02310v1 ; [archive/arxiv/text/2503.02310v1.txt])
+  - **RTC (2506.07339v2)**  
+    - SOTA 일반ist 모델/VLA의 **고지연(latency)** 문제와 action chunking의 경계에서 생기는 **멈칫/jerky movement**를 지적하고, 재학습 없이 적용 가능한 추론 알고리즘 **RTC(real-time chunking)**를 제시합니다. RTC는 현재 청크를 실행하면서 다음 청크를 생성하는 **비동기 실행**, 실행이 보장된 액션은 “freeze”, 나머지는 “inpainting”한다고 설명합니다. 또한 **300ms 초과 지연**에서도 정밀 과제(성냥 켜기 등) 성공률/처리량 개선을 주장합니다. (http://arxiv.org/abs/2506.07339v2 ; [archive/arxiv/text/2506.07339v2.txt])
+  - **BitVLA (2506.07530v1)**  
+    - BitVLA는 “first 1-bit VLA”를 표방하며, 모든 파라미터가 **ternary({-1,0,1})**라고 명시합니다. 비전 인코더는 distillation-aware 학습으로 **1.58-bit weights**까지 메모리 절감을 제안합니다. 또한 LIBERO 벤치마크에서 **4-bit PTQ(OpenVLA-OFT)와 유사 성능**을 보이면서 **메모리 29.8%만 사용**했다고 보고하고, 코드/가중치 공개(GitHub)를 명시합니다. (http://arxiv.org/abs/2506.07530v1 ; [archive/arxiv/text/2506.07530v1.txt])
+
+- **런(커버리지/한계) — 방법 섹션에 반영할 ‘사실’**
+  - 이번 런은 스카우트 노트 기준으로 **arXiv 10편 + NVIDIA Glossary 1개 URL** 중심이며, **Tavily Search/OpenAlex/YouTube/manifest 인덱스가 부재**로 추가 외부 검증 범위가 제한됩니다(방법론/공개정보 한계에 기술 필요). (런 메타/목차 파일 경로: [archive/physical_ai_insight-index.md] — 단, 인덱스 자체 문장은 본문 근거로 직접 인용하지 않는 용도)

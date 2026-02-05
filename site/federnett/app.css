@@ -20,7 +20,7 @@
   --glow: rgba(78, 224, 181, 0.22);
   --shadow: 0 40px 120px rgba(0, 0, 0, 0.45);
   --telemetry-width: clamp(420px, 36vw, 720px);
-  --telemetry-log-height: 300px;
+  --telemetry-log-height: minmax(260px, 42vh);
   --splitter-width: 12px;
 }
 
@@ -600,7 +600,9 @@ body[data-tab="feather"] #run-studio-wrap {
 }
 
 .summary-links a,
-.summary-reports a {
+.summary-reports a,
+.summary-links button,
+.summary-reports button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -612,12 +614,20 @@ body[data-tab="feather"] #run-studio-wrap {
   text-decoration: none;
   font-size: 12px;
   font-weight: 600;
+  cursor: pointer;
 }
 
 .summary-links a:hover,
-.summary-reports a:hover {
+.summary-reports a:hover,
+.summary-links button:hover,
+.summary-reports button:hover {
   border-color: var(--accent);
   transform: translateY(-1px);
+}
+
+.summary-links button,
+.summary-reports button {
+  font-family: inherit;
 }
 
 .instruction-controls {
@@ -726,6 +736,10 @@ body[data-tab="feather"] #run-studio-wrap {
   display: grid;
   gap: 8px;
   min-height: 180px;
+}
+
+#jobs-modal-list {
+  max-height: min(420px, 55vh);
 }
 
 .modal-item {
@@ -1479,31 +1493,35 @@ body[data-tab="feather"] #run-studio-wrap {
   margin-top: -2px;
 }
 
-.hero-card.hero-recent .jobs-list {
-  display: grid;
-  gap: 6px;
-  max-height: 200px;
-  overflow: auto;
-  padding-right: 4px;
-}
-
-.hero-card.hero-recent .jobs-list.compact .job-item {
-  padding: 6px 8px;
-  font-size: 11px;
-}
-
-.hero-card.hero-recent .jobs-list.compact .job-meta {
-  gap: 4px;
-}
-
-.hero-card.hero-recent .job-pill {
-  padding: 2px 6px;
-  font-size: 10px;
-}
-
 .hero-card.hero-recent button.mini {
-  padding: 4px 8px;
+  padding: 4px 10px;
   font-size: 11px;
+}
+
+.hero-recent-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.hero-recent-summary strong {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.hero-recent-summary span {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hero-recent-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .hero-card {
@@ -2037,9 +2055,8 @@ body[data-logs-collapsed="true"] .preview-block {
   margin: 0;
   padding: 14px 16px;
   box-sizing: border-box;
-  flex: 1;
+  flex: 1 1 auto;
   max-width: 100%;
-  height: 100%;
   overflow: auto;
   scrollbar-gutter: stable both-edges;
   white-space: pre-wrap;
