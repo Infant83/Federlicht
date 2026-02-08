@@ -46,3 +46,6 @@ class Job:
     arxiv_ids: List[str]
     site_hints: List[str]
     raw_lines: List[str]
+    agentic_search: bool = False
+    agentic_model: Optional[str] = None
+    agentic_max_iter: int = 0

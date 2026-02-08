@@ -104,6 +104,9 @@ feather --input ./instructions --output ./archive --openalex --download-pdf
 # YouTube search with transcripts:
 feather --input ./instructions --output ./archive --youtube --yt-transcript
 
+# Agentic iterative expansion (LLM-guided):
+feather --input ./instructions --output ./archive --agentic-search --model gpt-4o-mini --max-iter 3
+
 # List or review existing runs:
 feather --list ./runs
 feather --review ./runs/20260104
@@ -325,6 +328,9 @@ Arguments:
 - `--update-run`: Reuse an existing run folder and update outputs in place (skip existing files/entries).
 - `--days` (default 30): Lookback window for the "recent" arXiv search heuristic.
 - `--max-results` (default 8): Max Tavily/arXiv results per query.
+- `--agentic-search`: Enable iterative LLM-guided source expansion on top of the standard Feather run.
+- `--model`: Model for `--agentic-search` (OpenAI-compatible; falls back to `OPENAI_MODEL` when omitted).
+- `--max-iter` (default 3): Max planning iterations in `--agentic-search` mode.
 - `--download-pdf`: If set, arXiv PDFs are downloaded and converted to text.
 - `--arxiv-src`: Download arXiv source tarballs (TeX + figures) and create source manifests.
 - `--no-citations`: Disable citation enrichment for papers (OpenAlex is used by default when available).
@@ -391,6 +397,8 @@ Created under `--output/<queryID>/`:
 - `archive/`: All run outputs:
   - `_job.json`: Parsed job inputs (queries, URLs, arXiv IDs, options) for reproducibility.
   - `_log.txt`: Timestamped log of all actions and errors.
+  - `agentic_trace.jsonl`: Structured turn-by-turn planner/executor trace (only when `--agentic-search` is enabled).
+  - `agentic_trace.md`: Human-readable summary of the agentic trace (only when `--agentic-search` is enabled).
   - `tavily_search.jsonl`: One JSON object per query with Tavily search results; each result includes a short `summary` plus a `query_summary`.
   - `tavily_extract/`: Per-URL extraction JSON (pretty-printed).
   - `local/manifest.jsonl`: One JSON object per local document (path, title, tags, text path).

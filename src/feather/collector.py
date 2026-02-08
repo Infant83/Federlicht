@@ -8,7 +8,7 @@ import shutil
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import requests
 
@@ -65,6 +65,10 @@ YOUTUBE_TITLE_MAX_LEN = 80
 ARXIV_TEX_MAX_CHARS = 200000
 ARXIV_FIGURE_EXTS = {".pdf", ".png", ".jpg", ".jpeg", ".eps", ".svg"}
 INSTRUCTION_EXTS = {".txt", ".md", ".text", ".prompt", ".instruct", ".instruction"}
+AGENTIC_TRACE_JSONL = "agentic_trace.jsonl"
+AGENTIC_TRACE_MD = "agentic_trace.md"
+AGENTIC_DEFAULT_MODEL = "gpt-4o-mini"
+AGENTIC_DEFAULT_MAX_ITER = 3
 
 
 def is_instruction_file(path: Path) -> bool:
@@ -331,6 +335,9 @@ def build_job(
     arxiv_source: bool,
     update_run: bool,
     citations_enabled: bool,
+    agentic_search: bool = False,
+    agentic_model: Optional[str] = None,
+    agentic_max_iter: int = 0,
     file_date: Optional[dt.date] = None,
 ) -> Job:
     date_val = file_date or parse_date_from_filename(src_file.stem) or dt.date.today()
@@ -428,6 +435,9 @@ def build_job(
         arxiv_ids=dedup(arxiv_ids),
         site_hints=dedup(site_hints),
         raw_lines=raw_lines,
+        agentic_search=agentic_search,
+        agentic_model=agentic_model,
+        agentic_max_iter=agentic_max_iter,
     )
 
 
@@ -448,6 +458,9 @@ def parse_job(
     arxiv_source: bool,
     update_run: bool,
     citations_enabled: bool,
+    agentic_search: bool = False,
+    agentic_model: Optional[str] = None,
+    agentic_max_iter: int = 0,
     file_date: Optional[dt.date] = None,
 ) -> Job:
     content = read_text(txt_path)
@@ -470,6 +483,9 @@ def parse_job(
         arxiv_source=arxiv_source,
         update_run=update_run,
         citations_enabled=citations_enabled,
+        agentic_search=agentic_search,
+        agentic_model=agentic_model,
+        agentic_max_iter=agentic_max_iter,
         file_date=file_date,
     )
 
@@ -548,6 +564,9 @@ def prepare_jobs(
     arxiv_source: bool,
     update_run: bool,
     citations_enabled: bool,
+    agentic_search: bool = False,
+    agentic_model: Optional[str] = None,
+    agentic_max_iter: int = 0,
 ) -> List[Job]:
     used_ids: set[str] = set()
     if query:
@@ -577,6 +596,9 @@ def prepare_jobs(
                 arxiv_source=arxiv_source,
                 update_run=update_run,
                 citations_enabled=citations_enabled,
+                agentic_search=agentic_search,
+                agentic_model=agentic_model,
+                agentic_max_iter=agentic_max_iter,
                 file_date=date_val,
             )
         ]
@@ -611,6 +633,9 @@ def prepare_jobs(
                 arxiv_source=arxiv_source,
                 update_run=update_run,
                 citations_enabled=citations_enabled,
+                agentic_search=agentic_search,
+                agentic_model=agentic_model,
+                agentic_max_iter=agentic_max_iter,
                 file_date=date_val,
             )
         )
@@ -1759,6 +1784,12 @@ def build_index_md(job: Job) -> str:
             args += ["--yt-order", j.youtube_order]
         if j.update_run:
             args.append("--update-run")
+        if j.agentic_search:
+            args.append("--agentic-search")
+            if j.agentic_model:
+                args += ["--model", j.agentic_model]
+            if j.agentic_max_iter and j.agentic_max_iter > 0:
+                args += ["--max-iter", str(j.agentic_max_iter)]
         return " ".join(shell_escape(a) for a in args)
 
     def load_youtube_transcript_meta(path: Path) -> dict:
@@ -2063,6 +2094,16 @@ def build_index_md(job: Job) -> str:
                 idx_md.append(f"- ... and {len(texts)-50} more\n")
             idx_md.append("\n")
 
+    trace_json = job.out_dir / AGENTIC_TRACE_JSONL
+    trace_md = job.out_dir / AGENTIC_TRACE_MD
+    if trace_json.exists() or trace_md.exists():
+        idx_md.append("## Agentic Trace\n")
+        if trace_json.exists():
+            idx_md.append(f"- {fmt_path(trace_json, base)}\n")
+        if trace_md.exists():
+            idx_md.append(f"- {fmt_path(trace_md, base)}\n")
+        idx_md.append("\n")
+
     return "".join(idx_md)
 
 
@@ -2086,6 +2127,10 @@ def run_job(job: Job, tavily: TavilyClient, stdout: bool = True) -> None:
     run_arxiv_recent(job, logger)
     run_arxiv_sources(job, logger)
 
+    _finalize_job_outputs(job, log_path, logger)
+
+
+def _finalize_job_outputs(job: Job, log_path: Path, logger: JobLogger) -> None:
     write_text(job.out_dir / f"{job.query_id}-index.md", build_index_md(job))
 
     logger.log("JOB END")
@@ -2095,3 +2140,466 @@ def run_job(job: Job, tavily: TavilyClient, stdout: bool = True) -> None:
             shutil.copy2(log_path, feather_log)
     except Exception:
         pass
+
+
+def _resolve_agentic_model(model_name: Optional[str]) -> str:
+    token = (model_name or "").strip()
+    if token:
+        return token
+    env_model = os.getenv("OPENAI_MODEL", "").strip()
+    if env_model:
+        return env_model
+    return AGENTIC_DEFAULT_MODEL
+
+
+def _agentic_endpoint() -> str:
+    base = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip().rstrip("/")
+    if base.endswith("/chat/completions"):
+        return base
+    if base.endswith("/v1"):
+        return f"{base}/chat/completions"
+    return f"{base}/chat/completions"
+
+
+def _parse_json_object(text: str) -> Optional[Dict[str, Any]]:
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+    match = re.search(r"\{[\s\S]*\}", raw)
+    if not match:
+        return None
+    try:
+        data = json.loads(match.group(0))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _call_agentic_planner(model_name: str, payload: Dict[str, Any], logger: JobLogger) -> Dict[str, Any]:
+    endpoint = _agentic_endpoint()
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    system_prompt = (
+        "You are Feather's agentic source planner. "
+        "Use the archive state and instruction goals to select the next best data-collection actions. "
+        "Prefer high-value, non-duplicative actions. "
+        "Return strict JSON with keys: done (bool), reason (string), actions (array). "
+        "Each action must include type plus query/url and optional max_results. "
+        "Allowed types: tavily_search, tavily_extract, arxiv_recent, openalex_search, youtube_search, stop."
+    )
+    user_prompt = json.dumps(payload, ensure_ascii=False, indent=2)
+    request_body: Dict[str, Any] = {
+        "model": model_name,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.1,
+        "response_format": {"type": "json_object"},
+    }
+    try:
+        response = requests.post(endpoint, json=request_body, headers=headers, timeout=120)
+        if response.status_code >= 400 and "response_format" in request_body:
+            logger.log("AGENTIC planner fallback: retry without response_format")
+            request_body.pop("response_format", None)
+            response = requests.post(endpoint, json=request_body, headers=headers, timeout=120)
+        response.raise_for_status()
+    except Exception as exc:
+        raise RuntimeError(f"agentic planner request failed: {repr(exc)}") from exc
+    try:
+        data = response.json()
+    except Exception as exc:
+        raise RuntimeError(f"agentic planner returned non-JSON response: {repr(exc)}") from exc
+    content = ""
+    choices = data.get("choices")
+    if isinstance(choices, list) and choices:
+        message = choices[0].get("message") if isinstance(choices[0], dict) else None
+        if isinstance(message, dict):
+            message_content = message.get("content")
+            if isinstance(message_content, str):
+                content = message_content
+            elif isinstance(message_content, list):
+                parts: List[str] = []
+                for chunk in message_content:
+                    if isinstance(chunk, dict) and isinstance(chunk.get("text"), str):
+                        parts.append(chunk["text"])
+                content = "\n".join(parts).strip()
+    parsed = _parse_json_object(content)
+    if not parsed:
+        raise RuntimeError("agentic planner produced unparseable output")
+    if not isinstance(parsed.get("actions"), list):
+        parsed["actions"] = []
+    parsed["done"] = bool(parsed.get("done", False))
+    parsed["reason"] = str(parsed.get("reason") or "")
+    return parsed
+
+
+def _jsonl_count(path: Path) -> int:
+    if not path.exists():
+        return 0
+    count = 0
+    with path.open("r", encoding="utf-8", errors="ignore") as handle:
+        for line in handle:
+            if line.strip():
+                count += 1
+    return count
+
+
+def _youtube_video_count(path: Path) -> int:
+    if not path.exists():
+        return 0
+    count = 0
+    with path.open("r", encoding="utf-8", errors="ignore") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except Exception:
+                continue
+            videos = payload.get("videos")
+            if isinstance(videos, list):
+                count += len(videos)
+            elif isinstance(payload.get("video"), dict):
+                count += 1
+    return count
+
+
+def _collect_candidate_urls(search_path: Path, limit: int = 20) -> List[str]:
+    out: List[str] = []
+    seen: set[str] = set()
+    if not search_path.exists():
+        return out
+    for line in search_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if len(out) >= limit:
+            break
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except Exception:
+            continue
+        result = row.get("result")
+        if not isinstance(result, dict):
+            continue
+        results = result.get("results")
+        if not isinstance(results, list):
+            continue
+        for item in results:
+            if len(out) >= limit:
+                break
+            if not isinstance(item, dict):
+                continue
+            url = item.get("url")
+            if not isinstance(url, str):
+                continue
+            cleaned = url.strip()
+            if not cleaned or cleaned in seen:
+                continue
+            seen.add(cleaned)
+            out.append(cleaned)
+    return out
+
+
+def _collect_agentic_metrics(job: Job) -> Dict[str, Any]:
+    archive = job.out_dir
+    metrics = {
+        "tavily_search_entries": _jsonl_count(archive / "tavily_search.jsonl"),
+        "tavily_extract_files": len(list((archive / "tavily_extract").glob("*.txt")))
+        if (archive / "tavily_extract").exists()
+        else 0,
+        "openalex_works": _jsonl_count(archive / "openalex" / "works.jsonl"),
+        "arxiv_papers": _jsonl_count(archive / "arxiv" / "papers.jsonl"),
+        "youtube_videos": _youtube_video_count(archive / "youtube" / "videos.jsonl"),
+        "youtube_transcripts": len(list((archive / "youtube" / "transcripts").glob("*.txt")))
+        if (archive / "youtube" / "transcripts").exists()
+        else 0,
+        "web_pdf": len(list((archive / "web" / "pdf").glob("*.pdf"))) if (archive / "web" / "pdf").exists() else 0,
+        "web_text": len(list((archive / "web" / "text").glob("*.txt"))) if (archive / "web" / "text").exists() else 0,
+    }
+    metrics["candidate_urls"] = _collect_candidate_urls(archive / "tavily_search.jsonl", limit=20)
+    return metrics
+
+
+def _coerce_action_max(value: Any, default_value: int) -> int:
+    try:
+        parsed = int(value)
+    except Exception:
+        parsed = default_value
+    if parsed < 1:
+        parsed = 1
+    return min(parsed, 20)
+
+
+def _normalize_actions(plan: Dict[str, Any]) -> List[Dict[str, Any]]:
+    actions = plan.get("actions")
+    if not isinstance(actions, list):
+        return []
+    normalized: List[Dict[str, Any]] = []
+    for item in actions[:8]:
+        if not isinstance(item, dict):
+            continue
+        action_type = str(item.get("type") or "").strip().lower()
+        if not action_type:
+            continue
+        normalized.append(
+            {
+                "type": action_type,
+                "query": str(item.get("query") or "").strip(),
+                "url": str(item.get("url") or "").strip(),
+                "max_results": item.get("max_results"),
+                "why": str(item.get("why") or "").strip(),
+            }
+        )
+    return normalized
+
+
+def _render_agentic_trace_md(trace_path: Path, out_path: Path, query_id: str) -> None:
+    if not trace_path.exists():
+        return
+    rows: List[dict] = []
+    for line in trace_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(payload, dict):
+            rows.append(payload)
+    lines = [f"# Agentic Trace: {query_id}", ""]
+    for row in rows:
+        phase = str(row.get("phase") or "-")
+        iteration = row.get("iter")
+        lines.append(f"## Iter {iteration} / {phase}")
+        if phase == "plan":
+            reason = str(row.get("reason") or "").strip()
+            if reason:
+                lines.append(f"- Decision: {reason}")
+            actions = row.get("actions") or []
+            if isinstance(actions, list):
+                for action in actions:
+                    if not isinstance(action, dict):
+                        continue
+                    action_type = action.get("type") or "-"
+                    query = action.get("query") or action.get("url") or "-"
+                    lines.append(f"- Action: `{action_type}` | `{query}`")
+        elif phase == "review":
+            delta = row.get("delta") or {}
+            if isinstance(delta, dict):
+                formatted = ", ".join(f"{k}: {v:+d}" for k, v in delta.items() if isinstance(v, int) and v != 0)
+                if formatted:
+                    lines.append(f"- Delta: {formatted}")
+            if row.get("done"):
+                lines.append("- Done: yes")
+        lines.append("")
+    write_text(out_path, "\n".join(lines).strip() + "\n")
+
+
+def _execute_agentic_actions(
+    job: Job,
+    actions: List[Dict[str, Any]],
+    tavily: TavilyClient,
+    logger: JobLogger,
+) -> int:
+    executed = 0
+    for action in actions:
+        action_type = action.get("type", "")
+        if action_type in {"stop", "done"}:
+            logger.log("AGENTIC action: stop")
+            continue
+        if action_type == "tavily_search":
+            query = action.get("query") or ""
+            if not query:
+                logger.log("AGENTIC action skipped (missing query): tavily_search")
+                continue
+            action_max = _coerce_action_max(action.get("max_results"), job.max_results)
+            temp_job = dataclasses.replace(
+                job,
+                query_specs=[QuerySpec(text=query, hints=[])],
+                queries=[query],
+                max_results=action_max,
+                update_run=True,
+            )
+            logger.log(f"AGENTIC action: tavily_search query={query} max={action_max}")
+            run_tavily_search(temp_job, tavily, logger)
+            executed += 1
+            continue
+        if action_type == "tavily_extract":
+            url = action.get("url") or ""
+            if not URL_RE.match(url):
+                logger.log("AGENTIC action skipped (invalid url): tavily_extract")
+                continue
+            temp_job = dataclasses.replace(job, urls=[url], update_run=True)
+            logger.log(f"AGENTIC action: tavily_extract url={url}")
+            run_tavily_extract(temp_job, tavily, logger)
+            run_url_pdf_downloads(temp_job, logger)
+            executed += 1
+            continue
+        if action_type == "openalex_search":
+            query = action.get("query") or ""
+            if not query:
+                logger.log("AGENTIC action skipped (missing query): openalex_search")
+                continue
+            action_max = _coerce_action_max(action.get("max_results"), job.openalex_max_results or job.max_results)
+            temp_job = dataclasses.replace(
+                job,
+                queries=[query],
+                openalex_enabled=True,
+                openalex_max_results=action_max,
+                update_run=True,
+            )
+            logger.log(f"AGENTIC action: openalex_search query={query} max={action_max}")
+            run_openalex(temp_job, logger)
+            executed += 1
+            continue
+        if action_type == "arxiv_recent":
+            query = action.get("query") or ""
+            if not query:
+                logger.log("AGENTIC action skipped (missing query): arxiv_recent")
+                continue
+            action_max = _coerce_action_max(action.get("max_results"), job.max_results)
+            temp_job = dataclasses.replace(
+                job,
+                queries=[query],
+                raw_lines=[query, "논문"],
+                max_results=action_max,
+                update_run=True,
+            )
+            logger.log(f"AGENTIC action: arxiv_recent query={query} max={action_max}")
+            run_arxiv_recent(temp_job, logger)
+            executed += 1
+            continue
+        if action_type == "youtube_search":
+            query = action.get("query") or ""
+            if not query:
+                logger.log("AGENTIC action skipped (missing query): youtube_search")
+                continue
+            action_max = _coerce_action_max(action.get("max_results"), job.youtube_max_results or job.max_results)
+            temp_job = dataclasses.replace(
+                job,
+                query_specs=[QuerySpec(text=query, hints=["youtube"])],
+                queries=[query],
+                youtube_enabled=True,
+                youtube_max_results=action_max,
+                update_run=True,
+            )
+            logger.log(f"AGENTIC action: youtube_search query={query} max={action_max}")
+            run_youtube(temp_job, logger)
+            executed += 1
+            continue
+        logger.log(f"AGENTIC action skipped (unknown type): {action_type}")
+    return executed
+
+
+def run_job_agentic(
+    job: Job,
+    tavily: TavilyClient,
+    model_name: Optional[str] = None,
+    max_iter: Optional[int] = None,
+    stdout: bool = True,
+) -> None:
+    job.out_dir.mkdir(parents=True, exist_ok=True)
+    log_path = job.out_dir / "_log.txt"
+    trace_path = job.out_dir / AGENTIC_TRACE_JSONL
+    logger = JobLogger(log_path, also_stdout=stdout)
+    if not trace_path.exists():
+        trace_path.parent.mkdir(parents=True, exist_ok=True)
+
+    copy_instruction(job)
+    write_job_json(job)
+
+    resolved_model = _resolve_agentic_model(model_name or job.agentic_model)
+    iterations = max_iter if max_iter is not None else job.agentic_max_iter
+    if not iterations or iterations < 1:
+        iterations = AGENTIC_DEFAULT_MAX_ITER
+    logger.log(
+        f"JOB START (agentic): {job.src_file.name} date={job.date.isoformat()} max_results={job.max_results} model={resolved_model}"
+    )
+
+    # Bootstrap with the deterministic pipeline so agentic turns can build on concrete archive outputs.
+    run_local_ingest(job, logger)
+    run_tavily_extract(job, tavily, logger)
+    run_url_pdf_downloads(job, logger)
+    run_tavily_search(job, tavily, logger)
+    run_youtube(job, logger)
+    run_openalex(job, logger)
+    run_arxiv_ids(job, logger)
+    run_arxiv_recent(job, logger)
+    run_arxiv_sources(job, logger)
+
+    trace_entries: List[dict] = []
+    for iter_idx in range(1, iterations + 1):
+        metrics_before = _collect_agentic_metrics(job)
+        plan_payload = {
+            "query_id": job.query_id,
+            "iteration": iter_idx,
+            "max_iterations": iterations,
+            "instruction_lines": job.raw_lines,
+            "goals": {
+                "days": job.days,
+                "default_max_results": job.max_results,
+            },
+            "current_archive": metrics_before,
+            "last_trace": trace_entries[-4:],
+            "guidance": (
+                "Choose next high-value actions only. "
+                "If evidence coverage is sufficient for the instruction, set done=true."
+            ),
+        }
+        try:
+            plan = _call_agentic_planner(resolved_model, plan_payload, logger)
+        except Exception as exc:
+            logger.log(f"AGENTIC planner error iter={iter_idx}: {repr(exc)}")
+            break
+        actions = _normalize_actions(plan)
+        plan_entry = {
+            "iter": iter_idx,
+            "phase": "plan",
+            "done": bool(plan.get("done", False)),
+            "reason": str(plan.get("reason") or ""),
+            "actions": actions,
+            "metrics_before": metrics_before,
+        }
+        append_jsonl(trace_path, plan_entry)
+        trace_entries.append(plan_entry)
+        if plan_entry["done"] and not actions:
+            logger.log(f"AGENTIC stop iter={iter_idx}: {plan_entry['reason'] or 'planner done'}")
+            break
+        executed = _execute_agentic_actions(job, actions, tavily, logger)
+        metrics_after = _collect_agentic_metrics(job)
+        delta = {}
+        for key, before in metrics_before.items():
+            after = metrics_after.get(key)
+            if isinstance(before, int) and isinstance(after, int):
+                delta[key] = after - before
+        review_entry = {
+            "iter": iter_idx,
+            "phase": "review",
+            "executed": executed,
+            "done": bool(plan.get("done", False)),
+            "reason": str(plan.get("reason") or ""),
+            "delta": delta,
+            "metrics_after": metrics_after,
+        }
+        append_jsonl(trace_path, review_entry)
+        trace_entries.append(review_entry)
+        if plan_entry["done"]:
+            logger.log(f"AGENTIC stop iter={iter_idx}: {plan_entry['reason'] or 'planner done'}")
+            break
+        if executed == 0:
+            logger.log(f"AGENTIC stop iter={iter_idx}: no executable actions")
+            break
+    _render_agentic_trace_md(trace_path, job.out_dir / AGENTIC_TRACE_MD, job.query_id)
+    _finalize_job_outputs(job, log_path, logger)

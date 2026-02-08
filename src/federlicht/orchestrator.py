@@ -748,7 +748,7 @@ class ReportOrchestrator:
                 style = "journal"
             return {"depth": prompt_depth, "wants_web": wants_web, "style": style}
 
-        def infer_context_depth(template: TemplateSpec, style: str) -> str:
+        def infer_context_depth(template: object, style: str) -> str:
             if style == "journal" or template.name in prompts.FORMAL_TEMPLATES:
                 return "deep"
             return "normal"

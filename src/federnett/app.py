@@ -43,6 +43,7 @@ from .agent_profiles import (
 from .jobs import Job, JobRegistry
 from .templates import list_template_styles, list_templates, read_template_style, template_details
 from .utils import json_bytes as _json_bytes, safe_rel as _safe_rel
+from .help_agent import answer_help_question
 
 
 class FedernettHandler(BaseHTTPRequestHandler):
@@ -403,6 +404,28 @@ class FedernettHandler(BaseHTTPRequestHandler):
                         "size": target_path.stat().st_size,
                     }
                 )
+                return
+            if path == "/api/help/ask":
+                question = payload.get("question")
+                if not isinstance(question, str) or not question.strip():
+                    raise ValueError("question must be a non-empty string")
+                model = payload.get("model")
+                model_value = str(model).strip() if isinstance(model, str) else None
+                history_raw = payload.get("history")
+                history_value = history_raw if isinstance(history_raw, list) else None
+                max_sources_raw = payload.get("max_sources")
+                try:
+                    max_sources = int(max_sources_raw) if max_sources_raw is not None else 8
+                except Exception:
+                    max_sources = 8
+                result = answer_help_question(
+                    cfg.root,
+                    question,
+                    model=model_value,
+                    max_sources=max_sources,
+                    history=history_value,
+                )
+                self._send_json(result)
                 return
             if path.startswith("/api/jobs/") and path.endswith("/kill"):
                 job_id = path.split("/")[3]

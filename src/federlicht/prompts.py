@@ -32,6 +32,12 @@ def _normalize_rigidity(template_rigidity: str | None) -> str:
     return "balanced"
 
 
+def _template_guidance_block(template_guidance_text: str) -> str:
+    if not template_guidance_text:
+        return ""
+    return f"Template guidance:\n{template_guidance_text}\n"
+
+
 def build_scout_prompt(language: str) -> str:
     return (
         "당신은 소스 스카우트입니다. 아카이브를 매핑하고 핵심 소스 파일을 식별한 뒤 읽기 계획을 제안하세요. "
@@ -263,11 +269,12 @@ def build_writer_prompt(
         if template_spec.name in FORMAL_TEMPLATES
         else "설명형 리뷰 스타일로, 전문적이면서도 읽기 쉬운 서술 톤을 사용하고 과도한 형식주의를 피하세요. "
     )
+    template_guidance_block = _template_guidance_block(template_guidance_text)
     return (
         "당신은 시니어 연구 작성자입니다. 지시문, 베이스라인 보고서, 근거 노트를 사용해 인용을 포함한 상세 보고서를 작성하세요. "
         f"{tone_instruction}"
         f"{format_instructions.section_heading_instruction}{format_instructions.report_skeleton}\n"
-        f"{'Template guidance:\n' + template_guidance_text + '\n' if template_guidance_text else ''}"
+        f"{template_guidance_block}"
         f"{format_instructions.format_instruction}"
         "보고서 본문만 출력하세요. 상태 업데이트/약속/메타 코멘트는 포함하지 마세요. "
         "수식 규칙: 모든 수식/기호 표현은 유효한 LaTeX로 작성하고 $...$ 또는 $$...$$로 감싸세요. "
@@ -454,6 +461,7 @@ def build_synthesize_prompt(
     template_guidance_text: str,
     language: str,
 ) -> str:
+    template_guidance_block = _template_guidance_block(template_guidance_text)
     return (
         "당신은 수석 편집자입니다. Report A와 Report B의 강점을 결합하고 약점을 수정해 더 높은 품질의 최종 보고서를 작성하세요. "
         "인용을 보존하고 새로운 출처를 만들지 마세요. "
@@ -461,7 +469,7 @@ def build_synthesize_prompt(
         "인용 없는 해석/추론/제안/전망 문장은 라벨을 붙이세요(예: '(해석)'). "
         "References 전체 목록은 추가하지 마세요(스크립트가 자동 추가). "
         f"{format_instructions.section_heading_instruction}{format_instructions.report_skeleton}\n"
-        f"{'Template guidance:\n' + template_guidance_text + '\n' if template_guidance_text else ''}"
+        f"{template_guidance_block}"
         f"{format_instructions.format_instruction}"
         f"{language}로 작성하세요."
     )

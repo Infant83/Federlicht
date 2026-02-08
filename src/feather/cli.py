@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from typing import Iterable, Optional
 
-from .collector import prepare_jobs, run_job
+from .collector import prepare_jobs, run_job, run_job_agentic
 from .review import (
     collect_run_summary,
     find_run_dirs,
@@ -95,6 +95,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--days", type=int, default=30, help="Lookback window (days)")
     ap.add_argument("--max-results", type=int, default=8, help="Max results per Tavily/arXiv search step")
+    ap.add_argument(
+        "--agentic-search",
+        action="store_true",
+        help="Enable LLM-driven iterative search planning on top of the standard Feather pipeline.",
+    )
+    ap.add_argument(
+        "--model",
+        help="Model for --agentic-search planner turns (OpenAI-compatible; defaults to OPENAI_MODEL).",
+    )
+    ap.add_argument(
+        "--max-iter",
+        type=int,
+        default=3,
+        help="Maximum agentic planning iterations when --agentic-search is enabled (default: 3).",
+    )
     ap.add_argument("--download-pdf", action="store_true", help="Download arXiv PDFs and extract PDF text")
     ap.add_argument(
         "--arxiv-src",
@@ -151,6 +166,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         raise SystemExit("--review-full is only valid with --review.")
     if args.no_youtube and args.yt_transcript:
         raise SystemExit("--yt-transcript cannot be combined with --no-youtube.")
+    if args.max_iter is not None and args.max_iter < 1:
+        raise SystemExit("--max-iter must be >= 1.")
 
     if args.list is not None:
         run_dirs = find_run_dirs(Path(args.list))
@@ -221,7 +238,19 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         arxiv_source=args.arxiv_src,
         update_run=args.update_run,
         citations_enabled=not args.no_citations,
+        agentic_search=args.agentic_search,
+        agentic_model=args.model,
+        agentic_max_iter=args.max_iter,
     )
     for job in jobs:
-        run_job(job, tavily, stdout=not args.no_stdout_log)
+        if args.agentic_search:
+            run_job_agentic(
+                job,
+                tavily,
+                model_name=args.model,
+                max_iter=args.max_iter,
+                stdout=not args.no_stdout_log,
+            )
+        else:
+            run_job(job, tavily, stdout=not args.no_stdout_log)
     return 0

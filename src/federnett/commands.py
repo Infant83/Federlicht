@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 from typing import Any
 
 from .utils import extra_args, expand_env_reference, parse_bool, resolve_under_root
@@ -31,6 +30,13 @@ def _build_feather_cmd(cfg: FedernettConfig, payload: dict[str, Any]) -> list[st
         cmd.extend(["--days", str(payload.get("days"))])
     if payload.get("max_results") is not None and str(payload.get("max_results")) != "":
         cmd.extend(["--max-results", str(payload.get("max_results"))])
+    if parse_bool(payload, "agentic_search"):
+        cmd.append("--agentic-search")
+        model = expand_env_reference(payload.get("model"))
+        if model:
+            cmd.extend(["--model", str(model)])
+        if payload.get("max_iter") is not None and str(payload.get("max_iter")) != "":
+            cmd.extend(["--max-iter", str(payload.get("max_iter"))])
     if parse_bool(payload, "download_pdf"):
         cmd.append("--download-pdf")
     if parse_bool(payload, "arxiv_src"):

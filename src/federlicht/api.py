@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 import copy
+
+if TYPE_CHECKING:
+    from .report import PipelineState, ReportOutput
 
 _REPORT_MOD = None
 
@@ -163,7 +166,7 @@ class Reporter:
             return output.rendered
         return str(output)
 
-    def run_state(self, **overrides) -> report_mod.PipelineState:
+    def run_state(self, **overrides) -> PipelineState:
         report_mod = _get_report_mod()
         output = self.run(return_state=True, **overrides)
         if isinstance(output, report_mod.ReportOutput):
@@ -178,7 +181,7 @@ class Reporter:
         report_mod = _get_report_mod()
         return report_mod.get_stage_info(stages if stages is not None else ["all"])
 
-    def write(self, state: object, **overrides) -> report_mod.ReportOutput:
+    def write(self, state: object, **overrides) -> ReportOutput:
         report_mod = _get_report_mod()
         args = copy.deepcopy(self.args)
         if overrides:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "federlicht"
-version = "1.3.0"
+version = "1.4.0"
 description = "Federlicht platform: Feather intake, Federlicht report engine, Federnett studio, and FederHav profile workflows."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,9 +29,9 @@ classifiers = [
 dependencies = ["requests"]
 
 [project.urls]
-Homepage = "https://github.com/Infant83/FEATHER"
-Repository = "https://github.com/Infant83/FEATHER"
-Documentation = "https://github.com/Infant83/FEATHER#readme"
+Homepage = "https://github.com/Infant83/Federlicht"
+Repository = "https://github.com/Infant83/Federlicht"
+Documentation = "https://github.com/Infant83/Federlicht#readme"
 "Google Scholar" = "https://scholar.google.com/citations?user=FtSLeT4AAAAJ&hl=en"
 GitHub = "https://github.com/Infant83"
 LinkedIn = "https://www.linkedin.com/in/hyun-jung-kim-8126a7236/"

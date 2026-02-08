@@ -60,19 +60,11 @@ from .utils.json_tools import extract_json_object
 from .utils.strings import slugify_label, slugify_url
 from .readers.pdf import (
     analyze_figure_with_vision,
-    encode_image_for_vision,
-    extract_image_crops,
     extract_pdf_images,
     read_pdf_with_fitz,
     render_pdf_pages,
-    render_pdf_pages_mupdf,
-    render_pdf_pages_pdfium,
-    render_pdf_pages_poppler,
-    select_figure_renderer,
 )
-from .readers.docx import read_docx_text
-from .readers.pptx import extract_pptx_images, read_pptx_text
-from .readers.xlsx import read_xlsx_text
+from .readers.pptx import extract_pptx_images
 
 
 DEFAULT_MODEL = "gpt-5.2"
@@ -7191,7 +7183,6 @@ def rewrite_citations(report_text: str, output_format: str = "md") -> tuple[str,
         return f"[\\[{idx}\\]]({target})"
 
     def replace_md_link(match: re.Match[str]) -> str:
-        label = match.group(1)
         target = match.group(2).strip()
         kind = None
         if target.startswith(("http://", "https://")):
@@ -8021,7 +8012,7 @@ def run_pipeline(
         args.author,
         getattr(args, "organization", None),
         report_prompt,
-        profile=profile,
+        profile=ACTIVE_AGENT_PROFILE,
     )
     byline = build_byline(author_name)
     backend = SafeFilesystemBackend(root_dir=run_dir)

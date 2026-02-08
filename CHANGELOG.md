@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0
+- Add Federnett Guide Agent panel (`질문하기`) with repo-aware answers, source citations, and line-focused source preview links.
+- Add Feather agentic search mode controls across CLI/UI (`--agentic-search`, `--model`, `--max-iter`) and stream trace visibility in logs.
+- Add template control knobs in Federlicht pipeline (`template-rigidity`, `temperature-level` and explicit `temperature`) to balance structure vs. narrative flexibility.
+- Improve template rendering/layout groundwork for sidebar TOC styles and stronger preview/report consistency in federlicht templates.
+- Fix Federlicht runtime failure in report pipeline by resolving active profile wiring (`NameError: profile is not defined`).
+- Fix Python 3.10 compatibility in prompt assembly and clean undefined type-hint references in API/orchestrator paths.
+- Clean minor dead code/import noise in Feather/Federnett/Federlicht modules and re-verify build/test/lint health.
+
 ## 1.3.0
 - Make report byline identity profile-aware: author now resolves in order `--author/--organization` -> agent profile (`author_name`/`organization`) -> prompt `Author:` line -> fallback.
 - Add `--organization` to Federlicht and persist `organization` plus profile author metadata in `report_meta.json`.

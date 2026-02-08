@@ -340,7 +340,7 @@ def extract_image_crops(image, min_area: int, max_regions: int) -> list[object]:
 
 def _pdfium_available() -> bool:
     try:
-        import pypdfium2  # type: ignore
+        __import__("pypdfium2")
     except Exception:
         return False
     return _pillow_image() is not None

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./app.css" />
@@ -24,6 +24,7 @@
         </div>
         <div class="top-actions">
           <button id="reload-runs" class="ghost">Reload Runs</button>
+          <button id="ask-button" class="ghost">질문하기</button>
           <button id="help-button" class="ghost">Help</button>
           <label class="theme-select">
             <span>Theme</span>
@@ -37,6 +38,44 @@
           </label>
         </div>
       </header>
+
+      <section class="ask-panel" id="ask-panel" aria-hidden="true">
+        <div class="ask-panel-head">
+          <div>
+            <h2>Federnett Guide Agent</h2>
+            <p>코드/문서 기반으로 사용법을 답변합니다.</p>
+          </div>
+          <div class="ask-panel-actions">
+            <button type="button" id="ask-close" class="ghost">접기</button>
+          </div>
+        </div>
+        <div class="ask-form-row">
+          <label>
+            <span>질문</span>
+            <textarea
+              id="ask-input"
+              rows="2"
+              placeholder="예: Feather에서 Agentic Search를 언제 켜야 하나요?"
+            ></textarea>
+          </label>
+          <label class="ask-model-field">
+            <span>Model (optional)</span>
+            <input id="ask-model" list="model-options" placeholder="$OPENAI_MODEL" />
+          </label>
+          <button type="button" id="ask-run" class="primary ask-run">질문 실행</button>
+        </div>
+        <div class="ask-status" id="ask-status">Ready.</div>
+        <div class="ask-results">
+          <article class="ask-answer-wrap">
+            <h3>답변</h3>
+            <div id="ask-answer" class="ask-answer"></div>
+          </article>
+          <aside class="ask-sources-wrap">
+            <h3>근거 소스</h3>
+            <div id="ask-sources" class="ask-sources"></div>
+          </aside>
+        </div>
+      </section>
 
       <main class="layout">
         <section class="panel control">
@@ -107,6 +146,10 @@
             <button class="tab" data-tab="federlicht" role="tab">
               Federlicht
             </button>
+          </div>
+          <div class="tab-guide" id="tab-guide" aria-live="polite">
+            <strong>1단계 Feather</strong>
+            <span>외부 자료 수집과 증거 아카이빙</span>
           </div>
 
           <section class="tab-panel active" id="tab-feather" role="tabpanel">
@@ -185,6 +228,10 @@
                     <input type="checkbox" id="feather-update-run" checked />
                     <span>Reuse Run Folder</span>
                   </label>
+                  <label class="toggle">
+                    <input type="checkbox" id="feather-agentic-search" />
+                    <span>Agentic Search</span>
+                  </label>
                 </div>
 
                 <details class="wide advanced">
@@ -221,6 +268,18 @@
                         id="feather-extra-args"
                         placeholder="--tavily-topic news --max-openalex-pdfs 12"
                       />
+                    </label>
+                    <label>
+                      <span>Agentic Model</span>
+                      <input
+                        id="feather-model"
+                        placeholder="$OPENAI_MODEL"
+                        list="model-options"
+                      />
+                    </label>
+                    <label>
+                      <span>Agentic Max Iter</span>
+                      <input id="feather-max-iter" type="number" min="1" value="3" />
                     </label>
                   </div>
                 </details>
@@ -316,6 +375,9 @@
                 <div class="instruction-inline-actions wide">
                   <button type="button" id="federlicht-save-prompt" class="ghost">
                     Save Prompt
+                  </button>
+                  <button type="button" id="federlicht-prompt-expand" class="ghost">
+                    Expand Prompt
                   </button>
                   <button type="button" id="federlicht-saveas-prompt" class="ghost">
                     Save Prompt As
@@ -591,8 +653,8 @@
             <p>Template sections + guidance parsed from frontmatter.</p>
           </div>
           <div class="panel-pills">
+            <button type="button" class="ghost" id="templates-panel-toggle">Hide panel</button>
             <button type="button" class="ghost" id="templates-toggle">Hide cards</button>
-            <span class="meta-pill">bottom dock</span>
           </div>
         </div>
         <div id="templates-grid" class="templates-grid"></div>
@@ -707,7 +769,6 @@
           </div>
           <div class="panel-pills">
             <button type="button" class="ghost" id="agent-panel-toggle">Hide panel</button>
-            <span class="meta-pill">bottom dock</span>
           </div>
         </div>
         <div class="agent-grid">
@@ -971,6 +1032,15 @@
                   <code>--max-results</code>: results per search step (default: 8).
                 </li>
                 <li>
+                  <code>--agentic-search</code>: turn on iterative LLM-guided expansion.
+                </li>
+                <li>
+                  <code>--model</code>: model used for agentic planning turns.
+                </li>
+                <li>
+                  <code>--max-iter</code>: maximum agentic planning iterations (default: 3).
+                </li>
+                <li>
                   <code>--download-pdf</code>: fetch arXiv PDFs + extract text.
                 </li>
                 <li>
@@ -1091,8 +1161,8 @@
       </div>
 
       <footer class="footnote">
-        Federnett calls the existing Feather and Federlicht CLIs via subprocess.
-        No core behavior is replaced.
+        <div>Federnett orchestrates Feather and Federlicht CLIs via subprocess (non-invasive integration).</div>
+        <div>Copyright (c) 2026 Hyun-Jung Kim. Federlicht Studio.</div>
       </footer>
     </div>
 

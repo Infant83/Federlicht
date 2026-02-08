@@ -80,6 +80,11 @@ const state = {
     reportText: "",
     reportHtml: "",
   },
+  ask: {
+    open: false,
+    busy: false,
+    history: [],
+  },
 };
 
 const LOG_LINE_LIMIT = 1400;
@@ -119,8 +124,44 @@ const STAGE_DEFS = [
 
 const STAGE_INDEX = Object.fromEntries(STAGE_DEFS.map((s, i) => [s.id, i]));
 
+const FIELD_HELP = {
+  "feather-download-pdf": "Download arXiv/web PDFs when available and extract text for archive indexing.",
+  "feather-openalex": "Search OpenAlex for additional open-access papers related to the instruction queries.",
+  "feather-youtube": "Run YouTube search for matching queries or explicit YouTube hints.",
+  "feather-yt-transcript": "Fetch YouTube transcripts (requires youtube-transcript-api).",
+  "feather-update-run": "Reuse the same run folder and append new artifacts instead of creating _01, _02 folders.",
+  "feather-agentic-search":
+    "Enable iterative LLM-guided source expansion. Feather plans follow-up search/extract actions.",
+  "feather-lang": "Soft language preference for search results (for example en or ko).",
+  "feather-days": "Lookback window in days for recent paper/search heuristics.",
+  "feather-max-results": "Maximum results per search step.",
+  "feather-yt-order": "YouTube ordering: relevance, date, viewCount, rating.",
+  "feather-model": "Model used for agentic planning turns. Supports $ENV style values.",
+  "feather-max-iter": "Maximum planning iterations in agentic mode.",
+  "federlicht-template-rigidity":
+    "How strongly the writer follows template structure and style guidance.",
+  "federlicht-temperature-level": "Preset creativity/variance level for report agents.",
+  "federlicht-temperature": "Explicit temperature override (takes precedence over level when set).",
+  "federlicht-quality-iterations": "Number of quality loop passes (critic/reviser/evaluator).",
+  "federlicht-max-chars": "Per-document read limit used during report ingestion.",
+  "federlicht-max-pdf-pages": "Maximum PDF pages to read per document.",
+};
+
 function isFederlichtActive() {
   return document.body?.dataset?.tab === "federlicht";
+}
+
+function applyFieldTooltips() {
+  Object.entries(FIELD_HELP).forEach(([id, text]) => {
+    const el = document.getElementById(id);
+    if (!el || !text) return;
+    el.setAttribute("title", text);
+    const label = el.closest("label");
+    if (label) {
+      label.setAttribute("title", text);
+      label.setAttribute("data-help", text);
+    }
+  });
 }
 
 function isMissingFileError(err) {
@@ -321,6 +362,181 @@ function closeHelpModal() {
   modal.setAttribute("aria-hidden", "true");
 }
 
+function setAskStatus(message) {
+  const el = $("#ask-status");
+  if (el) {
+    el.textContent = message || "";
+  }
+}
+
+function setAskPanelOpen(open) {
+  const panel = $("#ask-panel");
+  if (!panel) return;
+  state.ask.open = Boolean(open);
+  panel.classList.toggle("open", state.ask.open);
+  panel.setAttribute("aria-hidden", state.ask.open ? "false" : "true");
+  const button = $("#ask-button");
+  if (button) {
+    button.classList.toggle("is-active", state.ask.open);
+  }
+  if (state.ask.open) {
+    window.setTimeout(() => {
+      $("#ask-input")?.focus();
+    }, 0);
+  }
+}
+
+function renderAskAnswer(answerText) {
+  const answerEl = $("#ask-answer");
+  if (!answerEl) return;
+  const text = String(answerText || "").trim();
+  if (!text) {
+    answerEl.innerHTML = '<p class="muted">아직 답변이 없습니다.</p>';
+    return;
+  }
+  answerEl.innerHTML = renderMarkdown(text);
+}
+
+function renderAskSources(sources) {
+  const container = $("#ask-sources");
+  if (!container) return;
+  if (!Array.isArray(sources) || !sources.length) {
+    container.innerHTML = '<p class="muted">매칭된 소스가 없습니다.</p>';
+    return;
+  }
+  container.innerHTML = sources
+    .map((src) => {
+      const path = String(src.path || "");
+      const id = String(src.id || "");
+      const start = Number(src.start_line || 0);
+      const end = Number(src.end_line || 0);
+      const lineText = start > 0 && end >= start ? `${start}-${end}` : "-";
+      const excerptRaw = String(src.excerpt || "").split(/\r?\n/).slice(0, 2).join(" ");
+      const excerpt = excerptRaw.length > 220 ? `${excerptRaw.slice(0, 219)}…` : excerptRaw;
+      return `
+        <article class="ask-source-item">
+          <button
+            type="button"
+            class="ghost ask-source-open"
+            data-source-path="${escapeHtml(path)}"
+            data-source-start="${start}"
+            data-source-end="${end}"
+          >
+            <strong>${escapeHtml(id || "S")}</strong>
+            <span>${escapeHtml(path)}:${escapeHtml(lineText)}</span>
+          </button>
+          <p>${escapeHtml(excerpt)}</p>
+        </article>
+      `;
+    })
+    .join("");
+  container.querySelectorAll(".ask-source-open").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const sourcePath = btn.getAttribute("data-source-path") || "";
+      const startLine = Number(btn.getAttribute("data-source-start") || "0");
+      const endLine = Number(btn.getAttribute("data-source-end") || `${startLine}`);
+      if (!sourcePath) return;
+      await loadFilePreview(sourcePath, {
+        focusLine: startLine,
+        endLine,
+      });
+      appendLog(`[help] source opened: ${sourcePath}:${startLine}-${endLine}\n`);
+    });
+  });
+}
+
+async function runAskQuestion() {
+  if (state.ask.busy) return;
+  const question = $("#ask-input")?.value?.trim() || "";
+  const model = $("#ask-model")?.value?.trim() || "";
+  if (!question) {
+    setAskStatus("질문을 입력하세요.");
+    return;
+  }
+  state.ask.busy = true;
+  const runButton = $("#ask-run");
+  if (runButton) {
+    runButton.disabled = true;
+    runButton.textContent = "질문 중...";
+  }
+  setAskStatus("코드/문서를 분석 중입니다...");
+  renderAskAnswer("");
+  renderAskSources([]);
+  try {
+    const result = await fetchJSON("/api/help/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question,
+        model: model || undefined,
+        max_sources: 8,
+        history: state.ask.history.slice(-6),
+      }),
+    });
+    renderAskAnswer(result.answer || "");
+    renderAskSources(result.sources || []);
+    state.ask.history.push({ role: "user", content: question });
+    state.ask.history.push({ role: "assistant", content: String(result.answer || "").slice(0, 2000) });
+    if (state.ask.history.length > 12) {
+      state.ask.history = state.ask.history.slice(-12);
+    }
+    const modelLabel = result.model || (model || "$OPENAI_MODEL");
+    const indexed = Number(result.indexed_files || 0);
+    if (result.used_llm) {
+      setAskStatus(`완료 · model=${modelLabel} · indexed=${indexed}`);
+    } else if (result.error) {
+      setAskStatus(`완료(fallback) · indexed=${indexed} · ${result.error}`);
+    } else {
+      setAskStatus(`완료(fallback) · indexed=${indexed}`);
+    }
+  } catch (err) {
+    setAskStatus(`질문 실패: ${err}`);
+    renderAskAnswer(`질문 실패: ${err}`);
+    renderAskSources([]);
+  } finally {
+    state.ask.busy = false;
+    if (runButton) {
+      runButton.disabled = false;
+      runButton.textContent = "질문 실행";
+    }
+  }
+}
+
+function handleAskPanel() {
+  const panel = $("#ask-panel");
+  if (!panel) return;
+  renderAskAnswer("");
+  renderAskSources([]);
+  setAskStatus("Ready.");
+  $("#ask-button")?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    setAskPanelOpen(!state.ask.open);
+  });
+  $("#ask-close")?.addEventListener("click", () => setAskPanelOpen(false));
+  $("#ask-run")?.addEventListener("click", () => runAskQuestion());
+  $("#ask-input")?.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
+      ev.preventDefault();
+      runAskQuestion();
+    }
+  });
+  panel.addEventListener("click", (ev) => ev.stopPropagation());
+  document.addEventListener("click", (ev) => {
+    if (!state.ask.open) return;
+    const target = ev.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest("#ask-panel")) return;
+    if (target.closest("#ask-button")) return;
+    setAskPanelOpen(false);
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && state.ask.open) {
+      setAskPanelOpen(false);
+    }
+  });
+}
+
 function openJobsModal() {
   const modal = $("#jobs-modal");
   if (!modal) return;
@@ -487,6 +703,12 @@ function bindHeroCards() {
     templatesCard.addEventListener("click", () => {
       const panel = $("#templates-panel");
       if (panel) {
+        if (panel.classList.contains("panel-collapsed")) {
+          panel.classList.remove("panel-collapsed");
+          const panelButton = $("#templates-panel-toggle");
+          if (panelButton) panelButton.textContent = "Hide panel";
+          localStorage.setItem("federnett-templates-panel-collapsed", "false");
+        }
         panel.scrollIntoView({ behavior: "smooth", block: "start" });
         flashElement(panel);
       }
@@ -782,9 +1004,21 @@ function renderMarkdown(text) {
   let html = "";
   let inList = false;
   let inCode = false;
+  let fenceToken = "";
+  const inline = (value) => {
+    let out = escapeHtml(value ?? "");
+    out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+    out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    return out;
+  };
   for (const raw of lines) {
     const line = raw.trimEnd();
-    if (line.startsWith("```")) {
+    const lineTrim = raw.trim();
+    const fenceMatch = lineTrim.match(/^(```+|~~~+)/);
+    if (fenceMatch) {
+      const token = fenceMatch[1] || "```";
       if (!inCode) {
         if (inList) {
           html += "</ul>";
@@ -792,9 +1026,15 @@ function renderMarkdown(text) {
         }
         html += "<pre><code>";
         inCode = true;
+        fenceToken = token;
       } else {
-        html += "</code></pre>";
-        inCode = false;
+        if (!fenceToken || token.startsWith(fenceToken[0])) {
+          html += "</code></pre>";
+          inCode = false;
+          fenceToken = "";
+        } else {
+          html += `${escapeHtml(raw)}\n`;
+        }
       }
       continue;
     }
@@ -816,7 +1056,7 @@ function renderMarkdown(text) {
       }
       const level = Math.min(line.match(/^#+/)[0].length, 3);
       const text = line.replace(/^#+\s*/, "");
-      html += `<h${level}>${escapeHtml(text)}</h${level}>`;
+      html += `<h${level}>${inline(text)}</h${level}>`;
       continue;
     }
     if (line.startsWith("- ") || line.startsWith("* ")) {
@@ -824,14 +1064,14 @@ function renderMarkdown(text) {
         html += "<ul>";
         inList = true;
       }
-      html += `<li>${escapeHtml(line.slice(2))}</li>`;
+      html += `<li>${inline(line.slice(2))}</li>`;
       continue;
     }
     if (inList) {
       html += "</ul>";
       inList = false;
     }
-    html += `<p>${escapeHtml(line)}</p>`;
+    html += `<p>${inline(line)}</p>`;
   }
   if (inList) html += "</ul>";
   if (inCode) html += "</code></pre>";
@@ -871,10 +1111,47 @@ async function fetchRawPreviewBlob(relPath) {
   return { blob, contentType };
 }
 
-async function loadFilePreview(relPath) {
+function focusFilePreviewLines(startLine, endLine) {
+  const editor = $("#file-preview-editor");
+  if (!editor || editor.style.display === "none") return;
+  const lines = String(editor.value || "").replace(/\r\n/g, "\n").split("\n");
+  const start = Math.max(1, Number(startLine) || 1);
+  const end = Math.max(start, Number(endLine) || start);
+  let startOffset = 0;
+  for (let i = 0; i < start - 1 && i < lines.length; i += 1) {
+    startOffset += lines[i].length + 1;
+  }
+  let endOffset = startOffset;
+  for (let i = start - 1; i < end && i < lines.length; i += 1) {
+    endOffset += lines[i].length;
+    if (i < lines.length - 1) endOffset += 1;
+  }
+  try {
+    editor.focus();
+    editor.setSelectionRange(startOffset, Math.max(startOffset, endOffset));
+  } catch (err) {
+    // no-op
+  }
+  const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight) || 20;
+  editor.scrollTop = Math.max((start - 3) * lineHeight, 0);
+}
+
+function scheduleFilePreviewLineFocus(startLine, endLine) {
+  if (!startLine || Number(startLine) < 1) return;
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      focusFilePreviewLines(startLine, endLine);
+    });
+  });
+}
+
+async function loadFilePreview(relPath, options = {}) {
   if (!relPath) return;
   revokePreviewObjectUrl();
-  const mode = previewModeForPath(relPath);
+  const requestedLine = Number(options.focusLine || 0);
+  const requestedEndLine = Number(options.endLine || requestedLine || 0);
+  const originalMode = previewModeForPath(relPath);
+  const mode = requestedLine > 0 && originalMode === "markdown" ? "text" : originalMode;
   if (mode === "pdf" || mode === "html" || mode === "image") {
     updateFilePreviewState({
       path: relPath,
@@ -903,7 +1180,7 @@ async function loadFilePreview(relPath) {
   }
   try {
     const data = await fetchJSON(`/api/files?path=${encodeURIComponent(relPath)}`);
-    const canEdit = mode === "text";
+    const canEdit = originalMode === "text";
     updateFilePreviewState({
       path: data.path || relPath,
       content: data.content || "",
@@ -914,6 +1191,9 @@ async function loadFilePreview(relPath) {
       htmlDoc: "",
     });
     focusPanel("#logs-wrap .preview-block");
+    if (requestedLine > 0) {
+      scheduleFilePreviewLineFocus(requestedLine, requestedEndLine);
+    }
   } catch (err) {
     updateFilePreviewState({
       path: relPath,
@@ -2197,24 +2477,28 @@ function openTemplateModal(name) {
       .map((g) => `<li>${escapeHtml(g)}</li>`)
       .join("");
     body.innerHTML = `
-      <div class="template-modal-section">
-        <h4>Metadata</h4>
-        <ul>${metaRows || "<li>No metadata.</li>"}</ul>
-      </div>
-      <div class="template-modal-section">
-        <h4>Sections</h4>
-        <div class="template-sections">${sections || "<span class=\"template-section\">No sections</span>"}</div>
-      </div>
-      <div class="template-modal-section">
-        <h4>Section Guidance</h4>
-        <ul>${guides || "<li>No section guidance.</li>"}</ul>
-      </div>
-      <div class="template-modal-section">
-        <h4>Writer Guidance</h4>
-        <ul>${guidance || "<li>No writer guidance.</li>"}</ul>
-      </div>
-      <div class="template-modal-preview">
-        <iframe title="Template preview"></iframe>
+      <div class="template-modal-layout">
+        <div class="template-modal-info">
+          <div class="template-modal-section">
+            <h4>Metadata</h4>
+            <ul>${metaRows || "<li>No metadata.</li>"}</ul>
+          </div>
+          <div class="template-modal-section">
+            <h4>Sections</h4>
+            <div class="template-sections">${sections || "<span class=\"template-section\">No sections</span>"}</div>
+          </div>
+          <div class="template-modal-section">
+            <h4>Section Guidance</h4>
+            <ul>${guides || "<li>No section guidance.</li>"}</ul>
+          </div>
+          <div class="template-modal-section">
+            <h4>Writer Guidance</h4>
+            <ul>${guidance || "<li>No writer guidance.</li>"}</ul>
+          </div>
+        </div>
+        <div class="template-modal-preview">
+          <iframe title="Template preview"></iframe>
+        </div>
       </div>
     `;
     const frame = body.querySelector("iframe");
@@ -2857,6 +3141,9 @@ function buildFeatherPayload() {
     lang: $("#feather-lang")?.value,
     days: Number.parseInt($("#feather-days")?.value || "", 10),
     max_results: Number.parseInt($("#feather-max-results")?.value || "", 10),
+    agentic_search: $("#feather-agentic-search")?.checked,
+    model: $("#feather-model")?.value,
+    max_iter: Number.parseInt($("#feather-max-iter")?.value || "", 10),
     download_pdf: $("#feather-download-pdf")?.checked,
     openalex: $("#feather-openalex")?.checked,
     youtube: $("#feather-youtube")?.checked,
@@ -2873,6 +3160,11 @@ function buildFeatherPayload() {
   }
   if (!Number.isFinite(payload.days)) delete payload.days;
   if (!Number.isFinite(payload.max_results)) delete payload.max_results;
+  if (!Number.isFinite(payload.max_iter)) delete payload.max_iter;
+  if (!payload.agentic_search) {
+    delete payload.model;
+    delete payload.max_iter;
+  }
   return pruneEmpty(payload);
 }
 
@@ -2981,6 +3273,7 @@ function buildPromptPayloadFromFederlicht() {
 
 function handleTabs() {
   const tabs = Array.from(document.querySelectorAll(".tab"));
+  const tabGuide = $("#tab-guide");
   const panels = {
     feather: $("#tab-feather"),
     federlicht: $("#tab-federlicht"),
@@ -2988,6 +3281,15 @@ function handleTabs() {
   const setActiveTab = (key) => {
     const resolved = key || "feather";
     document.body.dataset.tab = resolved;
+    if (tabGuide) {
+      if (resolved === "federlicht") {
+        tabGuide.innerHTML =
+          "<strong>2단계 Federlicht</strong><span>수집 자료 기반 보고서 생성과 품질 점검</span>";
+      } else {
+        tabGuide.innerHTML =
+          "<strong>1단계 Feather</strong><span>외부 자료 수집과 증거 아카이빙</span>";
+      }
+    }
     if (resolved === "federlicht") {
       syncPromptFromFile(true).catch((err) => {
         if (!isMissingFileError(err)) {
@@ -3010,6 +3312,22 @@ function handleTabs() {
       });
     });
   });
+}
+
+function handlePromptExpandControl() {
+  const editor = $("#federlicht-prompt");
+  const button = $("#federlicht-prompt-expand");
+  if (!editor || !button) return;
+  const applyState = () => {
+    const expanded = editor.classList.contains("is-expanded");
+    button.classList.toggle("is-active", expanded);
+    button.textContent = expanded ? "Collapse Prompt" : "Expand Prompt";
+  };
+  button.addEventListener("click", () => {
+    editor.classList.toggle("is-expanded");
+    applyState();
+  });
+  applyState();
 }
 
 function handleFeatherRunName() {
@@ -3039,6 +3357,20 @@ function handleFeatherRunName() {
   input?.addEventListener("input", () => {
     featherInputTouched = true;
   });
+}
+
+function handleFeatherAgenticControls() {
+  const toggle = $("#feather-agentic-search");
+  const modelInput = $("#feather-model");
+  const iterInput = $("#feather-max-iter");
+  if (!toggle) return;
+  const applyState = () => {
+    const enabled = Boolean(toggle.checked);
+    if (modelInput) modelInput.disabled = !enabled;
+    if (iterInput) iterInput.disabled = !enabled;
+  };
+  toggle.addEventListener("change", applyState);
+  applyState();
 }
 
 function handleRunOutputTouch() {
@@ -4314,17 +4646,35 @@ function bindForms() {
 
 function handleTemplatesPanelToggle() {
   const panel = $("#templates-panel");
-  const button = $("#templates-toggle");
-  if (!panel || !button) return;
-  const stored = localStorage.getItem("federnett-templates-collapsed");
-  if (stored === "true") {
-    panel.classList.add("collapsed");
-    button.textContent = "Show cards";
-  }
-  button.addEventListener("click", () => {
-    const collapsed = panel.classList.toggle("collapsed");
-    button.textContent = collapsed ? "Show cards" : "Hide cards";
-    localStorage.setItem("federnett-templates-collapsed", collapsed ? "true" : "false");
+  const cardsButton = $("#templates-toggle");
+  const panelButton = $("#templates-panel-toggle");
+  if (!panel || !cardsButton) return;
+  panel.classList.remove("collapsed");
+  const applyCardsState = (collapsed) => {
+    panel.classList.toggle("cards-collapsed", collapsed);
+    cardsButton.textContent = collapsed ? "Show cards" : "Hide cards";
+  };
+  const applyPanelState = (collapsed) => {
+    panel.classList.toggle("panel-collapsed", collapsed);
+    if (panelButton) {
+      panelButton.textContent = collapsed ? "Show panel" : "Hide panel";
+    }
+  };
+  const cardsStored =
+    localStorage.getItem("federnett-templates-cards-collapsed")
+    ?? localStorage.getItem("federnett-templates-collapsed");
+  const panelStored = localStorage.getItem("federnett-templates-panel-collapsed");
+  applyCardsState(cardsStored === "true");
+  applyPanelState(panelStored === "true");
+  cardsButton.addEventListener("click", () => {
+    const collapsed = !panel.classList.contains("cards-collapsed");
+    applyCardsState(collapsed);
+    localStorage.setItem("federnett-templates-cards-collapsed", collapsed ? "true" : "false");
+  });
+  panelButton?.addEventListener("click", () => {
+    const collapsed = !panel.classList.contains("panel-collapsed");
+    applyPanelState(collapsed);
+    localStorage.setItem("federnett-templates-panel-collapsed", collapsed ? "true" : "false");
   });
 }
 
@@ -4343,8 +4693,11 @@ async function loadModelOptions() {
 
 async function bootstrap() {
   initTheme();
+  applyFieldTooltips();
+  handleAskPanel();
   handleTabs();
   handleFeatherRunName();
+  handleFeatherAgenticControls();
   handleRunOutputTouch();
   handlePipelineInputs();
   handleRunChanges();
@@ -4355,6 +4708,7 @@ async function bootstrap() {
   handleUploadDrop();
   handleFederlichtPromptPicker();
   handleFederlichtPromptEditor();
+  handlePromptExpandControl();
   handleRunPicker();
   handleJobsModal();
   handleReloadRuns();
