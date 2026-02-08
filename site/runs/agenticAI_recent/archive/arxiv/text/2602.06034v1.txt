@@ -1,0 +1,2284 @@
+
+
+===== PAGE 1 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal
+Retrieval
+Dongyang Chen * 1 Chaoyang Wang * 2 Dezhao SU 3 Xi Xiao 1 Zeyu Zhang 4 Jing Xiong 5 Qing Li 6
+Yuzhang Shang 2 Shichao Kan 7
+Home: https://github.com/chendy25/V-Retrver
+HF:https://huggingface.co/V-Retrver
+Abstract
+Multimodal Large Language Models (MLLMs)
+have recently been applied to universal multi-
+modal retrieval, where Chain-of-Thought (CoT)
+reasoning improves candidate reranking. How-
+ever, existing approaches remain largely language-
+driven, relying on static visual encodings and
+lacking the ability to actively verify fine-grained
+visual evidence, which often leads to specula-
+tive reasoning in visually ambiguous cases. We
+propose V-Retrver, an evidence-driven retrieval
+framework that reformulates multimodal retrieval
+as an agentic reasoning process grounded in visual
+inspection. V-Retrver enables an MLLM to selec-
+tively acquire visual evidence during reasoning
+via external visual tools, performing a multimodal
+interleaved reasoning process that alternates be-
+tween hypothesis generation and targeted visual
+verification. To train such an evidence-gathering
+retrieval agent, we adopt a curriculum-based learn-
+ing strategy combining supervised reasoning acti-
+vation, rejection-based refinement, and reinforce-
+ment learning with an evidence-aligned objec-
+tive. Experiments across multiple multimodal
+retrieval benchmarks demonstrate consistent im-
+provements in retrieval accuracy (with 23.0% im-
+provements on average), perception-driven rea-
+soning reliability, and generalization.
+1. Introduction
+The rapid development of Multimodal Large Language Mod-
+els (MLLMs) has substantially advanced universal multi-
+*Equal contribution 1Tsinghua University 2University of Cen-
+tral Florida 3Fudan University 4The Australian National Uni-
+versity 5The University of Hong Kong 6Pengcheng Laboratory
+7Central South University. Correspondence to: Xi Xiao <xi-
+aox@sz.tsinghua.edu.cn>.
+Preprint. February 6, 2026.
+modal retrieval (Chen et al., 2024c; Lin et al., 2024a; Wang
+et al., 2024b; Zhu et al., 2025d; Sun et al.), enabling a
+single model to support diverse retrieval scenarios such as
+text-to-image, image-to-text, and interleaved multimodal
+queries. Recent works further demonstrate that incorpo-
+rating Chain-of-Thought (CoT) reasoning can improve re-
+trieval performance by enhancing interpretability and can-
+didate discrimination (Zhu et al., 2025d; Xu et al., 2025c;
+Narayan et al., 2025). However, despite these advances,
+existing CoT-based retrieval systems remain fundamentally
+language-driven, even when retrieval decisions critically
+depend on visual evidence.
+This limitation becomes particularly pronounced in visu-
+ally ambiguous retrieval scenarios, where candidate images
+share similar semantic content but differ in fine-grained
+visual attributes such as object appearance, style, or local
+context. Most current MLLM-based retrieval methods (Liu
+et al., 2025; Chen et al., 2024c; Lin et al., 2024a) compress
+visual inputs into fixed embeddings or textual descriptions,
+forcing the reasoning process to rely on language alone
+to infer visual differences. Consequently, the model of-
+ten produces speculative or hallucinated reasoning when
+the required evidence lies in the visual modality. Even
+recent reasoning-enhanced retrieval frameworks, such as
+Retrv-R1 (Zhu et al., 2025d) and MM-R5 (Xu et al., 2025b),
+improve textual reasoning depth but still rely on single-pass
+visual encoding, lacking the ability to actively verify visual
+hypotheses during reasoning.
+To overcome this gap, we propose V-Retrver, an evidence-
+driven retrieval framework that reformulates multimodal
+retrieval as an agentic reasoning process grounded in vi-
+sual inspection. Instead of treating visual representations as
+static inputs, V-Retrver enables an MLLM to selectively ac-
+quire visual evidence during reasoning by invoking external
+visual tools. Through a multimodal interleaved Chain-of-
+Thought process, the model alternates between hypothesis
+generation and targeted visual verification, allowing it to
+dynamically resolve visual ambiguities and progressively
+refine ranking decisions, as illustrated in Fig. 1.
+1
+arXiv:2602.06034v1  [cs.CV]  5 Feb 2026
+
+
+===== PAGE 2 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+White sofa with mottled pillows instead of a dark brown sofa with white pillows and books down
+Candidate 1
+Query
+Candidate 2
+<think>The objective is to identify a candidate that reflects 
+specific visual transformations from the query: replacing a 
+dark brown sofa with white pillows and books underneath with 
+a white sofa and mottled pillows.Initially, we can perform a 
+pre-screening to filter the candidates. Candidate 2 is an exact 
+match for the negative example described in the text—a dark 
+brown sofa with white pillows and books below—so it is the 
+least relevant . . . Candidate 3 is a simple sofa lacking the 
+mottled texture and the storage theme , making it less 
+suitable. =Candidate 4 shows a traditional white sofa with 
+colorful mottled pillows and a book lying on the floor. 
+Candidate 4 stands out as a strong match due to its clear 
+presentation of a white sofa and prominent mottled pillows 
+that align well with the textual request. While Candidate 1 
+also fits the . . . Candidate 4's aesthetic emphasis on the 
+white fabric and vibrant pillow patterns makes it a highly 
+relevant choice for this specific transformation.Following 
+these two, Candidate 3 remains more relevant than the 
+remaining options , followed by the bed-like arrangement of 
+Candidate 5 , and finally Candidate 2 as the explicit counter-
+example.</think>
+<answer>[4, 1, 3, 5, 2]</answer>
+Text-based Chain of thought
+Candidate 4
+Candidate 3
+Candidate 5
+<think>Based on your requirements, I will analyze the query and candidate images to provide a ranked 
+list . . . I will use the selection tool to compare them more closely. </think>
+<tool_call>
+{"name": "select_images", "arguments": {"target_images": [1, 4]}}
+</tool_call>
+<think>From the comparison: Features a modern white sofa with distinct mottled/zebra-patterned 
+pillows . . . I will perform a crop on the shelving area.</think>
+<tool_call>
+{"name": "crop_image", "arguments": {"bbox_2d": [290, 80, 380, 200], "target_image": 1}}
+</tool_call>
+<think>Candidate 4: Meets the color and pillow criteria but lacks the integrated storage design . . . 
+Based on this analysis, the final ranking is as follows:</think>
+<answer>[1, 4, 3, 5, 2]</answer>
+Multimodal Interleaved Chain of thought
+Candidate 1
+Candidate 4
+Candidate 1
+Zoom in
+Figure 1. Comparison between text-based CoT (left) and multimodal interleaved CoT (right) for multimodal retrieval. Text-based
+CoT relies on language-driven inference over static visual representations, often failing to resolve fine-grained differences. In contrast,
+V-Retrver performs multimodal interleaved CoT reasoning by invoking visual tools to inspect candidate images, enabling grounded
+reasoning and more reliable ranking decisions.
+Training such an evidence-gathering retrieval agent requires
+not only strong reasoning ability but also effective alignment
+between retrieval performance and visual tool usage. We
+therefore adopt a curriculum-based training strategy con-
+sisting of three stages. First, a cold-start supervised stage
+initializes the model with basic reasoning capabilities and
+operation formatting using synthesized high-quality CoT
+data. Second, rejection sampling fine-tuning consolidates
+high-quality reasoning trajectories and improves structural
+compliance. Finally, we introduce Evidence-Aligned Pol-
+icy Optimization (EAPO), instantiated via Group Relative
+Policy Optimization (GRPO) (Guo et al., 2025), which re-
+inforces correct ranking decisions while encouraging infor-
+mative visual verification and discouraging redundant tool
+usage.
+Extensive experiments on the universal multimodal retrieval
+benchmark M-BEIR, as well as multiple out-of-domain
+datasets, demonstrate that V-Retrver consistently outper-
+forms strong baselines across diverse retrieval settings. The
+results show that V-Retrver achieves higher retrieval ac-
+curacy, more reliable perception-grounded reasoning, and
+stronger generalization ability, validating the effectiveness
+of interleaved visual reasoning for multimodal retrieval. In
+summary, our contributions are three-fold:
+• We propose V-Retrver, an evidence-driven agentic re-
+trieval framework that enables MLLMs to actively ac-
+quire visual evidence during multimodal reasoning.
+• We introduce a curriculum-based training strategy with
+an evidence-aligned reinforcement learning objective
+that jointly improves reasoning quality, ranking accu-
+racy, and efficient visual tool usage.
+• Extensive experiments across multiple benchmarks
+demonstrate that V-Retrver consistently outperforms
+existing methods and generalizes well to diverse multi-
+modal retrieval scenarios.
+2. Related Work
+Multi-modal Large Language Models.
+In recent years,
+the rapid advancement of multimodal large language mod-
+els (MLLMs) has driven the deep integration of visual
+perception and language reasoning, leading to the emer-
+gence of a series of high-performing open-source models,
+notably the LLaVA (Liu et al., 2024; Guo et al., 2024; Zhang
+et al., 2025c; Lin et al., 2023a; Li et al., 2023a), Qwen-VL
+(Bai et al., 2023; Wang et al., 2024a; Yang et al., 2024),
+and InternVL (Chen et al., 2024b; Gao et al., 2024; Lu
+et al., 2025) series. In parallel, large-scale models such as
+Flamingo (Alayrac et al., 2022), mPLUG-Owl (Ye et al.,
+2
+
+
+===== PAGE 3 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+2023; 2024b;a), and GPT-4V (Yang et al., 2023) pursue a
+more holistic vision-language modeling paradigm, incorpo-
+rating advanced mechanisms including mixture-of-experts
+architectures (Shu et al., 2024; Li et al., 2025b; Shen et al.,
+2024) and image generation components (Xie et al., 2024;
+Xu et al., 2025a). However, these models generally lack rea-
+soning capabilities such as Chain-of-Thought and test-time
+scalability (Muennighoff et al., 2025; Zhang et al., 2025b;
+Chen et al., 2024a), and to a large extent still decouple visual
+perception from text reasoning processes.
+Multimodal Retrieval.
+Recent advances in deep learn-
+ing (Zhu et al., 2021; 2024; 2025a;c;b; Ji et al., 2024) have
+substantially propelled progress across a broad spectrum of
+retrieval tasks, including text–image cross-modal retrieval
+(Pham et al., 2024; Fu et al., 2024; Zhang et al., 2020;
+Chun et al., 2021; Kim et al., 2023b;a), composed image
+retrieval (Baldrati et al., 2022; Saito et al., 2023; Gu et al.,
+2024; Suo et al., 2024; Baldrati et al., 2023), multimodal
+document retrieval (Chen et al., 2023; Hu et al., 2023; Liu
+et al., 2023), and instruction-based image retrieval (Wu et al.,
+2021; Zhang et al., 2024a; Asai et al., 2023). Among these
+approaches, vision–language models (VLMs), particularly
+CLIP (Radford et al., 2021), have demonstrated strong ef-
+fectiveness and scalability in multimodal retrieval scenarios
+(Baldrati et al., 2022; Wei et al., 2024b; Sain et al., 2023; Pei
+et al., 2023; Jin et al., 2024). For instance, Kim et al. (Kim
+et al., 2023a) improve CLIP via prompt tuning, enabling en-
+hanced generalization across diverse retrieval settings. More
+recently, multimodal large language models (MLLMs) have
+been introduced to further advance retrieval performance
+(Liu et al., 2025; Jiang et al., 2024; Lin et al., 2024a; Zhou
+et al., 2024). Some approaches (Zhou et al., 2024; Lan et al.,
+2025; Lin et al., 2024a; Zhang et al., 2024b; Jian et al., 2025;
+Gu et al., 2025) utilize embeddings extracted from MLLMs
+to perform similarity-based retrieval. Others approaches,
+such as LamRA (Liu et al., 2025; Li et al., 2025a), employ
+MLLMs as reranking agents to refine candidate lists and
+select the most relevant results. Retrv-R1(Zhu et al., 2025d)
+equips the model with text reasoning capabilities for mul-
+timodal retrieval tasks through reinforcement learning. In
+contrast to prior work, we introduce V-Retrver, an evidence-
+driven retrieval framework, which can adaptively adjust its
+visual exploration strategy during reasoning by invoking vi-
+sual tools, enabling a more flexible and effective reasoning
+process and thereby achieving significant improvements in
+retrieval performance.
+3. Method
+3.1. Problem Formulation
+We study the problem of universal multimodal retrieval.
+Given a query q of arbitrary modality (text, image, or in-
+terleaved multimodal input) and a candidate pool Ω=
+{cn}N
+n=1, the objective is to identify the most relevant candi-
+date ˆc ∈Ω. Conventional multimodal retrieval approaches
+typically formulate this problem as static similarity match-
+ing or language-only reranking over fixed visual representa-
+tions. Such formulations implicitly assume that all necessary
+visual evidence has been fully encoded into embeddings or
+textual descriptions prior to reasoning. However, this as-
+sumption breaks down in fine-grained or visually ambiguous
+retrieval scenarios, where subtle local details determine rel-
+evance and cannot be reliably inferred from compressed
+representations alone.
+To address this limitation, we reformulate multimodal re-
+trieval as an evidence-grounded reasoning problem. Under
+this formulation, retrieval is no longer a single-pass infer-
+ence process, but an iterative decision-making procedure in
+which the model is required to actively acquire and verify
+visual evidence during ranking. Specifically, the retrieval
+process consists of three tightly coupled steps: (i) generat-
+ing hypotheses about candidate relevance based on available
+information, (ii) selectively inspecting visual evidence to
+resolve uncertainty, and (iii) refining the ranking decision
+based on verified observations. This perspective naturally
+gives rise to an agentic reranking paradigm, where a re-
+trieval model is endowed with the ability to reason, inspect,
+and revise its decisions, rather than passively scoring candi-
+dates using fixed representations.
+3.2. Overview of V-Retrver
+Building on the above formulation, we propose V-Retrver,
+an evidence-driven reasoning framework for universal mul-
+timodal retrieval, As illustrated in Fig. 2. V-Retrver follows
+a coarse-to-fine retrieval pipeline that decouples efficient
+candidate proposal from computationally intensive evidence-
+based reasoning. In the first stage, an embedding model ϕ
+encodes the query q and each candidate cn into a shared
+representation space, retrieving the top-K candidates based
+on similarity. We adopt the same method as LamRA (Liu
+et al., 2025) for constructing the embedding model ϕ. This
+stage serves as an efficient candidate proposal mechanism
+and substantially reduces the search space:
+C = {ck}K
+k=1,
+K ≪N.
+In the second stage, V-Retrver employs a reasoning agent
+θ to perform fine-grained reranking over the reduced candi-
+date set C. Crucially, θ is not a conventional reranker that
+operates over static features. Instead, it is designed as an
+agentic evidence-gathering model that can iteratively rea-
+son, invoke visual inspection tools, and revise its ranking
+decisions based on newly acquired visual observations. The
+final prediction is produced as:
+ˆc = θ(q, C).
+3
+
+
+===== PAGE 4 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Filtering
+SFT Data
+Update Policy
+·  Format Reward
+· Ranking Reward
+·  Tool-use Reward
+Evidence Aligned 
+Policy Optimization
+Tool Invocation
+Filtering
+High Quality Data
+Stage 1: Cold-start
+Stage 3: EAPO
+Stage 2: Reject Fine-tuning
+Tool Invocation
+Tool Invocation
+Cold Start
+Reject Fine-Tuning
+Embedding
+Model
+Top-K
+Tool 
+Invocation
+Select-Image
+Zoom-In
+Rank
+V-retrver
+Figure 2. Overview of the V-Retrver framework. The left panel illustrates the inference pipeline, featuring a coarse-to-fine process with
+embedding-based retrieval and agentic reranking. The right panel details the three training stages we proposed, including Cold Start,
+Rejection sampling Fine-Tuning, and EAPO.
+The remainder of this section details the core mechanisms
+that enable evidence-driven reasoning in V-Retrver, includ-
+ing multimodal interleaved reasoning, visual tools, and a
+curriculum-based training strategy.
+3.3. Multimodal Interleaved Evidence Reasoning
+We introduce Multimodal Interleaved Evidence Reason-
+ing (MIER), a reasoning paradigm that tightly interleaves
+textual hypothesis generation with targeted visual evidence
+acquisition. Unlike language-only Chain-of-Thought rea-
+soning, MIER allows intermediate reasoning steps to be
+explicitly grounded in visual observations obtained on de-
+mand. Formally, given an initial textual query T0 and a
+candidate image set I0, the reasoning agent iteratively pro-
+duces outputs:
+Ok = fMLLM
+ {Ti, Ci, Vi}k
+i=0
+
+,
+where Ti denotes a textual reasoning step, Ci denotes a tool
+invocation request, and Vi represents the visual evidence
+returned by the tool. A parser then determines whether to ex-
+tract the next reasoning step and tool request (Tk+1, Ck+1),
+or to terminate the process and output a final ranking.
+If a tool is invoked, the corresponding visual tool is executed
+and returns new visual evidence Vk+1, which is appended
+to the reasoning context. This process yields a multimodal
+reasoning trajectory:
+τ = {T1, C1, V1, T2, C2, V2, . . . , Tn, An},
+where An denotes the final ranked list of candidates. By
+explicitly grounding intermediate reasoning steps in dynam-
+ically acquired visual evidence, MIER mitigates speculative
+inference and hallucination, enabling more reliable ranking
+decisions in visually ambiguous cases.
+3.4. Visual Tools
+To support MIER, we equip the reasoning agent with a
+set of Visual Tools, which serve as external perceptual
+interfaces for selective visual inspection. These tools allow
+the model to control what to observe and where to focus
+during reasoning. Specifically, we implement two tools:
+(1) SELECT-IMAGE, which enables the agent to select
+a subset of candidate images for closer inspection when
+multiple candidates exhibit high semantic similarity.
+(2) ZOOM-IN, which performs localized zoom-in opera-
+tions on specified regions of an image, allowing fine-grained
+analysis of discriminative visual attributes such as objects,
+textures, or spatial configurations.
+These tools facilitate selective perception during retrieval.
+Rather than encoding all visual information upfront, the
+agent dynamically expands its visual receptive field only
+when necessary, closely mirroring human retrieval behavior
+in which ambiguous candidates are resolved by “looking
+again” at critical details.
+3.5. Training V-Retrver via Curriculum-Based Agentic
+Learning
+Training V-Retrver requires transforming a general-purpose
+MLLM into an agent capable of stable, evidence-driven
+4
+
+
+===== PAGE 5 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+reasoning and strategic tool usage. To this end, we design a
+three-stage curriculum that progressively builds reasoning
+structure, reliability, and decision-making optimality.
+Stage I: Reasoning Activation via Supervised Fine-
+Tuning. We begin with a cold-start supervised fine-tuning
+stage to activate basic reasoning and tool-use behaviors.
+Since existing retrieval datasets lack annotated reasoning
+trajectories, we synthesize multimodal Chain-of-Thought
+data using Qwen2.5-VL-72B-Instruct. These trajectories
+include structured reasoning steps and valid tool invocation
+patterns. After applying rule-based filtering to remove logi-
+cally inconsistent or malformed samples, the base model is
+fine-tuned using standard SFT loss. This stage establishes
+foundational reasoning syntax and tool awareness, but does
+not yet guarantee robustness or optimal tool-use strategies.
+Stage II: Rejection Fine-Tuning for Reasoning Relia-
+bility. Although Stage I activates tool-use behavior, the
+resulting policy exhibits high variance and produces a large
+fraction of low-quality trajectories. To improve reasoning
+reliability, we perform Rejection Sampling Fine-Tuning
+(RSFT). For each training instance, we sample multiple rea-
+soning trajectories and retain only those that strictly satisfy
+formatting constraints and yield correct retrieval rankings.
+Fine-tuning on this filtered dataset significantly improves
+logical consistency and format compliance, providing a sta-
+ble initialization for reinforcement learning.
+Stage III: Evidence-Aligned Policy Optimization. While
+the previous stages activate structured reasoning and im-
+prove trajectory reliability, they do not explicitly optimize
+how visual evidence should be acquired during retrieval. In
+practice, the model may either underutilize visual inspection
+or invoke tools redundantly without contributing to better
+ranking decisions. To address this limitation, we introduce
+Evidence-Aligned Policy Optimization (EAPO), a rein-
+forcement learning objective that explicitly aligns retrieval
+performance with effective and economical visual verifica-
+tion behavior.
+EAPO formulates multimodal retrieval as a trajectory-level
+decision-making problem, where each reasoning trajectory
+oi is evaluated based on both ranking quality and evidence
+utilization. Specifically, we define a composite reward:
+Ri = αrformat(oi) + βrrank(oi) + rtool(oi),
+(1)
+where the three components respectively encourage struc-
+tural correctness, accurate ranking, and informative visual
+inspection. Below, we detail each reward term.
+Format Compliance Reward. The format compliance reward
+rformat ensures that the model adheres to the required reason-
+ing and output protocols, which is essential for stable policy
+optimization with structured multimodal outputs. Let Ωtag
+denote the set of trajectories whose outputs are correctly en-
+closed by predefined <think> and <answer> tags, and
+let Ωlist denote the set of trajectories whose final answers
+strictly follow the required integer ranking list format. We
+define:
+rformat(oi) = 1
+2 I{oi∈Ωtag} + 1
+2 I{oi∈Ωlist},
+(2)
+where I{·} is the indicator function. This term primarily
+serves as a stabilizing signal, preventing malformed trajec-
+tories from dominating policy updates.
+Soft Ranking Reward. To mitigate the sparsity of binary
+correctness signals in retrieval tasks, we introduce a soft
+ranking reward rrank that provides dense feedback based
+on the relative position of the correct candidate. Let k
+denote the 1-indexed rank of the ground-truth candidate in
+the predicted list of trajectory oi. If the correct candidate
+does not appear within the top-Kr positions or the output is
+invalid, the reward is set to zero. Otherwise, it is defined as:
+rrank(oi) = exp
+
+−(k −1)2
+2σ2
+
+,
+(3)
+where σ controls the sensitivity to ranking errors. This
+formulation encourages the agent to continuously improve
+ranking quality rather than optimizing a sparse top-1 signal.
+Tool-Use Reward. The tool-use reward rtool directly governs
+the agent’s evidence acquisition behavior, encouraging vi-
+sual inspection only when it contributes to correct decisions
+while discouraging redundant or excessive tool usage. Let
+Ntool denote the number of valid visual tool invocations in
+trajectory oi, and let k be the rank position of the correct
+candidate. We define:
+rtool(oi) = η · I{k=1} · I{Ntool>0}
+−ρ · max(0, Ntool −τ),
+(4)
+where η incentivizes successful evidence-based verification,
+ρ penalizes excessive tool invocations, and τ specifies a
+tolerance threshold. This design explicitly encodes the prin-
+ciple that effective tool usage, rather than frequent usage,
+should be rewarded.
+Policy Optimization. We instantiate EAPO using Group
+Relative Policy Optimization (GRPO) (Guo et al., 2025).
+Given a group of G trajectories sampled for the same query,
+we compute normalized advantages:
+Ai = Ri −mean(R)
+std(R)
+.
+(5)
+The final optimization objective is:
+JEAPO(θ) = E
+"
+1
+G
+G
+X
+i=1
+πθ(oi|q)
+πθold(oi|q)Ai −λKL(πθ∥πref)
+#
+.
+(6)
+Through EAPO, the model learns not only what to rank, but
+also how and when to acquire visual evidence in order to
+support reliable and efficient retrieval decisions.
+5
+
+
+===== PAGE 6 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+4. Experiments
+4.1. Experimental Setup
+Table 1. Summary of the evaluation benchmarks. The bench-
+marks are categorized into Supervised and Zero-shot settings. #
+Queries represents the number of test queries, and # Candidates
+denotes the number of test candidates per query.
+Benchmark
+# Queries
+# Candidates
+Supervised
+M-BEIR (Wei et al., 2024a)
+190K
+5.6M
+Zero-shot
+CIRCO (Baldrati et al., 2023)
+800
+120K
+GeneCIS (Vaze et al., 2023)
+8K
+10 ∼15
+Visual Storytelling (Huang et al., 2016)
+5K
+8K
+Visual Dialog (Das et al., 2017)
+2K
+2K
+Multi-round FashionIQ (Yuan & Lam, 2021)
+2.4K
+6.2K
+Datasets and Metrics. We utilize the M-BEIR (Wei et al.,
+2024a) dataset for training. The M-BEIR dataset encom-
+passes eight distinct retrieval tasks across 10 different re-
+trieval datasets, comprising a total of 1.1M training samples.
+As shown in Table 1, to evaluate the versatility of V-Retrver,
+across various retrieval tasks, we conduct assessments on the
+M-BEIR test set. Furthermore, we investigate V-Retrver’s
+generalization ability on other previously unseen datasets,
+including CIRCO (Baldrati et al., 2023),GeneCIS (Vaze
+et al., 2023), Visual Storytelling (Huang et al., 2016), Visual
+Dialog (Das et al., 2017), among others. We adhere to the
+standard evaluation metrics established for each dataset.We
+primarily utilize Recall@K as the evaluation metric for
+the retrieval tasks. Additionally, for specific datasets like
+CIRCO, we report MAP@5 to provide a more nuanced
+evaluation of ranking quality.
+Experiment Settings & Baselines. We establish three dis-
+tinct experiment settings: (i) To validate the versatility of our
+method across a range of retrieval tasks, we train V-Retrver
+on all 8 tasks in the M-BEIR benchmark and evaluate its
+performance on the test sets. For the baselines, we compare
+our model against: (1) foundational VLMs (e.g., Qwen2.5-
+VL, CLIP, BLIP); (2) fine-tuned universal retrievers such as
+UniIR-BLIPFF and UniIR-CLIPSF; and (3) recent reasoning-
+enhanced models and universal retriever, including Vision-
+R1 (Huang et al., 2025), VLM-R1 (Shen et al., 2025), MM-
+Embed (Lin et al., 2024a), LamRA (Liu et al., 2025) and U-
+MARVEL (Li et al., 2025a) to demonstrate the advantages
+of our visual CoT framework. (ii) To evaluate the gener-
+alization ability on previously unseen retrieval datasets,
+we perform zero-shot experiments on 5 datasets not encoun-
+tered during training. In this case, the baseline includes a
+selection of universal retrievers, such as E5-V, MagicLens,
+and MM-Embed. (iii) To investigate the generalization ca-
+pacity on unseen retrieval tasks, we intentionally exclude
+data from three retrieval tasks: image-to-image retrieval,
+text-image-to-text retrieval, and text-image-to-text-image
+retrieval. Training is then conducted on the remaining five
+tasks with the evaluation of these excluded tasks.
+Sliding Window Reranking. Following the coarse-to-fine
+paradigm, V-Retrver employs a sliding window strategy
+to rerank the initial retrieval results. Specifically, we first
+retrieve the top K candidates using the MLLM-based em-
+bedding model ϕ as described in Sec. 3.1. Inspired by the
+iterative reranking approach in (Zhang et al., 2025a), we set
+the window size to K = 20 with a stride of 10 to efficiently
+identify the most relevant items. This results in four MLLM
+reasoning calls per query to progressively refine the results
+into a finalized rank. This sliding window approach allows
+our model to perform fine-grained multimodal reasoning
+over a large candidate pool while maintaining manageable
+computational overhead.
+Implementation Details. Our model is initialized based on
+Qwen2.5-VL-7B-Instruct (Bai et al., 2025). For the SFT
+and Rejection Fine-Tuning stages, we utilize the LLaMA-
+Factory (Zheng et al., 2024) framework and conduct training
+on 8 A800 GPUs with a batch size of 64 and a learning rate
+of 1×10−5 for two epochs. The RL training is based on the
+verl-tool (Jiang et al., 2025) framework, which extends the
+functionalities of verl (Sheng et al., 2024) and vLLM (Kwon
+et al., 2023) to provide specialized support for multimodal
+tool-augmented multi-turn training and evaluation. For the
+RL stage, the model is trained for 1 epoch with a learning
+rate of 1 × 10−6, using 8 rollouts per query. Throughout all
+training stages, the vision encoder remains frozen, while the
+language model is fine-tuned. The number of candidates K
+input to the MLLM θ is set to 20. During the M-BEIR eval-
+uation, experiments are conducted in the local pool, with
+V-Retrver reranking the top-50 results. For experiments on
+unseen datasets, reranking is applied to the top-10 results.
+The soft ranking sensitivity σ is set to 1.0, and the rank-
+ing reward threshold Kr is set to 5. The reward weighting
+factors α and β are fixed at 0.2 and 0.8, respectively. Re-
+garding the tool-use mechanism, the hyperparameters in
+Eq. (4) are configured as η = 0.2, ρ = 0.1, and τ = 1.
+Additionally, we use a KL penalty coefficient λ = 0 in the
+EAPO objective.
+4.2. Main Results
+Performance on M-BEIR. As presented in Table 2, V-
+Retrver-7B establishes a new state-of-the-art across the M-
+BEIR benchmark with an average Recall of 69.7%. This
+represents a significant improvement of +4.9% over the
+strongest baseline U-MARVEL-7B(64.8%). The advan-
+tages of our method are particularly evident in scenarios
+requiring fine-grained visual detail, such as (qi, qt) →ci
+on FIQ and CIRR. In contrast, V-Retrver achieves 51.2% on
+FIQ and 73.5% on CIRR. These scores substantially outper-
+form e U-MARVEL-7B, which achieves 38.2% and 63.2%
+respectively. These results confirm that the multimodal in-
+6
+
+
+===== PAGE 7 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Table 2. Comparison with other methods on M-BEIR test set. R@K refers to the Recall@K metric. qt, qi, ct and ci denote the text
+query, image query, text candidates and image candidates, respectively. Abbreviations used include VN for VisualNews, F200K for
+Fashion200K, InfoS for InfoSeek, and FIQ for FashionIQ. The best results are highlighted in bold.
+qt →ci
+qt →ct
+qt →(ci, ct)
+qi →ct
+qi →ci (qi, qt) →ct (qi, qt) →ci (qi, qt) →(ci, ct)
+Models
+VN COCO F200K WebQA EDIS WebQA VN COCO F200K NIGHTS OVEN InfoS
+FIQ
+CIRR OVEN
+InfoS
+Avg.
+R@5 R@5
+R@10
+R@5
+R@5
+R@5
+R@5 R@5
+R@10
+R@5
+R@5 R@5 R@10 R@5
+R@5
+R@5
+CLIP-L (Radford et al., 2021)
+43.3
+61.1
+6.6
+36.2
+43.3
+45.1
+41.3
+79.0
+7.7
+26.1
+24.2
+20.5
+7.0
+13.2
+38.8
+26.4
+32.5
+SigLIP (Zhai et al., 2023)
+30.1
+75.7
+36.5
+39.8
+27.0
+43.5
+30.8
+88.2
+34.2
+28.9
+29.7
+25.1
+14.4
+22.7
+41.7
+27.4
+37.2
+BLIP (Li et al., 2022)
+16.4
+74.4
+15.9
+44.9
+26.8
+20.3
+17.2
+83.2
+19.9
+27.4
+16.1
+10.2
+2.3
+10.6
+27.4
+16.6
+26.8
+BLIP2 (Li et al., 2023b)
+16.7
+63.8
+14.0
+38.6
+26.9
+24.5
+15.0
+80.0
+14.2
+25.4
+12.2
+5.5
+4.4
+11.8
+27.3
+15.8
+24.8
+UniIR-BLIPFF (Wei et al., 2024b)
+23.4
+79.7
+26.1
+80.0
+50.9
+79.8
+22.8
+89.9
+28.9
+33.0
+41.0
+22.4
+29.2
+52.2
+55.8
+33.0
+46.8
+UniIR-CLIPSF (Wei et al., 2024b)
+42.6
+81.1
+18.0
+84.7
+59.4
+78.7
+43.1
+92.3
+18.3
+32.0
+45.5
+27.9
+24.4
+44.6
+67.6
+48.9
+50.6
+Qwen2.5-VL-3B (Bai et al., 2025) 36.0
+67.8
+16.1
+69.5
+45.2
+61.7
+23.3
+82.3
+12.0
+20.9
+36.7
+22.3
+24.3
+53.5
+56.4
+49.8
+42.4
+Qwen2.5-VL-7B (Bai et al., 2025) 40.2
+71.9
+20.3
+71.9
+49.4
+64.5
+29.3
+84.6
+19.4
+25.5
+42.4
+32.1
+25.0
+55.1
+60.8
+54.9
+46.7
+Vision-R1-7B (Huang et al., 2025) 41.9
+75.0
+22.0
+70.6
+51.3
+69.1
+35.4
+85.1
+22.4
+25.9
+48.8
+44.0
+29.2
+57.7
+66.2
+59.0
+50.2
+VLM-R1-7B (Shen et al., 2025)
+40.5
+77.2
+22.5
+72.3
+50.0
+67.9
+36.2
+86.3
+20.9
+26.4
+48.8
+37.5
+29.9
+57.4
+64.0
+62.3
+50.0
+MM-Embed-7B (Lin et al., 2024a) 41.0
+71.3
+17.1
+95.9
+68.8
+85.0
+41.3
+90.1
+18.4
+32.4
+42.1
+42.3
+25.7
+50.0
+64.1
+57.7
+52.7
+LamRA-7B (Liu et al., 2025)
+48.0
+85.2
+32.9
+96.7
+75.8
+87.7
+48.6
+92.3
+36.1
+33.5
+59.2
+64.1
+37.8
+63.3
+79.2
+78.3
+63.7
+U-MARVEL-7B (Li et al., 2025a)
+49.4
+85.6
+34.2
+98.5
+81.4
+89.4
+50.5
+88.4
+37.7
+34.7
+63.7
+62.9
+38.2
+63.2
+80.8
+78.9
+64.8
+V-Retrver-7B
+51.8
+87.5
+40.3
+96.9
+82.9
+90.2
+52.2
+94.8
+37.8
+39.8
+69.8
+73.2
+51.2
+73.5
+87.8
+85.0
+69.7
+Table 3. Experimental results on unseen datasets. qdialog and
+(qi ⊕qt) refer to the dialog queries and multi-interleaved image-
+text queries, respectively.
+(qi, qt) →ci
+qdialog →ci (qi ⊕qt) →ci
+Models
+CIRCO GeneCIS
+VisD
+VIST MT-FIQ
+MAP@5
+R@1
+R@1
+R@1
+R@5
+CLIP-L (Radford et al., 2021)
+4.0
+13.3
+23.7
+0.6
+17.7
+UniIR-CLIP (Wei et al., 2024b)
+12.5
+16.8
+26.8
+0.6
+39.4
+E5-V (Jiang et al., 2024)
+24.8
+18.5
+54.6
+10.0
+19.2
+MagicLens-L (Zhang et al., 2024a)
+29.6
+16.3
+28.0
+3.3
+22.6
+MM-Embed-7B (Lin et al., 2024a)
+35.5
+22.9
+64.7
+25.7
+59.0
+LamRA-7B (Liu et al., 2025)
+42.8
+24.8
+70.9
+28.6
+63.9
+V-Retrver-7B
+48.2
+30.7
+75.1
+31.2
+68.3
+Table 4. Experimental results on held-out tasks. ∗indicates that
+training is performed on the remaining tasks, w/o any exposure to
+the three held-out tasks.
+qi →ci (qi, qt) →ct (qi, qt) →(ci, ct)
+Models
+NIGHTS OVEN InfoS OVEN
+InfoS
+Avg.
+R@5
+R@5 R@5 R@5
+R@5
+Supervised
+UniIR-BLIPFF (Wei et al., 2024b)
+33.0
+41.0
+22.4
+55.8
+33.0
+37.0
+UniIR-CLIPSF (Wei et al., 2024b)
+32.0
+45.5
+27.9
+67.6
+48.9
+44.4
+Zero-shot
+Qwen2.5-VL-7B (Bai et al., 2025)
+20.3
+38.5
+40.4
+53.6
+44.9
+39.5
+Vision-R1-7B (Huang et al., 2025)
+22.9
+39.8
+42.9
+57.4
+46.5
+41.9
+LamRA-7B∗(Liu et al., 2025)
+29.2
+46.9
+54.2
+65.1
+59.1
+50.9
+V-Retrver-7B∗
+36.2
+57.8
+65.9
+75.3
+70.3
+61.1
+terleaved chain-of-thought reasoning method can effectively
+improve the model’s information retrieval capabilities.
+Generalization to Unseen Datasets. The zero-shot evalua-
+tion results in Table 3 underscore the robustness of our rea-
+soning framework on datasets not encountered during train-
+ing. V-Retrver consistently outperforms specialized models
+and generalist MLLMs. Notably, on CIRCO which fea-
+tures distinct domain shifts, V-Retrver achieves a MAP@5
+of 48.2. This significantly surpasses the specialized MM-
+Embed-7B (35.5) and LamRA-7B (42.8). Similarly, on
+GeneCIS, our model attains an R@1 of 30.7 compared to
+24.8 for LamRA-7B. We attribute this generalization to
+reinforcement learning.
+Robustness on Held-out Tasks. To verify task-level adapt-
+ability, we evaluate V-Retrver on retrieval tasks where spe-
+cific modality combinations were strictly excluded during
+training. As shown in Table 4, even without prior exposure
+to these formats, the model achieves an average Recall of
+61.1%, significantly outperforming LamRA-7B (50.9%) by
+a margin of 10.2%. These results empirically demonstrate
+that the MIER framework effectively decouples the rea-
+soning process from specific input types, empowering the
+model to leverage interleaved evidence for accurate retrieval
+even in challenging zero-shot scenarios.
+4.3. Ablation Study & Analysis
+Impact of Training Stages. Table 6 presents the ablation
+results for each training stage. The row w/o SFT & RSFT &
+RL refers to directly prompting the untrained backbone for
+tool use, which results in a performance collapse to 45.8%,
+even lower than the Qwen2.5-VL-7B baseline (47.2%), in-
+dicating that zero-shot tool invocation without alignment
+is ineffective. The w/o RSFT & RL setting includes only
+the SFT stage, which activates basic tool-use ability and
+raises the average recall to 59.4%. Removing only RSFT
+(w/o RSFT) means the model is trained with SFT and RL,
+skipping the rejection sampling phase, and achieves 66.3%.
+The w/o RL configuration applies SFT and RSFT but omits
+reinforcement learning, resulting in 60.9%. Finally, the full
+pipeline reaches the highest performance at 67.2%. These
+results highlight the importance of structured curriculum
+learning, as each stage addresses specific shortcomings of
+the previous one.
+7
+
+
+===== PAGE 8 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+0
+50
+100
+150
+200
+250
+300
+Steps
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+Rank Reward
+Rank Reward
+(a) Rank Reward
+0
+50
+100
+150
+200
+250
+300
+Steps
+1400
+1600
+1800
+2000
+2200
+2400
+Response Length
+Response Length
+(b) Response Length
+0
+50
+100
+150
+200
+250
+300
+Steps
+1.2
+1.4
+1.6
+1.8
+2.0
+2.2
+2.4
+Number
+Number of valid tool calls
+Number of total tool calls
+(c) Tool Calls
+Figure 3. RL Training curves.
+Table 5. Ablation study on visual tool-use mechanism. We
+compare the proposed multimodal interleaved CoT (with Visual
+Tool) against a text-only reasoning baseline (w/o Visual Tool)
+under the same RL training framework.
+qt →ci
+qi →ct
+(qi, qt) →ci
+(qi, qt) →ct
+Variants
+COCO
+F200K
+CIRR
+OVEN
+Avg.
+R@5
+R@10
+R@5
+R@5
+Qwen2.5-VL-7B (Bai et al., 2025)
+71.9
+19.4
+55.1
+42.4
+47.2
+RL w/o tool
+84.1
+33.2
+66.5
+63.2
+61.8
+V-Retrver-7B
+87.5
+37.8
+73.5
+69.8
+67.2
+Effectiveness of Visual Tool. To isolate the impact of
+tool-use, we train a variant of Qwen2.5-VL-7B-Instruct us-
+ing end-to-end RL with text-based CoT reasoning on the
+same training dataset (RL w/o tool). As shown in Table 5.
+The text-only variant achieves an average recall of 61.8%,
+whereas V-Retrver reaches 67.2%. The findings confirm
+that incorporating vision tools yields supplementary, high-
+fidelity insights that text reasoning alone cannot capture
+from static representations. Specifically, the ability to ac-
+tively zoom in or select images allows the model to resolve
+fine-grained ambiguities that are often lost in compressed
+visual embeddings, proving indispensable for truly precise
+multimodal retrieval.
+4.4. Training Curves
+Fig.3 illustrates the evolution of ranking accuracy, reasoning
+density, and tool-use efficiency throughout the RL training
+process. As the training progresses, the model’s retrieval
+accuracy exhibits a generally upward trend, indicating that
+EAPO effectively enhances the model’s perception-driven
+reasoning. Regarding tool-use behavior, we observe that the
+number of effective tool calls is slightly lower than the total
+number of invocations in the initial stages. This suggests
+that while the model acquired basic tool-use capabilities dur-
+ing the SFT and RSFT stages, it still occasionally committed
+formatting inconsistencies or logical missteps. As training
+continues, these two curves converge, demonstrating that
+RL further reinforces tool-use robustness and eliminates
+erroneous calls. This convergence signifies that the policy
+Table 6. Ablation study on training stages and components. We
+investigate the impact of Cold Start (SFT), Rejection Sampling
+Fine-Tuning (RSFT), and Reinforcement Learning (RL) using
+Qwen2.5-VL-7B as the backbone.
+qt →ci
+qi →ct
+(qi, qt) →ci
+(qi, qt) →ct
+Training Stage
+COCO
+F200K
+CIRR
+OVEN
+Avg.
+R@5
+R@10
+R@5
+R@5
+Qwen2.5-VL-7B (Bai et al., 2025)
+71.9
+19.4
+55.1
+42.4
+47.2
+w/o SFT & RSFT & RL
+71.5
+18.1
+53.4
+40.2
+45.8
+w/o RSFT & RL
+83.2
+31.6
+63.7
+59.0
+59.4
+w/o RSFT
+87.2
+37.3
+72.4
+68.3
+66.3
+w/o RL
+83.9
+32.8
+65.3
+61.5
+60.9
+V-Retrver-7B
+87.5
+37.8
+73.5
+69.8
+67.2
+optimization process successfully penalizes hallucinated
+tool actions, steering the agent toward a more rigorous exe-
+cution of tool protocols. Additionally, the average response
+length and tool frequency decrease before stabilizing; this
+indicates the model learns to autonomously judge the neces-
+sity of visual evidence, effectively suppressing redundant
+reasoning and focusing its attention on resolving critical
+visual ambiguities through more grounded and purposeful
+multimodal trajectories.
+5. Conclusion
+In this paper, we presented V-Retrver, an evidence-driven
+MLLM framework tailored for universal multimodal re-
+trieval. V-Retrver adopts multimodal interleaved Chain-of-
+Thought (CoT) reasoning, enabling the model to dynam-
+ically inspect and verify candidate images through visual
+tool invocation, thereby achieving more fine-grained rank-
+ing of candidate result lists. We adopt a three-stage training
+pipeline to multimodal interleaved CoT reasoning abilities.
+Extensive experimental results demonstrate that V-Retrver
+achieves significant improvements in both model effective-
+ness and task generalization. We regard V-Retrver to be
+an important step toward effectively introducing agentic
+MLLMs to enhance downstream multimodal tasks, laying a
+solid foundation for building general agentic MLLMs with
+advanced reasoning capabilities.
+8
+
+
+===== PAGE 9 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Impact Statement
+This paper presents work whose goal is to advance the field
+of machine learning. There are many potential societal
+consequences of our work, none of which we feel must be
+specifically highlighted here.
+References
+Alayrac, J.-B., Donahue, J., Luc, P., Miech, A., Barr, I.,
+Hasson, Y., Lenc, K., Mensch, A., Millican, K., Reynolds,
+M., et al. Flamingo: a visual language model for few-
+shot learning. Advances in neural information processing
+systems, 35:23716–23736, 2022.
+Asai, A., Schick, T., Lewis, P., Chen, X., Izacard, G., Riedel,
+S., Hajishirzi, H., and Yih, W.-t. Task-aware retrieval
+with instructions. In Findings of the Association for Com-
+putational Linguistics: ACL 2023, pp. 3650–3675, 2023.
+Bai, J., Bai, S., Chu, Y., Cui, Z., Dang, K., Deng, X., Fan,
+Y., Ge, W., Han, Y., Huang, F., et al. Qwen technical
+report. arXiv preprint arXiv:2309.16609, 2023.
+Bai, S., Chen, K., Liu, X., Wang, J., Ge, W., Song, S., Dang,
+K., Wang, P., Wang, S., Tang, J., et al. Qwen2. 5-vl
+technical report. arXiv preprint arXiv:2502.13923, 2025.
+Baldrati, A., Bertini, M., Uricchio, T., and Del Bimbo,
+A. Effective conditioned and composed image retrieval
+combining clip-based features. In Proceedings of the
+IEEE/CVF conference on computer vision and pattern
+recognition, pp. 21466–21474, 2022.
+Baldrati, A., Agnolucci, L., Bertini, M., and Del Bimbo, A.
+Zero-shot composed image retrieval with textual inver-
+sion. In Proceedings of the International Conference on
+Computer Vision, 2023.
+Chen, Y., Hu, H., Luan, Y., Sun, H., Changpinyo, S., Rit-
+ter, A., and Chang, M.-W. Can pre-trained vision and
+language models answer visual information-seeking ques-
+tions? In Proceedings of the Conference on Empirical
+Methods in Natural Language Processinng, 2023.
+Chen, Z., Wang, W., Cao, Y., Liu, Y., Gao, Z., Cui, E.,
+Zhu, J., Ye, S., Tian, H., Liu, Z., et al. Expanding per-
+formance boundaries of open-source multimodal models
+with model, data, and test-time scaling. arXiv preprint
+arXiv:2412.05271, 2024a.
+Chen, Z., Wu, J., Wang, W., Su, W., Chen, G., Xing, S.,
+Zhong, M., Zhang, Q., Zhu, X., Lu, L., et al. Internvl:
+Scaling up vision foundation models and aligning for
+generic visual-linguistic tasks. In Proceedings of the
+IEEE/CVF conference on computer vision and pattern
+recognition, pp. 24185–24198, 2024b.
+Chen, Z., Xu, C., Qi, Y., and Guo, J. Mllm is a strong
+reranker: Advancing multimodal retrieval-augmented
+generation via knowledge-enhanced reranking and noise-
+injected training.
+arXiv preprint arXiv:2407.21439,
+2024c.
+Chun, S., Oh, S. J., De Rezende, R. S., Kalantidis, Y., and
+Larlus, D. Probabilistic embeddings for cross-modal
+retrieval. In Proceedings of the IEEE/CVF conference on
+computer vision and pattern recognition, pp. 8415–8424,
+2021.
+Das, A., Kottur, S., Gupta, K., Singh, A., Yadav, D., Moura,
+J. M., Parikh, D., and Batra, D. Visual dialog. In Pro-
+ceedings of the IEEE Conference on Computer Vision
+and Pattern Recognition, 2017.
+Fu, Z., Zhang, L., Xia, H., and Mao, Z. Linguistic-aware
+patch slimming framework for fine-grained cross-modal
+alignment. In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, pp. 26307–
+26316, 2024.
+Gao, Z., Chen, Z., Cui, E., Ren, Y., Wang, W., Zhu, J., Tian,
+H., Ye, S., He, J., Zhu, X., et al. Mini-internvl: a flexible-
+transfer pocket multi-modal model with 5% parameters
+and 90% performance. Visual Intelligence, 2(1):1–17,
+2024.
+Gu, G., Chun, S., Kim, W., Kang, Y., and Yun, S. Language-
+only training of zero-shot composed image retrieval. In
+Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, pp. 13225–13234, 2024.
+Gu, T., Yang, K., Feng, Z., Wang, X., Zhang, Y., Long, D.,
+Chen, Y., Cai, W., and Deng, J. Breaking the modality
+barrier: Universal embedding learning with multimodal
+llms. In Proceedings of the 33rd ACM International
+Conference on Multimedia, pp. 2860–2869, 2025.
+Guo, D., Yang, D., Zhang, H., Song, J., Zhang, R., Xu, R.,
+Zhu, Q., Ma, S., Wang, P., Bi, X., et al. Deepseek-r1: In-
+centivizing reasoning capability in llms via reinforcement
+learning. arXiv preprint arXiv:2501.12948, 2025.
+Guo, Z., Xu, R., Yao, Y., Cui, J., Ni, Z., Ge, C., Chua, T.-S.,
+Liu, Z., and Huang, G. Llava-uhd: an lmm perceiving
+any aspect ratio and high-resolution images. In European
+Conference on Computer Vision, pp. 390–406. Springer,
+2024.
+Hu, H., Luan, Y., Chen, Y., Khandelwal, U., Joshi, M.,
+Lee, K., Toutanova, K., and Chang, M.-W. Open-domain
+visual entity recognition: Towards recognizing millions
+of wikipedia entities. In Proceedings of the International
+Conference on Computer Vision, 2023.
+9
+
+
+===== PAGE 10 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Huang, T.-H., Ferraro, F., Mostafazadeh, N., Misra, I.,
+Agrawal, A., Devlin, J., Girshick, R., He, X., Kohli, P.,
+Batra, D., et al. Visual storytelling. In Proceedings of
+the Conference of the North American Chapter of the
+Association for Computational Linguistics, 2016.
+Huang, W., Jia, B., Zhai, Z., Cao, S., Ye, Z., Zhao, F., Hu, Y.,
+and Lin, S. Vision-r1: Incentivizing reasoning capability
+in multimodal large language models. arXiv preprint
+arXiv:2503.06749, 2025.
+Ji, D., Zhao, F., Zhu, L., Jin, W., Lu, H., and Ye, J. Discrete
+latent perspective learning for segmentation and detection.
+arXiv preprint arXiv:2406.10475, 2024.
+Jian, W., Zhang, Y., Liang, D., Xie, C., He, Y., Leng, D., and
+Yin, Y. Rzenembed: Towards comprehensive multimodal
+retrieval. arXiv preprint arXiv:2510.27350, 2025.
+Jiang, D., Lu, Y., Li, Z., Lyu, Z., Nie, P., Wang, H., Su, A.,
+Chen, H., Zou, K., Du, C., et al. Verltool: Towards holis-
+tic agentic reinforcement learning with tool use. arXiv
+preprint arXiv:2509.01055, 2025.
+Jiang, T., Song, M., Zhang, Z., Huang, H., Deng, W., Sun,
+F., Zhang, Q., Wang, D., and Zhuang, F. E5-v: Univer-
+sal embeddings with multimodal large language models.
+arXiv preprint arXiv:2407.12580, 2024.
+Jin, H., Zhang, Y., Shi, L., Zhang, S., Kou, F., Yang, J., Zhu,
+C., and Luo, J. An end-to-end graph attention network
+hashing for cross-modal retrieval. Advances in Neural
+Information Processing Systems, 37:2106–2126, 2024.
+Kim, D., Kim, N., and Kwak, S. Improving cross-modal
+retrieval with set of diverse embeddings. In Proceedings
+of the IEEE/CVF conference on computer vision and
+pattern recognition, pp. 23422–23431, 2023a.
+Kim, J. M., Koepke, A., Schmid, C., and Akata, Z. Expos-
+ing and mitigating spurious correlations for cross-modal
+retrieval. In Proceedings of the IEEE/CVF conference on
+computer vision and pattern recognition, pp. 2585–2595,
+2023b.
+Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu,
+C. H., Gonzalez, J. E., Zhang, H., and Stoica, I. Efficient
+memory management for large language model serving
+with pagedattention. In Proceedings of the ACM SIGOPS
+Symposium on Operating Systems Principles, 2023.
+Lan, Z., Niu, L., Meng, F., Zhou, J., and Su, J. Llave:
+Large language and vision embedding models with
+hardness-weighted contrastive learning. arXiv preprint
+arXiv:2503.04812, 2025.
+Li, C., Wong, C., Zhang, S., Usuyama, N., Liu, H., Yang, J.,
+Naumann, T., Poon, H., and Gao, J. Llava-med: Training
+a large language-and-vision assistant for biomedicine in
+one day. Advances in Neural Information Processing
+Systems, 36:28541–28564, 2023a.
+Li, J., Li, D., Xiong, C., and Hoi, S. Blip: Bootstrapping
+language-image pre-training for unified vision-language
+understanding and generation. In Proceedings of the
+International Conference on Machine Learning, 2022.
+Li, J., Li, D., Savarese, S., and Hoi, S. Blip-2: Bootstrapping
+language-image pre-training with frozen image encoders
+and large language models. In Proceedings of the Inter-
+national Conference on Machine Learning, 2023b.
+Li, X., Li, C., Chen, S.-Z., and Chen, X. U-marvel: Un-
+veiling key factors for universal multimodal retrieval
+via embedding learning with mllms.
+arXiv preprint
+arXiv:2507.14902, 2025a.
+Li, Y., Jiang, S., Hu, B., Wang, L., Zhong, W., Luo, W., Ma,
+L., and Zhang, M. Uni-moe: Scaling unified multimodal
+llms with mixture of experts.
+IEEE Transactions on
+Pattern Analysis and Machine Intelligence, 2025b.
+Lin, B., Ye, Y., Zhu, B., Cui, J., Ning, M., Jin, P., and
+Yuan, L. Video-llava: Learning united visual represen-
+tation by alignment before projection. arXiv preprint
+arXiv:2311.10122, 2023a.
+Lin, S.-C., Lee, C., Shoeybi, M., Lin, J., Catanzaro, B., and
+Ping, W. Mm-embed: Universal multimodal retrieval
+with multimodal llms. arXiv preprint arXiv:2411.02571,
+2024a.
+Lin, W., Chen, J., Mei, J., Coca, A., and Byrne, B. Fine-
+grained late-interaction multi-modal retrieval for retrieval
+augmented visual question answering. In Advances in
+Neural Information Processing Systems, 2023b.
+Lin, W., Mei, J., Chen, J., and Byrne, B. PreFLMR: Scaling
+up fine-grained late-interaction multi-modal retrievers. In
+Association for Computational Linguistics, 2024b.
+Liu, S., Cheng, H., Liu, H., Zhang, H., Li, F., Ren, T., Zou,
+X., Yang, J., Su, H., Zhu, J., et al. Llava-plus: Learning
+to use tools for creating multimodal agents. In European
+Conference on Computer Vision, pp. 126–142. Springer,
+2024.
+Liu, Y., Chen, P., Cai, J., Jiang, X., Hu, Y., Yao, J., Wang,
+Y., and Xie, W. Lamra: Large multimodal model as
+your advanced retrieval assistant. In Proceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, 2025.
+Liu, Z., Xiong, C., Lv, Y., Liu, Z., and Yu, G. Universal
+vision-language dense retrieval: Learning a unified repre-
+sentation space for multi-modal retrieval. In The Eleventh
+10
+
+
+===== PAGE 11 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+International Conference on Learning Representations,
+2023.
+Lu, D., Sun, Y., Zhang, Z., Huang, L., Zeng, J., Shu, M., and
+Cao, H. Internvl-x: Advancing and accelerating internvl
+series with efficient visual token compression. arXiv
+preprint arXiv:2503.21307, 2025.
+Marino, K., Rastegari, M., Farhadi, A., and Mottaghi, R.
+Ok-vqa: A visual question answering benchmark requir-
+ing external knowledge. In Proceedings of the IEEE
+Conference on Computer Vision and Pattern Recognition,
+2019.
+Mensink, T., Uijlings, J., Castrejon, L., Goel, A., Cadar, F.,
+Zhou, H., Sha, F., Araujo, A., and Ferrari, V. Encyclo-
+pedic vqa: Visual questions about detailed properties of
+fine-grained categories. In Proceedings of the Interna-
+tional Conference on Computer Vision, 2023.
+Muennighoff, N., Yang, Z., Shi, W., Li, X. L., Fei-Fei, L.,
+Hajishirzi, H., Zettlemoyer, L., Liang, P., Cand`es, E.,
+and Hashimoto, T. s1: Simple test-time scaling. arXiv
+preprint arXiv:2501.19393, 2025.
+Narayan, K., Xu, Y., Cao, T., Nerella, K., Patel, V. M.,
+Shiee, N., Grasch, P., Jia, C., Yang, Y., and Gan, Z.
+Deepmmsearch-r1: Empowering multimodal llms in mul-
+timodal web search. arXiv preprint arXiv:2510.12801,
+2025.
+Pei, R., Liu, J., Li, W., Shao, B., Xu, S., Dai, P., Lu, J., and
+Yan, Y. Clipping: Distilling clip-based models with a
+student base for video-language retrieval. In Proceedings
+of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition, pp. 18983–18992, 2023.
+Pham, K., Huynh, C., Lim, S.-N., and Shrivastava, A.
+Composing object relations and attributes for image-text
+matching. In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, pp. 14354–
+14363, 2024.
+Radford, A., Kim, J. W., Hallacy, C., Ramesh, A., Goh, G.,
+Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J.,
+et al. Learning transferable visual models from natural
+language supervision. In Proceedings of the International
+Conference on Machine Learning, 2021.
+Sain, A., Bhunia, A. K., Chowdhury, P. N., Koley, S., Xiang,
+T., and Song, Y.-Z. Clip for all things zero-shot sketch-
+based image retrieval, fine-grained or not. In Proceedings
+of the IEEE/CVF conference on computer vision and
+pattern recognition, pp. 2765–2775, 2023.
+Saito, K., Sohn, K., Zhang, X., Li, C.-L., Lee, C.-Y., Saenko,
+K., and Pfister, T. Pic2word: Mapping pictures to words
+for zero-shot composed image retrieval. In Proceedings
+of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition, pp. 19305–19314, 2023.
+Shen, H., Liu, P., Li, J., Fang, C., Ma, Y., Liao, J., Shen, Q.,
+Zhang, Z., Zhao, K., Zhang, Q., et al. Vlm-r1: A stable
+and generalizable r1-style large vision-language model.
+arXiv preprint arXiv:2504.07615, 2025.
+Shen, L., Chen, G., Shao, R., Guan, W., and Nie, L. Mome:
+Mixture of multimodal experts for generalist multimodal
+large language models. arXiv preprint arXiv:2407.12709,
+2024.
+Sheng, G., Zhang, C., Ye, Z., Wu, X., Zhang, W., Zhang,
+R., Peng, Y., Lin, H., and Wu, C. Hybridflow: A flexi-
+ble and efficient rlhf framework. arXiv preprint arXiv:
+2409.19256, 2024.
+Shu, F., Liao, Y., Zhuo, L., Xu, C., Zhang, L., Zhang, G.,
+Shi, H., Chen, L., Zhong, T., He, W., et al. Llava-mod:
+Making llava tiny via moe knowledge distillation. arXiv
+preprint arXiv:2408.15881, 2024.
+Sun, N., Tang, J., Sun, L., Chen, R., Lu, Y., Chu, X., and
+Ling, H. Reflection from retrieval: Mllm-guided iterative
+reasoning for zero-shot composed image retrieval.
+Suo, Y., Ma, F., Zhu, L., and Yang, Y. Knowledge-enhanced
+dual-stream zero-shot composed image retrieval. In Pro-
+ceedings of the IEEE/CVF Conference on Computer Vi-
+sion and Pattern Recognition, pp. 26951–26962, 2024.
+Vaze, S., Carion, N., and Misra, I. Genecis: A benchmark
+for general conditional image similarity. In Proceedings
+of the IEEE Conference on Computer Vision and Pattern
+Recognition, 2023.
+Wang, P., Bai, S., Tan, S., Wang, S., Fan, Z., Bai, J., Chen,
+K., Liu, X., Wang, J., Ge, W., et al. Qwen2-vl: Enhancing
+vision-language model’s perception of the world at any
+resolution. arXiv preprint arXiv:2409.12191, 2024a.
+Wang, Y., Wang, L., Zhou, Q., Wang, Z., Li, H., Hua, G.,
+and Tang, W. Multimodal llm enhanced cross-lingual
+cross-modal retrieval. In Proceedings of the 32nd ACM
+International Conference on Multimedia, pp. 8296–8305,
+2024b.
+Wei, C., Chen, Y., Chen, H., Hu, H., Zhang, G., Fu, J., Ritter,
+A., and Chen, W. Uniir: Training and benchmarking uni-
+versal multimodal information retrievers. In Proceedings
+of the European Conference on Computer Vision, 2024a.
+Wei, C., Chen, Y., Chen, H., Hu, H., Zhang, G., Fu, J., Ritter,
+A., and Chen, W. Uniir: Training and benchmarking
+universal multimodal information retrievers. In European
+Conference on Computer Vision, pp. 387–404. Springer,
+2024b.
+11
+
+
+===== PAGE 12 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Wu, H., Gao, Y., Guo, X., Al-Halah, Z., Rennie, S., Grau-
+man, K., and Feris, R. Fashion iq: A new dataset towards
+retrieving images by natural language feedback. In Pro-
+ceedings of the IEEE Conference on Computer Vision
+and Pattern Recognition, 2021.
+Xie, J., Mao, W., Bai, Z., Zhang, D. J., Wang, W., Lin, K. Q.,
+Gu, Y., Chen, Z., Yang, Z., and Shou, M. Z. Show-o: One
+single transformer to unify multimodal understanding and
+generation. arXiv preprint arXiv:2408.12528, 2024.
+Xu, C., Wang, X., Liao, Z., Li, Y., Hou, T., and Deng,
+Z. Show-o turbo: Towards accelerated unified multi-
+modal understanding and generation.
+arXiv preprint
+arXiv:2502.05415, 2025a.
+Xu, M., Dong, J., Hou, J., Wang, Z., Li, S., Gao, Z., Zhong,
+R., and Cai, H. MM-R5: Multimodal reasoning-enhanced
+reranker via reinforcement learning for document re-
+trieval. arXiv preprint arXiv:2506.12364, 2025b.
+Xu, M., Dong, J., Hou, J., Wang, Z., Li, S., Gao, Z., Zhong,
+R., and Cai, H. Mm-r5: Multimodal reasoning-enhanced
+reranker via reinforcement learning for document re-
+trieval. arXiv preprint arXiv:2506.12364, 2025c.
+Yang, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu,
+B., Li, C., Liu, D., Huang, F., Wei, H., et al. Qwen2. 5
+technical report. arXiv preprint arXiv:2412.15115, 2024.
+Yang, Z., Li, L., Lin, K., Wang, J., Lin, C.-C., Liu, Z., and
+Wang, L. The dawn of lmms: Preliminary explorations
+with gpt-4v (ision). arXiv preprint arXiv:2309.17421, 9
+(1):1, 2023.
+Ye, J., Xu, H., Liu, H., Hu, A., Yan, M., Qian, Q., Zhang,
+J., Huang, F., and Zhou, J. mplug-owl3: Towards long
+image-sequence understanding in multi-modal large lan-
+guage models. arXiv preprint arXiv:2408.04840, 2024a.
+Ye, Q., Xu, H., Xu, G., Ye, J., Yan, M., Zhou, Y., Wang, J.,
+Hu, A., Shi, P., Shi, Y., et al. mplug-owl: Modulariza-
+tion empowers large language models with multimodality.
+arXiv preprint arXiv:2304.14178, 2023.
+Ye, Q., Xu, H., Ye, J., Yan, M., Hu, A., Liu, H., Qian,
+Q., Zhang, J., and Huang, F. mplug-owl2: Revolution-
+izing multi-modal large language model with modality
+collaboration. In Proceedings of the ieee/cvf conference
+on computer vision and pattern recognition, pp. 13040–
+13051, 2024b.
+Yuan, Y. and Lam, W. Conversational fashion image re-
+trieval via multiturn natural language feedback. In Pro-
+ceedings of the International ACM SIGIR Conference
+on Research and Development in Information Retrieval,
+2021.
+Zhai, X., Mustafa, B., Kolesnikov, A., and Beyer, L. Sig-
+moid loss for language image pre-training. In Proceed-
+ings of the International Conference on Computer Vision,
+2023.
+Zhang, K., Luan, Y., Hu, H., Lee, K., Qiao, S., Chen, W., Su,
+Y., and Chang, M.-W. Magiclens: self-supervised image
+retrieval with open-ended instructions. In Proceedings of
+the 41st International Conference on Machine Learning,
+pp. 59403–59420, 2024a.
+Zhang, L., Wang, B., Qiu, X., Reddy, S., and Agrawal, A.
+REARANK: Reasoning re-ranking agent via reinforce-
+ment learning. In Proceedings of the 2025 Conference on
+Empirical Methods in Natural Language Processing, pp.
+2458–2471, 2025a.
+Zhang, Q., Lei, Z., Zhang, Z., and Li, S. Z. Context-aware
+attention network for image-text retrieval. In Proceedings
+of the IEEE/CVF conference on computer vision and
+pattern recognition, pp. 3536–3545, 2020.
+Zhang, Q., Lyu, F., Sun, Z., Wang, L., Zhang, W., Guo,
+Z., Wang, Y., King, I., Liu, X., and Ma, C. What, how,
+where, and how well? a survey on test-time scaling in
+large language models. arXiv preprint arXiv:2503.24235,
+2025b.
+Zhang, S., Fang, Q., Yang, Z., and Feng, Y. Llava-mini: Effi-
+cient image and video large multimodal models with one
+vision token. arXiv preprint arXiv:2501.03895, 2025c.
+Zhang, X., Zhang, Y., Xie, W., Li, M., Dai, Z., Long, D., Xie,
+P., Zhang, M., Li, W., and Zhang, M. Gme: Improving
+universal multimodal retrieval by multimodal llms. arXiv
+preprint arXiv:2412.16855, 2024b.
+Zheng, Y., Zhang, R., Zhang, J., Ye, Y., Luo, Z., Feng,
+Z., and Ma, Y.
+Llamafactory: Unified efficient fine-
+tuning of 100+ language models. In Proceedings of the
+62nd Annual Meeting of the Association for Computa-
+tional Linguistics (Volume 3: System Demonstrations),
+Bangkok, Thailand, 2024. Association for Computational
+Linguistics. URL http://arxiv.org/abs/2403.
+13372.
+Zhou, J., Liu, Z., Liu, Z., Xiao, S., Wang, Y., Zhao, B.,
+Zhang, C. J., Lian, D., and Xiong, Y. Megapairs: Massive
+data synthesis for universal multimodal retrieval. arXiv
+preprint arXiv:2412.14475, 2024.
+Zhu, L., Ji, D., Zhu, S., Gan, W., Wu, W., and Yan, J.
+Learning statistical texture for semantic segmentation. In
+Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, pp. 12537–12546, 2021.
+12
+
+
+===== PAGE 13 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Zhu, L., Chen, T., Ji, D., Ye, J., and Liu, J. Llafs: When
+large language models meet few-shot segmentation. In
+Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, pp. 3065–3075, 2024.
+Zhu, L., Chen, T., Ji, D., Xu, P., Ye, J., and Liu, J. Llafs++:
+Few-shot image segmentation with large language mod-
+els. IEEE Transactions on Pattern Analysis and Machine
+Intelligence, 2025a.
+Zhu, L., Chen, T., Ji, D., Ye, J., and Liu, J. Not every
+patch is needed: Towards a more efficient and effective
+backbone for video-based person re-identification. IEEE
+Transactions on Image Processing, 2025b.
+Zhu, L., Chen, T., Yin, J., See, S., Soh, D. W., and Liu, J.
+Replay master: Automatic sample selection and effective
+memory utilization for continual semantic segmentation.
+IEEE Transactions on Pattern Analysis and Machine In-
+telligence, 2025c.
+Zhu, L., Ji, D., Chen, T., Wu, H., and Wang, S. Retrv-
+r1: A reasoning-driven mllm framework for univer-
+sal and efficient multimodal retrieval. arXiv preprint
+arXiv:2510.02745, 2025d.
+13
+
+
+===== PAGE 14 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+A. Prompt Template
+A.1. System Prompt
+Fig. 4 illustrate the system prompt for both training and inference.
+System Prompt for Training and Inference
+You are a helpful assistant for multimodal retrieval tasks.
+# Tools
+You may call at most two tool invocations in total. In any single turn, you may emit only one <tool_call></tool_call> block.
+You are provided with function signatures within <tools></tools> XML tags.
+<tools>
+{"type": "function", "function": {"name": "crop_image", "description": "Zoom in on a query image or a candidate image based on the bounding 
+box coordinates.", "parameters": {"type": "object", "properties": {"bbox_2d": {"type": "array", "description": "Bounding box of the area to 
+zoom in, using pixel coordinates. Minimum is 0 and maximum is the image width/height.", "items": {"type": "number"}}, "target_image": 
+{“type”:“number”, “description”: “Index of the image to crop. Use 0 for the query image, or an integer from 1 to the number of candidate 
+images."}}, "required": ["bbox_2d", "target_image"]}}
+{"type": "function", "function": {"name": "select_images", "description": "Select 1 to 4 query or candidate images for detailed analysis 
+from the query/candidate list. You can select 1, 2, 3, or 4 images, but never more than 4.", "parameters": {"type": "object", "properties": 
+{"target_images": {"type": "array", "description": "List containing 1 to 4 image indices to select for detailed analysis. Use index 0 to select 
+the query. Use indices 1, 2, 3, ... up to the number of candidates to select candidate. You can mix query and candidate images, e.g., [0] for 
+query only, [10] for candidate 10 only, [0, 10, 11] for query and candidates 10, 11, [2, 3, 10] for candidates 2, 3, 10, etc. Maximum 4 images 
+total.", "items": {"type": "integer", "description": "Image index: 0 for the query image, or 1 to the number of candidates for candidate 
+images."}, "minItems": 1, "maxItems": 4}}, "required": ["target_images"]}}}
+</tools>
+For each function call, return exactly one json object with function name and arguments within <tool_call></tool_call> XML tag:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call>
+Figure 4. System Prompt template for training and inference.
+14
+
+
+===== PAGE 15 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+A.2. User Prompt
+Fig. 5 illustrate the user prompt for both training and inference.
+User Prompt for Training and Inference
+Query: <question> Candidates: (1) <candidate1>(2) <candidate2>......(K) <candidate𝐾>
+Guidelines: You are given a query (which can be text, image, or both) and multiple candidate items (which can be text, image, or both). Your 
+task is to rank all candidates from most relevant to least relevant based on how well they match the query.
+You can use the following tools to assist with analysis:
+1.
+`crop_image`: Zoom in on specific areas of the query image or a candidate image for detailed analysis. 
+2. `select_images`: Select 1 to 4 query images or candidate images from the provided list for focused comparison. 
+Analyze the visual and textual features step by step. Provide your final answer in one of the following exact formats:
+If you DO need to use tools:
+<think>Your detailed reasoning process here, explaining your analysis steps and tool usage.</think><tool_call>{"name": <function-name>, 
+"arguments": <args-json-object>}</tool_call><think>Continue your reasoning based on tool outputshere.</think><answer>[ranked_list]</answer>
+If you do NOT need to use tools:
+<think>Your detailed reasoning process here, explaining your analysis steps.</think><answer>[ranked_list]</answer>
+Example:
+<think>Your reasoning process here</think><tool_call>{"name": "select_images", "arguments": {"target_images": [0, 1, 
+2]}}</tool_call><think>Continue your reasoning based on tool outputs here</think><answer>[14, 13, 20, 11, 16, 19, 6, 7, 2, 17, 3, 9, 1, 18, 10, 5, 
+15, 12, 4, 8]</answer>
+Figure 5. User Prompt template for training and inference.
+15
+
+
+===== PAGE 16 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+A.3. Annotation Prompt
+Fig. 6 illustrate the annotation prompt. Specifically for the CoT annotation process, the annotation prompt (Fig. 6) is inserted
+into the user prompt to guide the generation.
+Annotation Prompt
+Analyze the visual and textual features step by step. Your reasoning process should generally follow these stages:
+First, analyze the key features and requirements of the query (both visual and textual). 
+Then perform a quick pre-screening of all candidates to filter out clearly irrelevant ones. Next, identify a subset of the most promising 
+candidates (e.g., the top 5 to 8 potential matches) that appear to be the strongest contenders based on this initial scan. 
+For these promising candidates, provide a more detailed analysis of their distinguishing features, explaining why each one might or might not 
+match the query (e.g., taxonomy, visual characteristics, context, or any other relevant attributes).
+If there are important, ambiguous, or missing visual details that are critical for making a precise decision, decide whether to call tools. You 
+may, for example, use `crop_image` to zoom into specific regions when finer visual inspection is needed, or use `select_images` to focus on a 
+small subset of the most relevant images. 
+After each tool call, carefully summarize the visual information obtained from the tool outputs (e.g., what you observe in the selected or 
+cropped images) and integrate this information into your reasoning. Use these visual observations to refine your comparison among the 
+promising candidates and to resolve any ambiguities. 
+Based on the combined textual and visual analysis, determine which candidate is the single best match to the query. Then use your reasoning 
+to order all remaining candidates by relevance, from more relevant to less relevant, until you obtain a complete ranking of all candidates. 
+Finally, construct the complete ranking list containing ALL candidate indices from 1 to N. Place your determined best match first, followed by 
+the remaining candidates ordered by relevance, and then provide your final answer in the required format.
+Figure 6. Annotation Prompt template.
+16
+
+
+===== PAGE 17 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+B. Details about M-BEIR Dataset
+We present the details for the M-BEIR benchmark in Table 7. It is important to note that the M-BEIR benchmark applies
+additional processing to the datasets it incorporates, which may result in differences from the standard evaluation of
+individual datasets. For instance, the candidate pool of the CIRR dataset in M-BEIR includes training data, which essentially
+increases the evaluation’s difficulty compared to the original CIRR dataset. For a more comprehensive understanding of
+these differences, we refer the readers to the original UniIR (Wei et al., 2024a) paper.
+Table 7. Summary of the M-BEIR benchmarks.
+Task
+Dataset
+Domain
+# Train
+# Dev
+# Test
+# Pool
+qt →ci
+VisualNews
+News
+99K
+20K
+20K
+542K
+MSCOCO
+Misc.
+100K
+24.8K
+24.8K
+5K
+Fashion200K
+Fashion
+15K
+1.7K
+1.7K
+201K
+qt →ct
+WebQA
+Wiki
+16K
+1.7K
+2.4K
+544K
+qt →(ci, ct)
+EDIS
+News
+26K
+3.2K
+3.2K
+1M
+WebQA
+Wiki
+17K
+1.7K
+2.5K
+403K
+qi →ct
+VisualNews
+News
+100K
+20K
+20K
+537K
+MSCOCO
+Misc.
+113K
+5K
+5K
+25K
+Fashion200K
+Fashion
+15K
+4.8K
+4.8K
+61K
+qi →ci
+NIGHTS
+Misc.
+16K
+2K
+2K
+40K
+(qi, qt) →ct
+OVEN
+Wiki
+150K
+50K
+50K
+676K
+InfoSeek
+Wiki
+141K
+11K
+11K
+611K
+(qi, qt) →ci
+FashionIQ
+Fashion
+16K
+2K
+6K
+74K
+CIRR
+Misc.
+26K
+2K
+4K
+21K
+(qi, qt) →(ci, ct)
+OVEN
+Wiki
+157K
+14.7K
+14.7K
+335K
+InfoSeek
+Wiki
+143K
+17.6K
+17.6K
+481K
+8 tasks
+10 datasets
+4 domains
+1.1M
+182K
+190K
+5.6M
+C. Details about Unseen Dataset
+Here, we present the details of the Unseen Dataset in Table 8. Many of them are actually adapted from MSCOCO or
+FashionIQ, however, note that, their captions or query formats are significantly different. Therefore, we still treat these
+datasets as unseen datasets. For instance, The query format of CIRCO combines a reference image with a relative caption.
+These differences create a substantial disparity compared to the original COCO dataset.
+Table 8. Summary of the Unseen Dataset.
+Dataset
+Image Source
+Task
+Query Format
+Candidate Format
+CIRCO
+MSCOCO unlabeled set
+(qi, qt) →ci
+<image><relative caption>
+<image>
+GeneCIS
+MSCOCO
+(qi, qt) →ci
+<image><relative caption>
+<image>
+Visual Dialog
+MSCOCO
+qdialog →ci
+<Q1><A1>· · · <Qj><Aj>
+<image>
+Visual Storytelling
+Flickr
+(qi ⊕qt) →ci
+<text1><image1>· · · <textj>
+<image>
+MT-FIQ
+FashionIQ
+(qi ⊕qt) →ci
+<image1><relative caption1>· · ·
+<imagej><relative captionj>
+<image>
+17
+
+
+===== PAGE 18 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+D. Exploration of RAG Applications
+To further validate the practical utility of our framework, we extend our evaluation to Retrieval-Augmented Generation (RAG)
+scenarios. Following the experimental setup of LamRA (Liu et al., 2025),we evaluate our method on three Knowledge-based
+Visual Question Answering (KVQA) benchmarks. Specifically, we train the retrieval and VQA tasks simultaneously during
+the training process, allowing the model to to align the agentic visual reasoning process with downstream generation
+needs. As detailed in Table 9, V-Retrver achieves superior performance in both retrieval precision and VQA accuracy,
+demonstrating that our Multimodal Interleaved Evidence Reasoning significantly enhances MLLM capabilities in RAG
+settings.
+Table 9. Comparison of RAG capabilities on KVQA tasks.
+Method
+OKVQA (Marino et al., 2019)
+Infoseek (Chen et al., 2023)
+E-VQA (Mensink et al., 2023)
+Retrieval (PR@5)
+PreFLMR (Lin et al., 2024b)
+70.9
+62.1
+73.7
+LamRA-7B (Liu et al., 2025)
+89.0
+73.4
+75.0
+V-Retrver-7B
+90.9
+78.3
+78.1
+VQA (ACC)
+RA-VQAv2 w/ PreFLMR (Lin et al., 2023b)
+61.9
+32.1
+54.5
+LamRA-7B (Liu et al., 2025)
+64.3
+28.8
+56.2
+V-Retrver-7B
+65.7
+31.9
+58.0
+E. Algorithms and Detailed Analysis
+In this section, we present the formal algorithms for the inference and training processes of V-Retrver, followed by a
+complexity analysis.
+E.1. Inference Process
+The inference process of V-Retrver, formulated as a coarse-to-fine pipeline with sliding window agentic reasoning, is detailed
+in Algorithm 1.
+E.2. Training Pipeline
+The three-stage curriculum learning strategy, designed to progressively align the model with evidence-driven retrieval
+objectives, is presented in Algorithm 2.
+18
+
+
+===== PAGE 19 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Algorithm 1 V-Retrver Inference Pipeline
+Input: Query q, Candidate Pool Ω= {cn}N
+n=1, Embedding Model Φ, Reasoning Agent πθ, Top-K size K, Window size
+W, Stride S
+Output: Ranked Candidate List ˆL
+{// Stage 1: Coarse Retrieval (Embedding-based)}
+Compute similarity scores sn = cos(Φ(q), Φ(cn)) for all cn ∈Ω
+Select top-K candidates: Ctop ←Top-K(Ω, {sn})
+{// Stage 2: Agentic Reranking (Reasoning-based)}
+Initialize global ranking list Lglobal ←∅
+Split Ctop into windows {w1, w2, . . . , wm} with size W and stride S
+for each window wj ∈{w1, . . . , wm} do
+Initialize context H0 ←(q, wj, Instruction)
+t ←0
+while True do
+Generate output: ot ∼πθ(Ht)
+if ot contains <tool call> then
+Parse action at and arguments from ot
+Execute visual tool: vobs ←ftool(at, wj)
+Update context: Ht+1 ←Ht ⊕ot ⊕vobs
+else if ot contains <answer> then
+Parse local rank list ˆrj from ot
+Update Lglobal with local rank ˆrj
+break
+end if
+t ←t + 1
+end while
+end for
+ˆL ←AggregateRanks(Lglobal)
+19
+
+
+===== PAGE 20 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Algorithm 2 Curriculum-Based Agentic Training
+Input: Pretrained MLLM θinit, Retrieval Dataset D, Synth Model Msyn
+Output: Optimized Policy πθ∗
+{// Stage 1: Reasoning Activation (SFT)}
+Synthesize CoT data: Dsft ←{(q, c, τcot)} using Msyn on D
+Filter Dsft for format compliance
+Update θsft ←Minimize LSF T (θinit, Dsft)
+{// Stage 2: Reliability Refinement (Rejection Sampling)}
+Initialize Drsft ←∅
+for each (q, c) ∈D do
+Sample k trajectories {τ1, . . . , τk} ∼πθsft(q, c)
+if IsFormatValid(τi) ∧IsRankCorrect(τi) then
+Add valid τi to Drsft
+end if
+end for
+Update θrsft ←Minimize LSF T (θsft, Drsft)
+{// Stage 3: Evidence-Aligned Policy Optimization (EAPO)}
+Initialize θ ←θrsft, Reference policy πref ←θrsft
+while not converged do
+Sample batch of queries Bq ∼D
+for each query q ∈Bq do
+Sample group of trajectories G = {o1, . . . , oG} ∼πθ(q)
+Compute rewards R(oi) = αrfmt(oi) + βrrank(oi) + rtool(oi)
+end for
+Compute advantages Ai via Group Normalization over G
+Compute GRPO loss JEAP O(θ)
+Update θ ←Optimize JEAP O(θ)
+end while
+return πθ
+20
+
+
+===== PAGE 21 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+F. Qualitative Examples
+To provide an intuitive illustration of our approach and to further demonstrate the effectiveness of the proposed V-Retrver,
+we present some qualitative results (Fig. 7, Fig.8, Fig. 9, Fig. 10 and Fig. 11). These examples illustrate how V-Retrver
+performs accurate retrieval through fine-grained and structured reasoning, thereby highlighting the strong effectiveness of
+the proposed method.
+G. Limitations and Future Works
+Despite its strong performance, V-Retrver still has several limitations. First, the current visual toolset is restricted to image
+selection and zoom-in operations, and may be insufficient for more complex visual reasoning that requires object-level
+manipulation or multi-step spatial analysis. Second, our training relies on synthesized reasoning trajectories and curated
+rewards, which may introduce biases and limit robustness under more diverse or noisy real-world settings. Future work will
+explore lightweight and adaptive inference strategies to reduce computational overhead, expand the visual tool repertoire to
+support richer perceptual operations. We also plan to extend the framework to broader downstream tasks such as multimodal
+recommendation and retrieval-augmented generation, further advancing general-purpose agentic MLLMs.
+21
+
+
+===== PAGE 22 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Has more buttons and is blue and is lighter
+Query
+<think>The query specifies a shirt that is blue, lighter in color, and has more buttons. Let's analyze the candidates based 
+on these criteria:1. Candidate 1: This shirt is blue but appears to be a darker shade. It has a collar but no visible buttons.2. 
+Candidate 2: This shirt is blue and lighter in color. It has a pocket but no visible buttons.3. Candidate 3: This shirt is light 
+blue and has a pocket. It also has a visible button on the collar.4. Candidate 4: This shirt is blue and lighter in color. It  has 
+multiple visible buttons and a pocket.5. Candidate 5: This shirt is blue but appears to be a darker shade. It has a collar but 
+no visible buttons.Based on the initial analysis, Candidate 4 seems to match the query as it is blue, lighter in color, and has 
+multiple buttons. Candidate 3 is also a strong contender as it is light blue and has a button, but it seems to have fewer 
+buttons compared to Candidate 4. Candidate 2 is light blue but lacks buttons. Candidate 1 and Candidate 5 are darker blue 
+and lack buttons.To confirm the button count and color shade, I will use the `select_images` tool to focus on Candidates 
+3 and 4</think>
+<tool_call>{"name": "select_images", "arguments": {"target_images": [3, 4]}} </tool_call>
+<think>The selected images confirm the following:- Candidate 3 (Image 1): This shirt is light blue and has a single button 
+on the collar. It matches the query's requirement of being blue and lighter in color but does not have multiple buttons.- 
+Candidate 4 (Image 2): This shirt is blue and lighter in color. It has multiple buttons, which aligns with the query's 
+requirement of "more buttons.” Based on the detailed analysis, Candidate 4 is the best match as it meets all the query 
+requirements. Candidate 3 is the second-best match as it is light blue and has a button, but it has fewer buttons. The 
+remaining candidates are less relevant. The final ranking is: 4, 3, 2, 1, 5 </think>
+<answer>[4, 3, 2, 1, 5]</answer>
+Candidate 1
+Candidate 2
+Candidate 3
+Candidate 4
+Candidate 5
+Candidate 3
+Candidate 4
+Figure 7. A qualitative example of the retrieval result generated from V-Retrver.
+22
+
+
+===== PAGE 23 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Find a smaller monitor and an additional laptop
+Query
+<think>The query image shows a setup with a smaller monitor and an additional laptop. Let's analyze the candidates:1. 
+Candidate 1: This is the same image as the query, so it matches perfectly. 2. Candidate 2: This setup has a smaller monitor 
+and a laptop, similar to the query. The arrangement and the presence of both devices match the query. 3. Candidate 3: 
+This setup has three laptops, which does not match the query's description of a smaller monitor and a laptop. 4. Candidate 
+4: This setup has a laptop and a monitor, but the monitor is larger compared to the smaller monitor in the query. 5. 
+Candidate 5: This setup has a smaller monitor and a laptop, similar to the query. The arrangement and the presence of 
+both devices match the query. Based on the analysis, the most promising candidates are 1, 2, and 5. Candidates 3 and 4 are 
+less relevant. To further refine the ranking, let's select images 2 and 5 for detailed analysis.</think>
+<tool_call>{"name": "select_images", "arguments": {"target_images": [2, 5]}} </tool_call>
+<think>After analyzing the selected images:Image 2 (Candidate 2): This setup has a smaller monitor and a laptop, similar to 
+the query. The arrangement and the presence of both devices match the query. The smaller monitor is clearly visible, and 
+the laptop is positioned next to it. Image 5 (Candidate 5): This setup also has a smaller monitor and a laptop, similar to the 
+query. The arrangement and the presence of both devices match the query. The smaller monitor is clearly visible, and the 
+laptop is positioned next to it. Both images 2 and 5 are very similar to the query. However, image 2 has a more similar 
+arrangement and size ratio of the smaller monitor and laptop compared to the query. Based on the detailed analysis, the 
+final ranking is: 1. Candidate 2, 2. Candidate 5,3. Candidate 1 (same as the query image), 4. Candidate 4, 5. Candidate 
+3</think>
+<answer>[2, 5, 1, 4, 3]</answer>
+Candidate 1
+Candidate 2
+Candidate 3
+Candidate 4
+Candidate 5
+Candidate 2
+Candidate 5
+Figure 8. A qualitative example of the retrieval result generated from V-Retrver.
+23
+
+
+===== PAGE 24 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Green metallic knitted dress
+Query
+<think>The query specifies a "Green metallic knitted dress." Let's analyze the candidates based on the key features: color 
+(green), material (metallic and knitted), and style (dress).1. Candidate 1: This dress is green and knitted, but it appears to 
+be a solid matte color with no visible metallic finish.2. Candidate 2: This dress is metallic and knitted, but the color is 
+dark/olive, not the requested green.3. Candidate 3: This dress is green and has a knitted texture. However, looking at the 
+full-body image, I am uncertain if the fabric actually has a metallic sheen or if it is just the lighting on standard yarn.4. 
+Candidate 4: This dress is green and knitted, but looks like a standard textile without metallic properties.5. Candidate 5: 
+This dress is metallic and knitted, but the color is incorrect (not green).Because I am not sure if Candidate 3 actually 
+possesses the required metallic luster, I need to use the crop tool to inspect the fabric details more closely to 
+confirm.</think>
+<tool_call>{"name": "crop_image", "arguments": {"bbox_2d": [0, 0, 180, 250], "target_image": 3}}</tool_call>
+<think>The selected images confirm the following:- Candidate 3 (Image 1): This shirt is light blue and has a single button 
+on the collar. It matches the query's requirement of being blue and lighter in color but does not have multiple buttons.- 
+Candidate 4 (Image 2): This shirt is blue and lighter in color. It has multiple buttons, which aligns with the query's 
+requirement of "more buttons.” Based on the detailed analysis, Candidate 4 is the best match as it meets all the query 
+requirements. Candidate 3 is the second-best match as it is light blue and has a button, but it has fewer buttons. The 
+remaining candidates are less relevant. The final ranking is: 4, 3, 2, 1, 5 </think>
+<answer>[4, 3, 2, 1, 5]</answer>
+Candidate 1
+Candidate 2
+Candidate 3
+Candidate 4
+Candidate 5
+Candidate 3
+Cropped image
+Zoom in
+Figure 9. A qualitative example of the retrieval result generated from V-Retrver.
+24
+
+
+===== PAGE 25 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+What is this plant named after?
+Query
+Candidate 2
+Lilium humboldtii. Roezl and Leichtlin, gave it the name "Lilium bloomerianum". For some time afterward, the name was still applied to the southern 
+California "Lilium humboldtii" subsp. "ocellatum". Cultivation."Lilium humboldtii" is sold as a garden bulb. It prefers dry summer dormancy, with no 
+water after blooming, good drainage, and part shade. It was one of the parents, along with "Lilium pardalinum", that produced the Bellingham 
+hybrid lilies, which eventually resulted in the popular 'Shuksan' and 'Star of Oregon' lilies.Harlow, Nora, Jakob, Kristin, and Raiche, Roger (2003) 
+"Wild Lilies, Irises, and Grasses". University of California Press. USDA Plants Profile: "Lilium humboldtii“ Treatment from the.
+Candidate 3
+Lilium humboldtii. growing in a pyramidal inflorescence. The flowers are on stout stems, which are sometimes brown-purple. The subrhizomatous 
+bulb is large, with yellowish-white scales, and grows very deep in the soil. The leaves grow in whorls, and are undulate, shiny, and oblanceolate. It is 
+summer-deciduous, dying back after flowering in mid to late summer.Subspecies "Lilium humboldtii" subsp. "humboldtii" - central California"Lilium 
+humboldtii" subsp. "ocellatum" - southern California, Baja CaliforniaBoth subspecies are on the California Native Plant Society "Inventory of Rare 
+and Endangered Plants of California" and described as "fairly endangered in California".Albert Kellogg, unaware that the plant had already been 
+named by.
+Candidate 4
+Lilium humboldtii. Jepson Manual-"Lilium humboldtii" CalFlora Taxon Report: "Lilium humboldtii “ "Lilium humboldtii"-CalPhotos galleryiucnredlist.,
+Candidate 5
+Lilium parryi. especially "Hyles lineata" and "Sphinx perelegans".Threats to this species include grazing, recreation, natural flooding and human 
+alterations in water regimes, and horticultural collecting of the bulbs and flowers."Lilium parryi" was named for Charles Christopher Parry (28 
+August 1823 2013 20 February 1890), a British-American botanist and mountaineer.Idyllwild, California, hosts the Lemon Lily Festival, which 
+celebrates this species.Calflora Database: "Lilium parryi" (lemon lily)Jepson Manual Treatment of "Lilium parryi"USDA Plants Profile for "Lilium 
+parryi" (lemon lily)UC Photos gallery: "Lilium parryi.
+Candidate 1
+Lilium humboldtii. Lilium humboldtii, or Humboldt's lily, is a species of lily native to the US state of California and the Mexican state of Baja 
+California. It is named after naturalist and explorer Alexander von Humboldt. It is native to the South High Cascade Range, High Sierra Nevada, 
+south Outer South Coast Ranges, and the Santa Monica Mountains and others in Southern California, growing at elevations from 600 (m) to 1200 
+(m).Description. "Lilium humboldtii" grows up to 6 (ft) tall, with flowers that are maroon-spotted, golden-orange with dark red splotches, with 
+orange to brown stamens. The plant flowers in June, with flowers.
+<think>The query image shows a natural setting with orange flowers that appear to be lilies. The key features to consider are the flower color, 
+shape, and the environment in which they are growing. The candidates provided are descriptions of different lily species, with the most relevant 
+being those that match the visual characteristics of the flowers in the imagePre-screening:- Candidates (1) to (4) are about "Lilium humboldtii," 
+which is described as having golden-orange flowers with dark red splotches, fitting the visual characteristics of the flowers in the image.- 
+Candidate (5) is about "Lilium parryi," which is described as having lemon-colored flowers, which does not match the orange color of the flowers in 
+the image. Detailed Analysis of Promising Candidates:- Candidate (1): Describes "Lilium humboldtii" with golden-orange flowers and dark red 
+splotches, matching the visual characteristics of the flowers in the image. It is named after Alexander von Humboldt.- Candidate (2): Also 
+describes "Lilium humboldtii" and provides additional information about its cultivation and history. It confirms the name "Lilium humboldtii" and its 
+association with Humboldt.- Candidate (3): Provides more detailed botanical information about "Lilium humboldtii," including its subspecies and 
+conservation status. It also confirms the name and association with Humboldt.- Candidate (4): Mentions "Lilium humboldtii" and provides 
+references for further information. It confirms the name and association with Humboldt.Tool Usage:The image is clear enough to identify the 
+flower color and shape, but a closer look at the flower details might help confirm the presence of dark red splotches mentioned in the 
+descriptions. Therefore, I will use the `crop_image` tool to zoom in on one of the flowers for a more detailed analysis..</think>
+<tool_call>{"name": "crop_image", "arguments":  {"bbox_2d": [125, 88, 145, 108], {"target_image": 0}} </tool_call>
+<think>The cropped image shows a close-up of one of the orange flowers in the query image. The flower appears to have dark red splotches, which 
+aligns with the description of "Lilium humboldtii" in the candidates. This visual confirmation strengthens the match between the query image and 
+the descriptions of "Lilium humboldtii.“ Final Ranking:1. Candidate (1): Best match as it directly describes "Lilium humboldtii" with golden-orange 
+flowers and dark red splotches, matching the visual characteristics of the flowers in the image.2. Candidate (2): Also a strong match, providing 
+additional information about the cultivation and history of "Lilium humboldtii."3. Candidate (4): Mentions "Lilium humboldtii" and provides 
+references for further information. 4. Candidate (3): Provides detailed botanical information about "Lilium humboldtii," including its subspecies and 
+conservation status. 5. Candidate (5): Least relevant as it describes "Lilium parryi" with lemon-colored flowers, which do not match the orange 
+flowers in the image. </think>
+<answer>[1, 2, 4, 3, 5]</answer>
+Query image
+Zoom in
+Cropped image
+Figure 10. A qualitative example of the retrieval result generated from V-Retrver.
+25
+
+
+===== PAGE 26 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Query
+<think>The query image shows a barn with a curved roof, wooden siding, and a closed double door. The barn is set against a 
+grassy field with a colorful sky in the background. Let's analyze the candidates:1. Candidate 1: This barn has a triangular 
+roof, not a curved one, and the doors are different. It is not a match.2. Candidate 2: This barn has a curved roof and a 
+similar door style, but the surroundings and the barn's color are different. It is a potential match.3. Candidate 3: This 
+barn has a triangular roof and an open door, which is not similar to the query. It is not a match.4. Candidate 4: This barn 
+has a triangular roof and a different door style. It is not a match.5. Candidate 5: This barn has a curved roof and a similar 
+door style, but the color and surroundings are different. It is a potential match.Candidates 2 and 5 are the most 
+promising. Let's use the `select_images` tool to focus on these two for a detailed comparison./think>
+<tool_call>{"name": "select_images", "arguments": {"target_images": [2, 5]}}</tool_call></tool_call>
+<think>After analyzing the selected images:- Candidate 2: This barn has a curved roof and a similar door style to the query 
+image. The surroundings include trees, which are not present in the query image, but the barn's structure is very similar.- 
+Candidate 5: This barn also has a curved roof and a similar door style. The surroundings are more similar to the query 
+image, with a grassy field and a clear sky.Both candidates are very similar to the query image, but Candidate 5 has 
+surroundings that are more similar to the query image. Therefore, Candidate 5 is the best match.Now, let's rank all 
+candidates:1. Candidate 5: Best match due to similar structure and surroundings.2. Candidate 2: Second best match due to 
+similar structure but different surroundings.3. Candidate 1: Not a match due to different roof shape.4. Candidate 3: Not 
+a match due to different roof shape and open door.5. Candidate 4: Not a match due to different door style.</think>
+<answer>[5, 2, 1, 3, 4]</answer>
+Candidate 1
+Candidate 2
+Candidate 3
+Candidate 4
+Candidate 5
+Candidate 2
+Candidate 5
+Figure 11. A qualitative example of the retrieval result generated from V-Retrver.
+26

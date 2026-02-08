@@ -1,0 +1,1354 @@
+
+
+===== PAGE 1 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Xuejun Zhang
+Aditi Tiwari
+Zhenhailong Wang
+Heng Ji
+University of Illinois Urbana-Champaign
+xuejunz2@illinois.edu,
+hengji@illinois.edu
+Abstract
+Multi-image spatial reasoning remains challeng-
+ing for current multimodal large language models
+(MLLMs). While single-view perception is inher-
+ently 2D, reasoning over multiple views requires
+building a coherent scene understanding across
+viewpoints. In particular, we study perspective
+taking, where a model must build a coherent 3D
+understanding from multi-view observations and
+use it to reason from a new, language-specified
+viewpoint. We introduce CAMCUE, a pose-aware
+multi-image framework that uses camera pose as
+an explicit geometric anchor for cross-view fu-
+sion and novel-view reasoning. CAMCUE injects
+per-view pose into visual tokens, grounds natural-
+language viewpoint descriptions to a target cam-
+era pose, and synthesizes a pose-conditioned
+imagined target view to support answering. To
+support this setting, we curate CAMCUE-DATA
+with 27,668 training and 508 test instances pairing
+multi-view images and poses with diverse target-
+viewpoint descriptions and perspective-shift ques-
+tions. We also include human annotated view-
+point descriptions in the test split to evaluate gen-
+eralization to human language. CAMCUE im-
+proves overall accuracy by 9.06% and predicts
+target poses from natural-language viewpoint de-
+scriptions with over 90% rotation accuracy within
+20◦and translation accuracy within a 0.5 error
+threshold. This direct grounding avoids expensive
+test-time search-and-match, reducing inference
+time from 256.6s to 1.45s per example and en-
+abling fast, interactive use in real-world scenarios.
+Project page: https://xuejunzhang2002.
+github.io/camcue/
+1. Introduction
+Spatial intelligence moves beyond single-image perception
+and naive multi-image aggregation. Rather than treating
+each view as an independent 2D snapshot, an agent needs to
+connect views via their spatial relationships to form a coher-
+ent 3D understanding that supports reasoning beyond the
+observed images (Chen et al., 2024a; Gholami et al., 2025;
+Wang et al., 2025; Yin et al., 2025; Zhao et al., 2025; Lee
+et al., 2025; Yeh et al., 2025; Yang et al., 2025b). Humans
+do this naturally: when told “sit on the sofa behind the black
+table,” we can mentally relocate to that viewpoint and imag-
+ine what we would see, then answer questions from that
+perspective (Wang, 2012; Meilinger et al., 2011), which is
+illustrated by Figure 1. However, current multimodal large
+language models (MLLMs) still struggle with this kind of
+perspective taking. Even with multiple context images, they
+often fail to reliably ground a language-specified viewpoint
+and reason from the intended perspective (Lee et al., 2025;
+Yeh et al., 2025; Xu et al., 2025; Yin et al., 2025). This gap
+motivates our study of language-guided viewpoint ground-
+ing for multi-view spatial reasoning. We study perspective-
+shift reasoning where the target viewpoint is specified in
+natural language. Given multiple context images and a ques-
+tion, the model needs to ground the description to a target
+camera pose and answer from that perspective.
+A recent line of work tackles perspective-shift reasoning by
+augmenting MLLMs with generative world models that
+actively synthesize additional observations at inference
+time (Lee et al., 2025; Yang et al., 2025c). While promising,
+existing pipelines are often built around a single reference
+view and do not effectively integrate multiple contextual im-
+ages as a unified source of evidence (Lee et al., 2025; Yang
+et al., 2025c). In addition, most controllable generators are
+largely query-agnostic, which can produce imagined views
+that are irrelevant or even inconsistent with the downstream
+question (Yang et al., 2025c). Many of these methods rely
+on expensive test-time procedures such as iterative search
+or multiple candidate rollouts to obtain a useful imagined
+view, resulting in high latency and limited practicality. Fi-
+nally, off-the-shelf novel-view synthesis is typically pose-
+conditioned, whereas MLLMs do not reliably infer target
+camera poses from natural language description, leaving a
+mismatch between language-driven viewpoint specification
+and pose-controlled generation (Jin et al., 2024; Zhou et al.,
+2025).
+1
+arXiv:2602.06041v1  [cs.CV]  5 Feb 2026
+
+
+===== PAGE 2 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Query: If I sit on the sofa behind the 
+black table, is the plant visible next to 
+the TV?
+Mental Image
+CAMCUE: Pose-Aware Imagination
+Synthesized Target 
+View
+View 1
+View 2
+View 3
+Baseline:
+No viewpoint grounding
+Context and Query (Input)
+Model Output
+Answer: Yes, the plant will 
+be visible in your front-right.
+CAMCUE successfully reasons
+using the imagined view.
+Answer: No, The plant is not 
+visible.
+Base model struggles to reason 
+from a shifted perspective.
+Figure 1. Perspective-shift reasoning with CamCue. Given multi-view context images, CamCue maps a natural-language viewpoint
+description to an explicit target camera pose and synthesizes the corresponding target view for reliable spatial reasoning.
+To address these limitations, we introduce CAMCUE, a pose-
+aware multi-image MLLM framework that can predict the
+camera pose of the language-specified target perspective.
+Camera pose provides a compact, explicit representation of
+viewpoint that situates each image in a shared 3D coordi-
+nate frame, making inter-view geometry directly usable for
+multimodal reasoning (Liao et al., 2025; Zhao et al., 2025).
+Our key design principle is to make viewpoint an explicit
+geometric anchor for multi-view reasoning. We start by
+injecting per-view camera information into the correspond-
+ing visual features, so that the model can align evidence
+across images through geometry rather than treating each
+image as individual input. We then interpret the natural-
+language target-perspective description by mapping it to
+a concrete target camera pose, which specifies where the
+model should “mentally stand” to answer the question. Con-
+ditioned on this predicted pose, we further synthesize the
+corresponding target-view image and treat the imagined ob-
+servation as additional evidence for answering. This tight
+coupling between language-specified perspective, pose pre-
+diction, and pose-conditioned view synthesis strengthens
+multi-image fusion and substantially improves performance
+on perspective-shift spatial reasoning.
+To support this setting, we curate CAMCUE-DATA, a dataset
+tailored to perspective-shift reasoning. CAMCUE-DATA
+contains 27,668 training instances and 508 test instances,
+and pairs multi-view images and per-view camera poses
+with diverse natural-language target-perspective descrip-
+tions, including human-annotated descriptions, and ques-
+tions that require answering from the specified viewpoint.
+On this benchmark, CAMCUE yields substantial gains on
+perspective-shift spatial reasoning, improving overall accu-
+racy by 9.06%. It also predicts target camera poses directly
+from natural-language descriptions with strong accuracy,
+achieving over 90% rotation accuracy within 20◦and transla-
+tion accuracy at t@0.5. Moreover, by predicting an explicit
+target pose, CAMCUE avoids expensive test-time search-
+and-match used by prior methods, reducing inference time
+from 256.6 seconds to 1.45 seconds per example and en-
+abling fast, interactive use in real-world scenarios. Beyond
+CAMCUE-DATA, CAMCUE also improves performance on
+general multi-image spatial reasoning benchmarks such as
+MindCube Tiny (Yin et al., 2025) and MMSI (Yang et al.,
+2025b).
+In summary, our contributions are listed as follows:
+• We propose CAMCUE, a pose-aware multi-image
+MLLM framework that injects per-view camera infor-
+mation into the corresponding visual features, enabling
+geometry-aware fusion across views for spatial reason-
+ing.
+• CAMCUE can map a natural-language target-view de-
+scription to an explicit target camera pose, providing a
+concrete viewpoint representation for answering from
+the specified perspective.
+• Conditioned on the predicted target pose, CAMCUE
+synthesizes the corresponding target-view image and
+feeds it back as additional evidence, substantially im-
+proving perspective-shift reasoning ability.
+• We curate CAMCUE-DATA, a dataset tailored to
+perspective-shift reasoning that pairs multi-view im-
+ages with diverse, detailed natural-language camera
+viewpoint descriptions, including human-annotated de-
+scriptions, and target-view questions that require rea-
+soning from the described viewpoint.
+2. Related Work
+2.1. Multi-Image Spatial Reasoning Benchmarks
+Multi-image spatial reasoning is a key probe for evaluat-
+ing spatial intelligence in MLLMs, as it requires integrat-
+ing partial observations from multiple viewpoints into a
+coherent and viewpoint-consistent scene understanding. Re-
+cent benchmarks reveal substantial gaps between current
+2
+
+
+===== PAGE 3 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+MLLMs and human performance, with models often strug-
+gling to fuse evidence across views and maintain consis-
+tent spatial beliefs. Representative datasets include Mind-
+Cube (Yin et al., 2025), SpatialBench (Xu et al., 2025),
+MMSI-Bench (Yang et al., 2025b), All-Angles Bench (Yeh
+et al., 2025), and ViewSpatial-Bench (Li et al., 2025). Sur-
+veys and diagnostic studies further organize these bench-
+marks by cognitive demands and emphasize that reliable
+multi-view integration remains challenging (Liu et al., 2025;
+Zhang et al., 2025; Yu et al., 2025). These findings moti-
+vate methods that explicitly ground viewpoints and align
+observations across views, such as pose-aware approaches
+that use camera pose as a geometric anchor for multi-view
+fusion and perspective-consistent reasoning (Chen et al.,
+2024a; Liao et al., 2025).
+2.2. Perspective-Taking and Allocentric Reasoning in
+MLLMs
+Beyond reasoning within a single image, many embodied
+and multi-view tasks require perspective taking, where the
+model answers questions from an alternative viewpoint that
+is unobserved and specified in natural language. This setting
+calls for allocentric scene understanding and reliable view-
+point grounding, yet current MLLMs can be brittle under
+perspective shifts even with multiple context images (Ma
+et al., 2023; Yin et al., 2025; Yang et al., 2025b; Yeh et al.,
+2025; Li et al., 2025). Recent approaches attempt to bridge
+this gap via mental imagery or generative rollouts that syn-
+thesize missing observations at inference time (Lee et al.,
+2025; Yang et al., 2025c; Cao et al., 2025). While effective
+in some cases, these pipelines typically do not explicitly
+ground the language-specified viewpoint to a concrete target
+pose, and instead rely on searching over candidate motions
+and viewpoints. As a result, synthesized observations may
+drift from the intended viewpoint described in language,
+producing evidence that is misaligned with the target per-
+spective. Moreover, searching over many candidates can be
+computationally expensive, making such approaches less
+suitable for applications that require timely, interactive feed-
+back.
+2.3. Language-Grounded Viewpoint Imagination
+A key challenge underlying perspective taking is to imagine
+a faithful observation from a language-specified, unobserved
+viewpoint and use it to support cross-view alignment and
+spatial reasoning. Existing approaches largely fall into two
+lines. One line relies on pose-free image generation and
+editing models to synthesize a new view directly from text
+and contextual images (Team et al., 2023; Wu et al., 2025;
+Achiam et al., 2023). However, such generations provide
+no explicit control over camera information and may not be
+reliably 3D-consistent under perspective shifts, making the
+imagined evidence brittle for viewpoint-sensitive reasoning.
+The other line uses pose-conditioned novel-view synthesis
+models, which can produce geometrically consistent ren-
+derings when a target pose is given (Zhou et al., 2025; Jin
+et al., 2024; Yu et al., 2021; Charatan et al., 2024; Chen
+et al., 2024b; Wu et al., 2024; Gao et al., 2024), but they do
+not address the crucial missing step in our setting: mapping
+a natural-language viewpoint description to the target cam-
+era pose. CAMCUE bridges these two lines by learning to
+predict the target camera pose from language and using it
+as an explicit geometric anchor for token-level fusion and
+image imagination.
+3. Method
+In this section, we introduce CAMCUE, a pose-aware multi-
+image framework for perspective-shift spatial reasoning.
+Figure 2 provides an overview of the CAMCUE pipeline.
+Given a text prompt T that contains a natural-language de-
+scription of a target perspective and a question, together with
+a set of V contextual images I = {Ii}V
+i=1 and their associ-
+ated camera poses P = {Pi}V
+i=1, CAMCUE predicts the an-
+swer under the specified target perspective. We first present
+the CAMCUE model architecture in Sec. 3.1. We then de-
+scribe the construction of CAMCUE-DATA in Sec. 3.2.
+3.1. Architecture
+Pl¨ucker encoder
+As shown in Fig. 2, each contextual
+view provides camera extrinsics Ci ∈R4×4 and intrinsics
+Ki.
+Following prior work (Jiang et al., 2025), we transform
+(Ci, Ki) into a pixel-aligned Pl¨ucker ray map
+Ri = Pl¨ucker(Ci, Ki) ∈RH×W ×6,
+(1)
+which represents the camera pose information as dense rays
+aligned with image pixels.
+We then encode Ri into patch-aligned camera tokens
+Zi = Epose(Ri) ∈RS×d,
+(2)
+where S = HpWp is the number of patch tokens under
+the backbone’s canonical resolution, with Hp = H′/p and
+Wp = W ′/p for patch size p.
+Epose is a lightweight Pl¨ucker encoder that follows the same
+patchification and spatial aggregation scheme as the vision
+backbone. Specifically, Epose follows the same tokenization
+pipeline as the vision encoder: it first resizes Ri to the back-
+bone’s canonical resolution, then patchifies it and applies
+a patch embedding to convert each local ray patch into a
+d-dimensional token. This yields a patch-aligned token grid
+that is spatially aligned with the image patch tokens for
+subsequent fusion.
+3
+
+
+===== PAGE 4 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Input views & 
+Camera Poses
+Vision
+Encoder
+Plücker
+Encoder
+Image
+Tokens
+Camera
+Tokens
+MLLM
+Pose
+Adapter
+Yes, the trash bin is on 
+your right.
+Image Decoder
+Predicted 
+Camera Pose
+Imagined 
+Target View
+ℒpose
+Ground Truth
+Camera Pose
+ℒlang
+Ground Truth
+Answer
+Question: If I am standing in front 
+of the door. Is the trash bin on my 
+right side?
++
+Fusion MLP
+Pose Fusion
+Figure 2. Given multiple contextual images with their camera poses and a natural-language target-viewpoint description plus question,
+CamCue encodes visual content and pixel-aligned camera pose features, fuses them into pose-aware visual tokens, and uses an MLLM
+with a pose adapter to jointly generate the answer and predict the target camera pose. The predicted pose can further condition an image
+decoder to synthesize an imagined target view, which is fed back as additional evidence for answering.
+Pose-aware token fusion.
+Given the image patch tokens
+Xi ∈RS×d from the vision backbone and the correspond-
+ing Pl¨ucker camera tokens Zi ∈RS×d, we fuse pose in-
+formation into the visual representation in a patch-aligned
+manner. We concatenate tokens at the same patch index and
+apply a lightweight MLP projection to produce a residual
+update:
+˜Xi = Xi + W [Zi; Xi],
+(3)
+where [·; ·] denotes feature-wise concatenation and W ∈
+Rd×2d. This design preserves the backbone token layout
+while injecting per-patch geometric cues, yielding fused
+tokens ˜Xi ∈RS×d for subsequent multi-view reasoning.
+Target pose prediction.
+As shown in Fig. 2 (the Pose
+Adapter branch), given the fused multi-view scene tokens
+˜X ∈RTvis×d and the text hidden states H ∈RTtext×d, we
+predict the target camera pose with a query-based cross-
+attention head. Concretely, we introduce N learnable query
+vectors Q0 ∈RN×d that attend to the concatenated se-
+quence of text and visual tokens:
+Y = Attn
+
+Q0, [H; ˜X], [H; ˜X]
+
+∈RN×d,
+(4)
+where Attn(·) is multi-head attention and [·; ·] denotes con-
+catenation along the token dimension. We then project each
+attended query with a linear projection to obtain pose query
+tokens
+U = ψ(Y ) ∈RN×dq.
+(5)
+We set N = 16 and map the 16 pose query tokens to a
+camera-to-world matrix:
+ˆCtgt = reshape(g(U)) ∈R4×4,
+(6)
+where g(·) produces one scalar per token.
+Answer generation.
+Our model produces the language
+answer and the target pose prediction in a single pass. Con-
+cretely, the model autoregressively generates a response
+sequence that begins with a pose slot segment and then out-
+puts the final text answer. At inference time, we optionally
+use the predicted camera pose to synthesize an imagined
+target observation with an image decoder; in our implemen-
+tation, we use LVSM (Jin et al., 2024). The synthesized
+image is then treated as additional visual evidence and pro-
+vided to the MLLM to answer the question again, yielding
+an evidence-enhanced prediction.
+Training objective.
+We train the model with a weighted
+sum of language modeling and pose regression losses:
+L = λlangLlang + λposeLpose.
+(7)
+Llang is the standard cross-entropy loss on text output. Lpose
+supervises the predicted target-view camera extrinsics ˆCtgt
+with the ground-truth extrinsics Ctgt:
+Lpose = MSE(ˆt, t) + MSE( ˆR, R),
+(8)
+4
+
+
+===== PAGE 5 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Table 1. Comparison between CAMCUE and related datasets. Cam-
+era Pose is marked when per-view pose metadata is included in
+the released benchmark. Pose Desc. is marked when the bench-
+mark includes perspective taking data, and Target View denotes the
+corresponding ground-truth image.
+Dataset
+Camera Pose
+Multi-img
+Pose Desc.
+Target View
+ScanQA (Azuma et al., 2022)
+✓
+✗
+✗
+✗
+SQA3D (Ma et al., 2023)
+✓
+✗
+✓
+✗
+MMSI (Yang et al., 2025b)
+✗
+✓
+✓
+✗
+MindCube (Yin et al., 2025)
+✗
+✓
+✓
+✗
+VSI-Bench (Yang et al., 2025a)
+✗
+✗
+✓
+✗
+All-Angles (Yeh et al., 2025)
+✗
+✓
+✓
+✗
+SAT (Ray et al., 2024)
+✗
+✓(1/2)
+✓
+✗
+CAMCUE (Ours)
+✓
+✓
+✓
+✓
+(a) Training data
+(b) Test data
+Figure 3. QA type distribution in training and test splits.
+where (R, t) and ( ˆR,ˆt) denote the rotation and translation
+components extracted from Ctgt and ˆCtgt, respectively, i.e.,
+R = (Ctgt)1:3,1:3, t = (Ctgt)1:3,4 and similarly ˆR =
+( ˆCtgt)1:3,1:3, ˆt = ( ˆCtgt)1:3,4.
+3.2. Data Construction
+We construct CAMCUE-DATA to evaluate and train
+perspective-shift spatial reasoning under a realistic multi-
+view setting, where models must answer questions from
+a new camera pose position described in language while
+grounding on a sparse set of contextual observations. As
+summarized in Table 1, existing resources typically cover
+only a subset of these requirements. Many prior situated
+question answering datasets assume access to a complete 3D
+scene representation, rather than sparse multi-view obser-
+vations. Meanwhile, recent multi-image benchmarks may
+include viewpoint language as cues embedded in questions,
+but often do not provide an explicit, detailed target-view
+pose description paired with camera pose information.
+To fill this gap, we curate CAMCUE-DATA with 27,668
+training QA pairs and 508 test QA pairs. Each example
+pairs sparse multi-view observations and their camera poses
+with a diverse, detailed natural-language description of a
+novel target viewpoint. The test set further includes expert-
+annotated viewpoint descriptions, allowing us to assess ro-
+bustness and performance in realistic interactive scenarios.
+Example data samples are provided in Appendix A.2.
+Data Collection & Preprocessing.
+We derive training
+and test QA pairs from the ScanNet training and test splits,
+respectively. For each scene, we form a multi-view sample
+by choosing one target view and selecting four contextual
+views. We first filter candidate contextual views by a mod-
+erate translation range to the target and require sufficient
+viewpoint change so that contextual views are not near-
+duplicates. We then select four contextual views to ensure
+the target view is well supported by the contextual observa-
+tions, using depth-based visibility checks to verify that the
+contextual views jointly cover what would be seen from the
+target viewpoint. We keep only target-context groups that
+pass this visibility criterion and discard redundant groups
+that are too similar in pose. Qualitative examples are shown
+in Figure 4, and details are deferred to the Appendix A.1.
+Target Pose Descriptions.
+Each data sample includes a
+target pose description that specifies the novel camera loca-
+tion and orientation. We generate these descriptions with
+GPT-4.1 (Achiam et al., 2023) and diversify the phrasing to
+improve robustness. We use three description styles: layout-
+anchored descriptions place the camera with respect to the
+overall room layout; landmark-relative descriptions spec-
+ify the viewpoint via relative relations among objects; and
+object-centric descriptions center the viewpoint around a
+dominant furniture landmark. To evaluate whether models
+generalize to human-written pose descriptions, we addi-
+tionally collect expert-written descriptions for the test split.
+Annotators are instructed to describe the camera position
+and viewing direction of the target image in clear natural
+English and to avoid ambiguous phrasing or references so
+that the described viewpoint is uniquely identifiable.
+Question Construction.
+Given the contextual views, tar-
+get pose description, and target view, we curate QA pairs
+that require answering from the described target perspec-
+tive. Following prior spatial reasoning benchmarks, we
+organize questions into five types: Attribute, Count, Dis-
+tance Order, Relative Relation, and Visibility. Attribute
+queries an object’s attribute; Count queries the number of
+instances; Distance Order compares which object is closer
+to the camera; Relative Relation queries relative spatial rela-
+tions between objects; Visibility queries whether an object
+is visible from the target viewpoint; see Appendix A.2 for
+concrete examples. The distribution across training and test
+splits is shown in Figure 3. We generate QA pairs with GPT-
+4.1, and manually review the test split to ensure questions
+are unambiguous and answers are correct.
+4. Experiments
+4.1. Experimental Setup
+Dataset and Benchmarks.
+We evaluate CAMCUE on
+perspective-shift reasoning using CAMCUE-DATA, and gen-
+5
+
+
+===== PAGE 6 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Table 2. Main results on perspective-shift reasoning.
+Model
+Overall (Avg.)
+Attribute
+Visibility
+Distance Order
+Relative Relation
+Count
+Qwen2.5-VL-7B
+71.06
+93.00
+84.31
+71.43
+59.73
+55.29
++ MindJourney
+72.83
+92.00
+84.31
+80.22
+65.75
+50.59
++ CamCue
+80.12
+92.00
+88.24
+83.52
+78.52
+60.00
+Qwen2.5-VL-3B
+67.52
+97.00
+80.39
+62.64
+57.05
+50.59
++ MindJourney
+70.28
+95.00
+76.47
+69.23
+64.64
+50.59
++ CamCue
+75.92
+94.12
+82.35
+80.43
+67.97
+63.53
+InternVL-2.5-8B
+68.11
+89.00
+76.47
+80.22
+58.56
+52.94
++ MindJourney
+74.21
+93.00
+82.35
+85.71
+64.64
+55.29
++ CamCue
+77.36
+94.00
+80.39
+89.01
+72.38
+54.12
+eral multi-image spatial reasoning benchmarks, including
+MMSI (Yang et al., 2025b) and MindCube (Yin et al., 2025),
+which do not provide explicit camera pose inputs. This al-
+lows us to verify that CAMCUE yields substantial gains on
+perspective-taking, while preserving general multi-image
+reasoning performance.
+Backbones and baselines.
+We deploy CAMCUE on top
+of QwenVL2.5-3B, QwenVL2.5-7B (Bai et al., 2025), and
+InternVL2.5-8B (Chen et al., 2024c). We compare CAM-
+CUE with the backbone-only setting and also MindJour-
+ney (Yang et al., 2025c), a competitive test-time scaling
+method that calls an external world model to generate aux-
+iliary observations and feeds them back to the MLLM for
+answering. Although MindJourney is primarily formulated
+for a single-reference-view setting, it uses Stable Virtual
+Camera (SVC) (Zhou et al., 2025) as the underlying world
+model, which can also condition on multiple contextual im-
+ages with known camera poses to synthesize an imagined
+observation set at inference time. We therefore adapt Mind-
+Journey to our multi-view setting by providing the full set
+of contextual views and poses to SVC.
+Training setup.
+We use mixed-data training by interleav-
+ing MindCube training examples without camera poses,
+mixing one MindCube example for every five CAMCUE
+training data. For such samples we omit pose loss and opti-
+mize only Llang, enabling the model to fall back to standard
+multi-image inference while still leveraging pose when pro-
+vided. We fine-tune all backbones using LoRA with a cosine
+learning-rate scheduler and a batch size of 8. We train the
+pose-related modules with a learning rate of 5 × 10−5 and
+the LoRA parameters with a learning rate of 1×10−5, using
+a warmup ratio of 0.03. More details are in the Appendix B.
+4.2. Experiment Results
+Main results on perspective-shift reasoning.
+Table 2
+reports accuracy on CAMCUE-DATA. CAMCUE yields con-
+Table 3. Results on MindCube Tiny and MMSI with the Qwen2.5-
+VL-7B backbone. Pose-Only denotes CamCue pose-only inference
+without imagined image feedback.
+Model
+MindCube Tiny Accuracy (%)
+Overall
+Rotation
+Among
+Around
+Base
+29.3
+38.7
+29.5
+21.4
+Pose-Only
+47.43
+75.00
+31.67
+63.20
+Model
+MMSI Accuracy (%)
+Overall
+Position Attribute Motion
+MSR
+Base
+25.9
+25.9
+21.5
+30.0
+25.8
+Pose-Only
+28.8
+29.9
+29.2
+27.3
+26.8
+sistent gains across all three backbones, with the largest
+improvements on viewpoint-sensitive categories such as vis-
+ibility, distance order, and relative relation. Notably, Mind-
+Journey improves over backbone-only inference, confirming
+the benefit of inference-time imagination for perspective rea-
+soning. However, it remains substantially below CAMCUE.
+A key reason is that MindJourney typically explores a set
+of navigational rollouts (e.g., turn left/right, move forward)
+to collect additional synthesized observations, rather than
+grounding the natural-language viewpoint description to a
+single explicit target viewpoint. As a result, the explored
+views may be informative but are not guaranteed to coin-
+cide with the queried perspective, motivating our explicit
+viewpoint grounding and pose-conditioned target-view syn-
+thesis.
+Results on General Multi-image Benchmarks
+We fur-
+ther evaluate general multi-image spatial reasoning on
+MMSI and the MindCube Tiny benchmark. Since these
+benchmarks do not provide camera pose information, we
+evaluate CAMCUE without target-view synthesis, where the
+model answers directly from the given contextual images.
+As shown in Table 3, CAMCUE improves overall accuracy
+on both benchmarks, indicating that our training does not
+6
+
+
+===== PAGE 7 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Table 4. Camera pose estimation accuracy under different view-
+point description sources. Values are the percentage of samples
+with rotation/translation error within each threshold.
+Viewpoint Description
+Rotation Acc. ↑(%)
+Translation Acc. ↑(%)
+R@5◦
+R@10◦
+R@20◦
+t@0.1
+t@0.3
+t@0.5
+Synthetic
+19.3
+35.4
+91.5
+12.0
+62.4
+92.9
+Human Description
+30.1
+56.9
+100.0
+19.5
+74.8
+95.1
+Table 5. Ablation study on Qwen2.5-VL-7B backbone. (1) fine-
+tuning with QA supervision only (no pose). (2) pose-only inference
+without imagined image feedback. (3) full pipeline with imagined
+image feedback. (4) oracle upper bound by replacing the imagined
+image with the GT target view.
+Method
+Avg.
+Attr.
+Vis.
+Dist.
+Rel.
+Cnt.
+(0)
+Base
+71.06
+93.00
+84.31
+71.43
+59.73
+55.29
+(1)
+QA-FT
+71.26
+92.00
+78.43
+67.03
+65.75
+58.82
+(2)
+Pose-Only
+72.44
+90.00
+80.39
+80.22
+65.19
+54.12
+(3)
+CamCue
+80.12
+92.00
+88.24
+83.52
+78.52
+60.00
+(4)
+CamCue (GT)
+87.20
+98.00
+98.04
+90.11
+83.43
+72.94
+compromise general multi-image reasoning and can transfer
+beyond pose-supervised settings.
+Camera Pose Prediction
+Table 4 reports target pose pre-
+diction accuracy when the desired viewpoint is specified by
+a natural-language description. We consider two description
+sources: GPT-4.1 generated descriptions and human ex-
+pert annotations. Following standard pose-evaluation prac-
+tice, we report the fraction of samples whose rotation and
+translation errors fall within each threshold. Overall, CAM-
+CUE achieves high target-pose prediction accuracy from
+natural language description. Under synthetic descriptions,
+91.5% of examples have a camera rotation error below 20◦,
+and 92.9% have a translation error below 0.5; with human-
+written descriptions, these fractions increase to 100.0% and
+95.1%, respectively. We attribute this gap to the fact that
+expert annotations are typically more detailed and less am-
+biguous than LLM-generated descriptions, providing clearer
+cues about the camera position. To qualitatively verify ge-
+ometric fidelity, Figure 4 visualizes the predicted pose by
+rendering the scene from the estimated camera and com-
+paring it against the ground-truth target view. The close
+alignment in both viewpoint and visible content indicates
+that CAMCUE reliably grounds language to precise camera
+geometry, providing a dependable basis for downstream
+perspective-shift reasoning.
+4.3. Ablations and Analysis
+Ablation studies.
+Table 5 analyzes Qwen2.5-VL-7B to
+disentangle the effects of pose supervision and imagined-
+view feedback. QA-FT (fine-tuning with QA supervision
+only) yields only marginal changes from the base model,
+indicating that answer-only supervision does not reliably
+Table 6. Comparison with a pose-free image-generation baseline.
+All methods use the same 7B MLLM backbone for answering
+(Qwen2.5-VL-7B). Nano Banana / Nano Banana Pro synthesize
+the target view from multi-view context images and a viewpoint
+description, and the generated image is fed back to the backbone
+for QA.
+Method
+Avg.
+Attr.
+Vis.
+Dist.
+Rel.
+Cnt.
+Base
+71.06
+93.00
+84.31
+71.43
+59.73
+55.29
+Nano Banana
+66.73
+82.00
+76.47
+75.82
+58.56
+50.59
+Nano Banana Pro 76.77
+95.00
+94.12
+82.42
+69.61
+54.12
+CamCue
+80.12
+92.00
+88.24
+83.52
+78.52
+60.00
+teach perspective shifting. In contrast, Pose only model
+(training with pose supervision but no target-view synthesis
+at inference) already improves over QA-FT, showing that
+learning to predict and use camera pose provides a meaning-
+ful geometric prior even without imagined images. Building
+on this, CAMCUE further introduces target-view synthesis
+and image feedback, leading to a substantial jump across
+all categories, which confirms the importance of convert-
+ing viewpoint grounding into concrete visual evidence for
+answering. Finally, CAMCUE (GT) replaces the imagined
+view with the ground-truth target view and serves as an
+oracle upper bound, suggesting additional headroom from
+improved novel-view synthesis quality.
+Faithful Viewpoint Imagination
+Camera pose is an ef-
+fective intermediate variable for connecting multi-view con-
+textual understanding with target-view inference. Predicting
+the target camera pose encourages the model to represent
+the viewpoint description in an explicit geometric form,
+which helps relate observations across contextual views un-
+der viewpoint change. This geometric anchor can then be
+used to guide a 3D-aware imagination step, where the syn-
+thesized target view is constrained by the predicted camera
+pose and is therefore better aligned with the ground-truth
+physical scene than pose-free generation that must infer ge-
+ometry and viewpoint implicitly from images and language.
+This distinction is critical when the imagined observation is
+used as evidence for answering. The generated target view
+must remain faithful and stick to the underlying physical
+environment, otherwise spurious details can mislead down-
+stream reasoning. Despite being a strong generator, Nano
+Banana (Team et al., 2023) frequently hallucinates or drifts
+in layout, viewpoint, and object configurations, and can even
+perform worse than directly answering from the contextual
+views. As shown in Table 6, Nano Banana underperforms
+the Base setting by 4.33%. A stronger variant, Nano Banana
+Pro, produces more faithful images on average and yields
+some improvement, but its pose-free generations are still
+not reliably grounded and remain unstable in challenging
+cases. In contrast, CAMCUE uses the predicted camera pose
+as an explicit geometric anchor to constrain imagination,
+7
+
+
+===== PAGE 8 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Contextual  Images 
+Ground Truth
+CamCue
+Nano Banana Pro
+Figure 4. Qualitative comparison of imagined target views.
+Table 7. Inference-time cost per example.
+Method
+CamCue
+Nano Banana
+MindJourney
+Time (s)
+1.453
+35.1
+256.6
+leading to a substantial gain and more dependable evidence
+for perspective-shift reasoning.
+These failures are visible in Fig. 4: although Nano Ba-
+nana often preserves the coarse semantics of the scene, its
+pose-free generations can drift from the ground-truth en-
+vironment, such as altering global layout and background
+structures (Example 1–2), or keeping the scene content but
+misestimating the viewing direction and even changing ob-
+ject configuration (Example 3–4).
+Efficiency
+Table 7 compares inference-time cost per ex-
+ample. CAMCUE remains efficient in practice, it predicts
+the target pose in a single forward pass, and synthesizes the
+imagined observation with a feed-forward image decoder,
+enabling fast end-to-end feedback for interactive use. In
+contrast, MindJourney shows substantially higher latency
+because it performs test-time scaling via iterative search
+over multiple candidate rollouts and repeatedly queries the
+world model and VLM to aggregate evidence.
+5. Limitations
+Our study focuses on perspective-shift question answering,
+which provides a clean setting to evaluate viewpoint ground-
+ing, but does not directly cover embodied planning or action.
+In the bigger picture, pose-grounded viewpoint imagination
+could serve as an additional evidence source in embodied
+pipelines, where language-specified viewpoints guide what
+to seek or simulate beyond the observed context. However,
+when the synthesized imagination is noisy or visually am-
+biguous, it may hurt reasoning, especially for small objects
+or fine-grained spatial relations. Developing a reliability-
+aware strategy that estimates when the imagined view is
+informative and selectively uses it. Otherwise, the model
+should fall back to the original method over the original ob-
+servations. This is an important direction for future work.
+6. Conclusion
+We propose CAMCUE, a pose-aware framework that equips
+MLLMs with explicit viewpoint grounding for multi-image
+spatial reasoning. CAMCUE predicts the target camera pose
+from multi-view observations and a natural language view-
+point description, and uses this pose as an anchor to support
+target-view inference. Building on the predicted camera
+pose, our pipeline can optionally synthesize a target-view
+observation as additional evidence, providing a more faithful
+form of viewpoint imagination for downstream reasoning
+tasks. Across experiments, CAMCUE consistently improves
+overall performance over strong baselines, while remaining
+efficient in practice, substantially reducing inference-time
+cost compared to prior methods that rely on iterative test-
+time search.
+8
+
+
+===== PAGE 9 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+References
+Achiam, J., Adler, S., Agarwal, S., Ahmad, L., Akkaya, I.,
+Aleman, F. L., Almeida, D., Altenschmidt, J., Altman, S.,
+Anadkat, S., et al. Gpt-4 technical report. arXiv preprint
+arXiv:2303.08774, 2023.
+Azuma, D., Miyanishi, T., Kurita, S., and Kawanabe, M.
+Scanqa: 3d question answering for spatial scene under-
+standing. In proceedings of the IEEE/CVF conference
+on computer vision and pattern recognition, pp. 19129–
+19139, 2022.
+Bai, S., Chen, K., Liu, X., Wang, J., Ge, W., Song, S., Dang,
+K., Wang, P., Wang, S., Tang, J., et al. Qwen2. 5-vl
+technical report. arXiv preprint arXiv:2502.13923, 2025.
+Cao, M., Li, X., Liu, X., Reid, I., and Liang, X. Spatial-
+dreamer: Incentivizing spatial reasoning via active mental
+imagery. arXiv preprint arXiv:2512.07733, 2025.
+Charatan, D., Li, S. L., Tagliasacchi, A., and Sitzmann,
+V. pixelsplat: 3d gaussian splats from image pairs for
+scalable generalizable 3d reconstruction. In Proceedings
+of the IEEE/CVF conference on computer vision and
+pattern recognition, pp. 19457–19467, 2024.
+Chen, J., Huang, D., Ye, W., Ouyang, W., and He, T. Where
+am i and what will i see: An auto-regressive model for
+spatial localization and view prediction. In The Thirteenth
+International Conference on Learning Representations,
+2024a.
+Chen, Y., Xu, H., Zheng, C., Zhuang, B., Pollefeys, M.,
+Geiger, A., Cham, T.-J., and Cai, J. Mvsplat: Efficient
+3d gaussian splatting from sparse multi-view images. In
+European Conference on Computer Vision, pp. 370–386.
+Springer, 2024b.
+Chen, Z., Wang, W., Cao, Y., Liu, Y., Gao, Z., Cui, E.,
+Zhu, J., Ye, S., Tian, H., Liu, Z., et al. Expanding per-
+formance boundaries of open-source multimodal models
+with model, data, and test-time scaling. arXiv preprint
+arXiv:2412.05271, 2024c.
+Gao, R., Holynski, A., Henzler, P., Brussee, A., Martin-
+Brualla, R., Srinivasan, P., Barron, J. T., and Poole, B.
+Cat3d: Create anything in 3d with multi-view diffusion
+models. arXiv preprint arXiv:2405.10314, 2024.
+Gholami, M., Rezaei, A., Weimin, Z., Mao, S., Zhou, S.,
+Zhang, Y., and Akbari, M. Spatial reasoning with vision-
+language models in ego-centric multi-view scenes. arXiv
+preprint arXiv:2509.06266, 2025.
+Jiang, H., Tan, H., Wang, P., Jin, H., Zhao, Y., Bi, S., Zhang,
+K., Luan, F., Sunkavalli, K., Huang, Q., et al. Rayzer:
+A self-supervised large view synthesis model.
+arXiv
+preprint arXiv:2505.00702, 2025.
+Jin, H., Jiang, H., Tan, H., Zhang, K., Bi, S., Zhang, T.,
+Luan, F., Snavely, N., and Xu, Z. Lvsm: A large view
+synthesis model with minimal 3d inductive bias. arXiv
+preprint arXiv:2410.17242, 2024.
+Lee, P. Y., Je, J., Park, C., Uy, M. A., Guibas, L., and
+Sung, M. Perspective-aware reasoning in vision-language
+models via mental imagery simulation. arXiv preprint
+arXiv:2504.17207, 2025.
+Li, D., Li, H., Wang, Z., Yan, Y., Zhang, H., Chen, S., Hou,
+G., Jiang, S., Zhang, W., Shen, Y., Lu, W., and Zhuang,
+Y. Viewspatial-bench: Evaluating multi-perspective spa-
+tial localization in vision-language models, 2025. URL
+https://arxiv.org/abs/2505.21500.
+Liao, K., Wu, S., Wu, Z., Jin, L., Wang, C., Wang, Y., Wang,
+F., Li, W., and Loy, C. C. Thinking with camera: A uni-
+fied multimodal model for camera-centric understanding
+and generation. arXiv preprint arXiv:2510.08673, 2025.
+Liu,
+W.,
+Xue,
+Q.,
+Wang,
+H.,
+Yin,
+X.,
+Yang,
+B.,
+and Gao,
+W.
+Spatial reasoning in multi-
+modal large language models:
+A survey of tasks,
+benchmarks and methods.
+ArXiv, abs/2511.15722,
+2025.
+URL https://api.semanticscholar.
+org/CorpusID:283109806.
+Ma, X., Yong, S., Zheng, Z., Li, Q., Liang, Y., Zhu, S.-C.,
+and Huang, S. Sqa3d: Situated question answering in
+3d scenes, 2023. URL https://arxiv.org/abs/
+2210.07474.
+Meilinger, T., Berthoz, A., and Wiener, J. M. The integration
+of spatial information across different viewpoints. Mem-
+ory & Cognition, 39(6):1042–1054, 2011. ISSN 1532-
+5946. doi: 10.3758/s13421-011-0088-x. URL https:
+//doi.org/10.3758/s13421-011-0088-x.
+Ray, A., Duan, J., Brown, E., Tan, R., Bashkirova, D., Hen-
+drix, R., Ehsani, K., Kembhavi, A., Plummer, B. A.,
+Krishna, R., et al. Sat: Dynamic spatial aptitude train-
+ing for multimodal language models.
+arXiv preprint
+arXiv:2412.07755, 2024.
+Team, G., Anil, R., Borgeaud, S., Alayrac, J.-B., Yu, J., Sori-
+cut, R., Schalkwyk, J., Dai, A. M., Hauth, A., Millican,
+K., et al. Gemini: a family of highly capable multimodal
+models. arXiv preprint arXiv:2312.11805, 2023.
+Wang, F., Yu, S., Wu, J., Tang, J., Zhang, H., and Sun, Q. 3d
+question answering via only 2d vision-language models.
+arXiv preprint arXiv:2505.22143, 2025.
+Wang, R. Theories of spatial representations and reference
+frames: What can configuration errors tell us?
+Psy-
+chonomic bulletin & review, 19:575–87, 05 2012. doi:
+10.3758/s13423-012-0258-2.
+9
+
+
+===== PAGE 10 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Wu, C., Li, J., Zhou, J., Lin, J., Gao, K., Yan, K., Yin, S.-m.,
+Bai, S., Xu, X., Chen, Y., et al. Qwen-image technical
+report. arXiv preprint arXiv:2508.02324, 2025.
+Wu, R., Mildenhall, B., Henzler, P., Park, K., Gao, R.,
+Watson, D., Srinivasan, P. P., Verbin, D., Barron, J. T.,
+Poole, B., et al. Reconfusion: 3d reconstruction with
+diffusion priors. In Proceedings of the IEEE/CVF con-
+ference on computer vision and pattern recognition, pp.
+21551–21561, 2024.
+Xu, P., Wang, S., Zhu, Y., Li, J., and Zhang, Y. Spatialbench:
+Benchmarking multimodal large language models for
+spatial cognition. arXiv preprint arXiv:2511.21471, 2025.
+Yang, J., Yang, S., Gupta, A. W., Han, R., Fei-Fei, L., and
+Xie, S. Thinking in space: How multimodal large lan-
+guage models see, remember, and recall spaces. In Pro-
+ceedings of the Computer Vision and Pattern Recognition
+Conference, pp. 10632–10643, 2025a.
+Yang, S., Xu, R., Xie, Y., Yang, S., Li, M., Lin, J., Zhu,
+C., Chen, X., Duan, H., Yue, X., et al. Mmsi-bench: A
+benchmark for multi-image spatial intelligence. arXiv
+preprint arXiv:2505.23764, 2025b.
+Yang, Y., Liu, J., Zhang, Z., Zhou, S., Tan, R., Yang, J.,
+Du, Y., and Gan, C. Mindjourney: Test-time scaling
+with world models for spatial reasoning. arXiv preprint
+arXiv:2507.12508, 2025c.
+Yeh, C.-H., Wang, C., Tong, S., Cheng, T.-Y., Wang,
+R., Chu, T., Zhai, Y., Chen, Y., Gao, S., and Ma,
+Y. Seeing from another perspective: Evaluating multi-
+view understanding in mllms. ArXiv, abs/2504.15280,
+2025.
+URL https://api.semanticscholar.
+org/CorpusID:277955366.
+Yin, B., Wang, Q., Zhang, P., Zhang, J., Wang, K., Wang,
+Z., Zhang, J., Chandrasegaran, K., Liu, H., Krishna, R.,
+et al. Spatial mental modeling from limited views. In
+Structural Priors for Vision Workshop at ICCV’25, 2025.
+Yu, A., Ye, V., Tancik, M., and Kanazawa, A. pixelnerf:
+Neural radiance fields from one or few images. In Pro-
+ceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, pp. 4578–4587, 2021.
+Yu, S., Chen, Y., Ju, H., Jia, L., Zhang, F., Huang, S., Wu,
+Y., Cui, R., Ran, B., Zhang, Z., Zheng, Z., Zhang, Z.,
+Wang, Y., Song, L., Wang, L., Li, Y., Shan, Y., and Lu,
+H. How far are vlms from visual spatial intelligence? a
+benchmark-driven perspective. ArXiv, abs/2509.18905,
+2025.
+URL https://api.semanticscholar.
+org/CorpusID:281496332.
+Zhang, W., Huang, Y., Xu, Y., Huang, J., Zhi, H., Ren,
+S., Xu, W., and Zhang, J. Why do mllms struggle with
+spatial understanding? a systematic analysis from data
+to architecture, 2025. URL https://arxiv.org/
+abs/2509.02359.
+Zhao, R., Zhang, Z., Xu, J., Chang, J., Chen, D., Li, L., Sun,
+W., and Wei, Z. Spacemind: Camera-guided modality
+fusion for spatial reasoning in vision-language models.
+arXiv preprint arXiv:2511.23075, 2025.
+Zhou, J., Gao, H., Voleti, V., Vasishta, A., Yao, C.-H., Boss,
+M., Torr, P., Rupprecht, C., and Jampani, V. Stable virtual
+camera: Generative view synthesis with diffusion models.
+arXiv preprint arXiv:2503.14489, 2025.
+10
+
+
+===== PAGE 11 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Appendix
+A. Data Curation
+A.1. View Selection Details
+Algorithm 1 Multi-view group selection with depth-based visibility.
+1: G ←∅
+2: for each target view t do
+3:
+C ←{c ̸= t | PoseFilter(t, c)}
+4:
+if |C| < 4 then
+5:
+continue
+6:
+end if
+7:
+P ←TargetSamples(t)
+8:
+S ←∅; M ←∅
+9:
+for r = 1 to 4 do
+10:
+Choose c⋆∈C \ S maximizing |Vis(P, t, c) \ M|
+11:
+S ←S ∪{c⋆}; M ←M ∪Vis(P, t, c⋆)
+12:
+end for
+13:
+if |M|/|P| < γ then
+14:
+continue
+15:
+end if
+16:
+if Redundant(t, S, G) then
+17:
+continue
+18:
+end if
+19:
+G ←G ∪{(t, S)}
+20: end for
+21: return G
+Algorithm 2 Depth-based visibility test used in Vis(P, t, c).
+1: Procedure Vis(P, t, c)
+2: V ←∅
+3: for each sample p ∈P do
+4:
+Back-project p in target view using (Dt, K, Ct) to obtain a 3D point X
+5:
+Project X into context view c to get (u, v, ˆz)
+6:
+if (u, v) is in bounds and ˆz ≤Dc(u, v) + ϵ then
+7:
+V ←V ∪{p}
+8:
+end if
+9: end for
+10: return V
+Parameters.
+For candidate context filtering, we keep frames within a moderate translation range to the target, d ∈(0.4, 2.5)
+meters, and avoid near-duplicate views using a distinctness heuristic: d > 0.6 m, or ∆θ > 15◦. We then greedily select 4
+context views to maximize depth-based visibility coverage (Algorithm 2), and keep a target–context group only if the overall
+coverage satisfies |M|/|P| ≥γ with γ = 0.80. Finally, we remove redundant groups by discarding a candidate target view
+if it is too similar to an existing one, using a translation threshold τt = 0.5 m and a rotation threshold τθ = 45◦.
+A.2. Data Samples
+Figure 5 shows three representative examples from CAMCUE-DATA. Each datapoint consists of four contextual images, a
+natural-language description specifying a target viewpoint, the target-view image, and QA pairs that must be answered from
+the described target perspective.
+11
+
+
+===== PAGE 12 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Contextual  Images 
+Target View
+Figure 5. Data Samples from CamCue
+Example 1 (Kitchen scene).
+Target-view description: The camera is to the right of the stove and counter, near the
+corner where the counter meets the wall. It is facing the wall with windows, with the stove and counter on the left side of the
+view and the heater on the right side of the view.
+Count: How many windows are visible in this image?
+Options: (A) 1
+(B) 2
+(C) 3
+(D) 4.
+Answer: (B).
+Visibility: Can you see the fire extinguisher from this viewpoint?
+Options: (A) Yes
+(B) No.
+Answer: (A).
+Example 2 (Auditorium).
+Target-view description: The camera is to the right of the rows of auditorium chairs, close to
+the wall with the handrail. It is aimed toward the wall with the handrail and door, with the chairs on the left side of the view
+and the wall on the right side of the view.
+Relative relation: Where is the handrail located relative to the seats in this image?
+Options: (A) Behind
+(B) In front of
+(C) Left of
+(D) Right of.
+Answer: (A).
+Attribute: What is the most likely material of the handrail visible on the wall?
+Options: (A) Wood
+(B) Metal
+(C) Plastic
+(D) Glass.
+Answer: (A).
+Example 3 (Gym).
+Target-view description: The camera is placed to the right of the treadmills, near where the mat
+meets the wooden floor. It is facing toward the dumbbell rack on the left side of the view and the curved wall on the right
+side of the view.
+Distance order: Which is closer to you, the treadmill or the dumbbell rack?
+Options: (A) The treadmill
+(B) The dumbbell rack.
+Answer: (A).
+12
+
+
+===== PAGE 13 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+B. Training Hyperparameters
+Table 8. Training hyperparameters.
+Hyperparameter
+Qwen2.5-VL (3B/7B)
+InternVL2.5 (8B)
+#GPUs
+4
+4
+Per-device batch size
+2
+2
+Effective batch size
+8
+8
+Training steps
+9000
+9000
+Scheduler
+Cosine
+Cosine
+Warmup ratio
+0.03
+0.03
+Geometry LR
+5 × 10−5
+5 × 10−5
+Language (LoRA) LR
+1 × 10−5
+1 × 10−5
+Table 9. Model adaptation and loss weights.
+Setting
+Qwen2.5-VL (3B/7B)
+InternVL2.5 (8B)
+LoRA rank r
+16
+16
+LoRA α
+64
+64
+LoRA dropout
+0.10
+0.10
+LoRA target modules
+{q,k,v,o proj, gate/up/down proj}
+Pose loss weight λpose
+0.2
+0.2
+Language loss weight λlang
+1.0
+1.0
+Tables 8–9 summarize the key training hyperparameters used in our experiments. We fine-tune the language backbone with
+LoRA while jointly training the pose-related modules. The overall objective is a weighted sum of language modeling loss
+and pose regression loss with λlang = 1.0 and λpose = 0.2.
+C. Additional qualitative examples and failure cases
+In Figure 6, we compare the ground-truth target view with synthesized views from CAMCUE and Nano Banana. CAMCUE
+generally preserves the scene layout but may produce blurred renderings in some cases. In contrast, Nano Banana
+often generates visually sharp images but may exhibit inaccurate viewpoint estimation, and can introduce changes to the
+environment (e.g., modifying object placements or adding/removing scene elements), which breaks geometric and physical
+consistency for spatial reasoning.
+13
+
+
+===== PAGE 14 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Ground Truth
+CamCue
+Nano Banana
+Figure 6. Additional qualitative examples and failure cases.
+14

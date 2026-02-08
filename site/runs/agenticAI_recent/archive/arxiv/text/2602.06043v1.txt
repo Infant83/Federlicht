@@ -1,0 +1,2421 @@
+
+
+===== PAGE 1 =====
+Shared LoRA Subspaces for almost Strict Continual Learning
+Prakhar Kaushik*†, Ankit Vaidya*, Shravan Chaudhari, Rama Chellappa, Alan Yuille
+Department of Computer Science
+Johns Hopkins University
+Baltimore, MD, USA
+{pkaushi1,schaud35,avaidya7,rchella4,ayuille1}@jhu.edu
+https://toshi2k2.github.io/share/
+Abstract
+Adapting large pretrained models to new tasks efficiently
+and continually is crucial for real-world deployment but re-
+mains challenging due to catastrophic forgetting and the
+high cost of retraining. While parameter-efficient tuning
+methods like low rank adaptation (LoRA) reduce compu-
+tational demands, they lack mechanisms for strict contin-
+ual learning and knowledge integration, without relying on
+data replay, or multiple adapters.
+We propose Share, a
+novel approach to parameter efficient continual finetuning
+that learns and dynamically updates a single, shared low-
+rank subspace, enabling seamless adaptation across multi-
+ple tasks and modalities. Share constructs a foundational
+subspace that extracts core knowledge from past tasks and
+incrementally integrates new information by identifying es-
+sential subspace directions. Knowledge from each new task
+is incorporated into this evolving subspace, facilitating for-
+ward knowledge transfer, while minimizing catastrophic in-
+terference. This approach achieves up to 100× parameter
+reduction and 281× memory savings over traditional LoRA
+methods, maintaining performance comparable to jointly
+trained models. A single Share model can replace hundreds
+of task-specific LoRA adapters, supporting scalable, asyn-
+chronous continual learning.
+Experiments across image
+classification, natural language understanding, 3D pose es-
+timation, and text-to-image generation validate its effective-
+ness, making Share a practical and scalable solution for
+lifelong learning in large-scale AI systems.
+1. Introduction
+Adapting large pretrained models, like LLMs, VLMs and
+Diffusion models, for continual learning presents signif-
+*equal contribution
+†Corresponding author: prakhark2@gmail.com
+Figure 1. Evidence of a Shared Foundational Subspace in Con-
+tinual Learning. Linear CKA similarity analysis reveals a univer-
+sal weight subspace (orange) emerging during sequential learning.
+Three independent trajectories (red, green, blue), starting from dif-
+ferent GLUE task subsets, show monotonic convergence to this
+shared subspace, reaching near-perfect alignment (> 0.95) by task
+T = 5. Shaded regions show standard deviation across exper-
+iments. These results demonstrate: (1) the existence of a com-
+mon foundational weight subspace that efficiently encodes cross-
+task knowledge, and (2) our method’s ability to discover it through
+continual adaptation without catastrophic forgetting. This conver-
+gence reveals how low-rank adapters naturally bias models toward
+shared weight structures that generalize across diverse tasks.
+icant challenges, notably catastrophic forgetting and the
+substantial resources required for retraining.
+Traditional
+fine-tuning methods often require retraining all model pa-
+rameters, leading to inefficiencies, especially as model
+sizes increase.
+As these models scale, they require
+more resources and memory, making them inaccessible
+to ordinary researchers and increasing environmental im-
+pact [23]. Parameter-efficient finetuning techniques, such
+as LoRA [10], address some of these issues by introducing
+trainable low-rank matrices into each layer of the model,
+arXiv:2602.06043v1  [cs.LG]  5 Feb 2026
+
+
+===== PAGE 2 =====
+Figure 2. Share. Our continual reparameterization where only principal coefficients ϵt are trained. a. Initialization We initialize the
+principal factors (α0, β0) of our Share model using available LoRA [10] adapters (A, B). b. Continual Adaptation Few top φ ≪k
+factors, shown as α0→1, β0→1, and temporary coefficients ϵ0→1 are fine-tuned when new data is incrementally received. Merging & Fine-
+tuning The factors α0, β0 and temporary factors α0→1, β0→1 are merged using the initialization procedure, and α1, β1, ϵi
+α,β
+∀i ∈[0, 1]
+are analytically recalculated. ϵ1 can then be further fine-tuned to boost performance.
+effectively reducing the number of parameters that need ad-
+justment during finetuning. However, while LoRA reduces
+computational demands, it lacks mechanisms for continual
+learning and knowledge integration, often requiring sepa-
+rate adapters for each task, which can be inefficient and
+hinders cross-task knowledge sharing which improves ro-
+bustness and domain generalization [30, 31].
+Recent
+advancements
+have
+explored
+integrating
+parameter-efficient tuning with continual learning strate-
+gies.
+For instance, methods like O-LoRA [42] propose
+learning new tasks in orthogonal subspaces to mitigate
+forgetting. However, these approaches do not fully leverage
+shared knowledge across tasks, limiting forward (and
+backward) knowledge transfer, as they require training
+individual models, or experts, for new tasks.
+All such
+methods fall short of Strict Continual Learning [13],
+which requires models to learn continually, without data
+replay, additional models, or increase in model size, much
+like humans. Our work tries to remedy this.
+Recently, Universal Weight Subspace Hypothesis [15]
+has proven that neural network weights often converge to
+layerwise, shared subspace across tasks and datasets, which
+can be employed for efficient training, inference and model
+merging. Method like EigenLoRAx [16] have applied this
+concept for very efficient finetuning achieving equal or bet-
+ter performance to LoRA at fraction of the cost. However,
+[16] extract the shared subspace beforehand, and the ques-
+tion of continually improving or learning the shared ”uni-
+versal” subspace is left unanswered. In this work, we show,
+with theoretical analysis, that our simple method, Share, is
+capable of approximating the shared subspace in an almost
+strict continual setup.
+In this paper, we introduce Share, a novel approach to
+Parameter-Efficient Continual Finetuning (PaCT) that
+learns and dynamically updates a shared low-rank sub-
+space, enabling seamless adaptation across multiple tasks
+and modalities. Share constructs a foundational subspace
+that captures core knowledge from past tasks and incre-
+mentally integrates new information by identifying and ex-
+panding essential subspace directions.
+Each new task is
+projected into this evolving subspace, facilitating forward
+knowledge transfer, while older knowledge is analytically
+reprojected to minimize catastrophic interference. Interest-
+ingly, we also observe instances of backward knowledge
+transfer due to presence of this subspace. This approach
+achieves up to 100× parameter reduction and 281× memory
+savings over traditional LoRA methods, maintaining perfor-
+mance comparable to jointly trained models. A single Share
+model can replace hundreds of task-specific LoRA adapters,
+supporting scalable, asynchronous continual learning. Ex-
+periments across image classification, 3D object pose esti-
+mation, natural language understanding, and text-to-image
+generation validate its effectiveness, making Share a practi-
+cal and scalable solution for lifelong learning in large-scale
+AI systems.
+To our knowledge, Share is among the earliest works to
+present a viable solution for Parameter-Efficient Continual
+Finetuning (for almost strict continual learning) applicable
+to diverse and complex models.
+Our main contributions are as follows:
+• We introduce a replay-free, (almost strict) continual
+learning method for large pretrained models that lever-
+ages a shared, low-rank foundational subspace of adapters
+to achieve compute and memory-efficient learning.
+• Share enables continual learning from hybrid streams
+of both data and LoRA adapters, seamlessly merging in-
+
+
+===== PAGE 3 =====
+formation into a single model.
+• Share requires orders of magnitude fewer trainable pa-
+rameters (up to 100× reduction) for finetuningand of-
+fers up to 281× memory savings compared to traditional
+LoRA methods.
+• A single set of continually learned Share principal fac-
+tors can replace hundreds of LoRA adapters, facilitating
+scalable and efficient model deployment.
+• We demonstrate Share’s applicability across various
+models and modalities, including image classification,
+3D object pose estimation, natural language understand-
+ing, commonsense reasoning, math reasoning, and text-
+to-image generative models.
+These contributions position Share as a scalable and
+practical solution for efficient continual learning in large-
+scale AI systems, addressing critical needs in the deploy-
+ment of adaptable machine learning models.
+2. Related Work
+Efficient Replay Free Continual Learning
+While con-
+tinual learning addresses catastrophic forgetting [7], its
+application to large models remains challenging, particu-
+larly under strict constraints that prohibit data replay and
+parameter growth [13].
+Recent methods for large mod-
+els [22, 35, 37, 42, 48] require ever-growing adapter sets
+and primarily operate as mixture-of-experts systems, limit-
+ing their practical utility to specific domains, while also vi-
+olating the conditions of Strict Continual Learning [13],
+which requires no access to previous data, additional mod-
+els, or increase in model size. In contrast, Share enables true
+continual learning across diverse architectures and modali-
+ties without requiring data replay, and with negligible in-
+crease in number of model parameters, almost fulfilling the
+conditions of the strict setup.
+Model Merging
+While recent work has shown promise
+in merging task-specific models [16, 27, 32, 47], these
+approaches either focus on narrow domains, lack contin-
+ual learning capabilities, or require multiple model in-
+stances [52]. Share advances this field by enabling efficient,
+continuous merging of both incoming data and adapters
+while preserving knowledge across tasks.
+Low-Rank Adaptation
+LoRA [10] and its variants [18,
+24] have made model adaptation more efficient but lack
+mechanisms for continual knowledge integration. Current
+scaling solutions either focus on adapter switching [34]
+or batch optimization [45], often at the cost of perfor-
+mance [9, 33].
+Share uniquely addresses these limita-
+tions through its shared foundational subspace approach,
+enabling continuous knowledge accumulation while main-
+taining both efficiency and performance. Notably, Share
+can compress hundreds of adapters into a single set of fac-
+tors through an elegant data and gradient-free process.
+3. Method
+Problem Setting
+We study parameter-efficient continual
+finetuning, where a pretrained model h(W0, x) adapts to a
+sequence of tasks {τ1, τ2, . . . , τt} with minimal parameter
+overhead. At each timestep t, we receive either task-specific
+data St = {(xt
+i, yt
+i)}St
+i=1 or a LoRA adapter ∆Wt = BtAt,
+with no access to past tasks.
+The goal is to continually
+integrate new knowledge while minimizing trainable pa-
+rameters and memory usage, ensuring knowledge retention.
+Here, W0 remains fixed across tasks, while a newly obtained
+(or trained) ∆Wt for task τt is available only at time step t.
+This formulation allows efficient continual adaptation with-
+out catastrophic forgetting or excessive storage costs.
+To this end, our method, Share, maintains an evolving
+low-rank parameter subspace for each layer of the pre-
+trained model. For a new task, we reuse the basis vectors
+spanning the subspace and learn task-specific coefficients
+ϵt instead of storing separate adapters. We focus on a single
+layer to further explain the setup and theoretical analysis.
+3.1. Motivation
+Motivation
+Share is based on the hypothesis that for sim-
+ilar tasks and modalities,
+“LoRA adapters of a pretrained model share a common low-
+rank subspace.”.
+If we can identify the principal basis vectors of this sub-
+space [39], any new adapter can be expressed as a linear
+combination of these basis vectors, reducing the need for
+separate adaptation. We validate this in Appendix Fig. 4,
+where we initialize all LoRA adapters using Share, extract
+the top k principal basis vectors via SVD, and reconstruct
+the original adapters analytically. The reconstruction er-
+ror and performance evaluation confirm that a single set of
+Share principal basis vectors can approximate all adapters
+without significant performance loss.
+Identifying this subspace may initially require a lot of
+adapters, but in real-world scenarios, we often start with
+limited or even a single adapter and progressively integrate
+new ones. Share enables incremental discovery and refine-
+ment of this foundational subspace as more adapters and
+data become available, making it a scalable and adaptive
+solution for continual learning.
+3.2. Share: Continual Shared Subspace Adaptation
+Share maintains two sets of parameters:
+principal ba-
+sis vectors, which remain frozen during finetuning, and
+task-specific coefficients, which are learned. The learning
+process consists of three phases—initialization, continual
+adaptation, and merging & fine-tuning—as illustrated in
+Fig. 2. During initialization, an incomplete low-rank sub-
+space of principal basis vectors is formed. In the continual
+adaptation phase, this subspace is refined as new data or
+LoRA adapters arrive. Finally, in the merging & fine-tuning
+
+
+===== PAGE 4 =====
+phase, newly learned basis vectors are integrated with exist-
+ing ones, updating the principal basis vectors, and optimiz-
+ing task-specific coefficients.
+3.2.1. Step 1 - Initialization
+We initialize the foundational subspace (i.e., principal basis
+vectors) using t ≥1 LoRA adapters, where a larger t pro-
+vides a more representative subspace. Given a frozen pre-
+trained weight matrix W0 ∈Rn×d, LoRA introduces two
+low-rank trainable matrices, B ∈Rn×r and A ∈Rr×d,
+where r is the LoRA rank. The modified forward pass is
+h = W0x + ∆Wx = W0x + BAx. To compute the ba-
+sis vectors of previously seen t tasks, we reshape the LoRA
+matrices as stacked rank-r vectors:
+Bt = [B1, B2, . . . , Bt] ∈Rn×(tr).
+A similar stacked matrix At is calculated for A matrices
+from t tasks. We center the matrices Bt and At and per-
+form SVD on the mean-centered matrices Bt and At re-
+spectively. This gives us principal basis vectors, βt and αt,
+respectively. We repeat this for each layer. Then we select
+the top k basis vectors based on the highest eigenvalues that
+span our reusable shared subspace:
+βt
+[:k] ∈Rn×k, αt
+[:k] ∈Rd×k
+We keep these principal basis vectors frozen during finetun-
+ing, while training only the randomly initialized coefficients
+ϵα, ϵβ ∈Rk×p, where p (pseudo-rank) can be as small as 1.
+This initialization significantly reduces trainable param-
+eters compared to LoRA (e.g., 100× fewer parameters for
+one task in the GLUE [41] experiment, Sec. 4.1), yielding a
+relative savings of 1 −
+k×p
+(n+d)×r. The modified forward pass
+with an initialized Share model is:
+ht = W0x + (βtϵt
+β)(αtϵt
+α)⊤x
+∀x ∈St
+(1)
+Notably, this initialization is data- and gradient-free. If
+no LoRA adapters are available, Share can be initialized by
+training a LoRA adapter on initial data.
+3.2.2. Step 2 - Continual Adaptation
+After initialization, we receive either new task adapters
+∆Wt+1 or ar St+1. If only adapters arrive, we proceed di-
+rectly to merging. For the latter case, we perform efficient
+adaptation by adding new basis vectors while preserving the
+foundational subspace:
+Learning new basis vectors: To learn new basis vectors
+at time t + 1, we initialize φ < k temporary basis vectors
+along with their coefficients as follows:
+βt→t+1 = βt
+[:φ] ∈Rn×φ
+αt→t+1 = αt
+[:φ] ∈Rd×φ
+ϵt→t+1
+β
+, ϵt→t+1
+α
+∼N(0, σ2) ∈Rφ×p
+The modified forward pass becomes:
+h = W0x + (βt→t+1ϵt→t+1
+β
+)(αt→t+1ϵt→t+1
+α
+)⊤x ∀x ∈St
+This temporary expansion requires only φ(n + d + 2p)
+parameters, significantly fewer than LoRA’s r(n + d) pa-
+rameters. Both temporary basis vectors and coefficients are
+optimized before merging.
+3.2.3. Step 3 - Merging and Finetuning
+After continual adaptation, we merge the temporary ba-
+sis vectors with the foundational subspace while preserv-
+ing knowledge from all tasks. Below we show the steps to
+compute (βt+1, ϵt+1
+β
+) which can be identically followed to
+obtain (αt+1, ϵt+1
+α
+).
+Knowledge Integration: First, reconstruct task-specific
+adapters using shared basis vectors ˆBi = βtϵi
+β and then
+stack them along with the new basis vectors learned above:
+ˆBt+1 = [ ˆB1, . . . , ˆBt, βt→t+1ϵt+1
+β
+] ∈Rn×(t+1)p
+Factor Update: Obtain new shared basis vectors βt+1 as
+follows:
+UkΣkV T
+k = SVD( ˆBt+1)[:k]
+(2)
+βt+1 = Uk,
+[ϵ1
+β, · · · , ϵt+1
+β
+] = ΣkV T
+k
+(3)
+Coefficient Update: Using matrix projection and Moore-
+Penrose pseudoinverse of βt+1, we analytically calculate
+task coefficients ϵt+1
+β
+that minimizes the reconstruction er-
+ror ∥ˆBi −βt+1ϵt+1
+β
+∥2
+F as follows:
+ϵi
+β = ((βt+1)T βt+1)−1(βt+1)T ˆBi
+(4)
+When βt+1 has orthonormal columns, this simplifies to
+ϵi
+β = (βt+1)T ˆBi which can optionally be further finetuned
+for enhanced performance if the continual assumptions are
+relaxed to access some data from previous tasks (referred
+as Share-full). This gradient-free process yields a single
+set of Share basis vectors and t sets of lightweight coef-
+ficients. The storage advantage becomes pronounced as t
+grows, since k, p ≪r in practice. A detailed description is
+provided in Appendix Algorithm 1.
+3.2.4. Ablation: How to decide k, p and φ?
+The number of Share basis vectors k is determined by a
+threshold based on the explained variance of the factor data
+matrix D. We find that k with as low as 60% explained
+variance is effective. Other methods [8, 28] using eigen-
+values of D can also determine k. Our analysis shows that
+φ = [1, k/4] is effective for identifying new basis vectors
+in the foundational subspace. A pseudo-rank of p = 1 is ef-
+fective, with higher values yielding minimal additional ben-
+efits. Starting with p = r/3 is advisable. A detailed ablation
+of these selections is provided in the appendix Sec. 8.6.
+
+
+===== PAGE 5 =====
+Method
+Params ↓
+Size (MB) ↓
+Task
+COLA
+MRPC
+RTE
+STSB
+QNLI
+SST-2
+Avg.
+Upper Bound
+125M
+500
+–
+59.91
+89.01
+79.70
+90.90
+92.31
+91.28
+83.90
+LoRA (non-CL)
+1.2M×6
+81.6
+–
+59.56
+86.76
+77.61
+90.81
+92.53
+93.35
+83.43
+Share (CL)
+0.012M
+0.29
+T-0
+56.00
+–
+–
+–
+–
+–
+–
+T-1
+55.54 ↓0.46
+68.38
+–
+–
+–
+–
+–
+T-2
+56.50 ↑0.96
+68.38
+73.29
+–
+–
+–
+–
+T-3
+56.50
+68.38
+73.29
+88.91
+–
+–
+–
+T-4
+56.24 ↓0.26
+68.38
+73.65 ↑0.36
+88.91
+91.84
+–
+–
+T-5
+55.99 ↓0.51
+68.38
+73.29 ↓0.36
+88.91
+91.95 ↑0.11
+93.58
+78.69
+Share-full
+0.012M
+0.29
+–
+59.81
+86.99
+77.62
+90.80
+92.66
+93.39
+83.44
+Table 1. Continual GLUE benchmark results. We report Matthews correlation for CoLA, Pearson correlation for STS-B, and accuracy
+for remaining tasks. Results shown as mean ± std across 3 random seeds. Higher values indicate better performance. Experiments use
+a data-only setup (no initial LoRA).1 ↓denotes forgetting and ↑denotes backward transfer relative to the task’s historical peak. Share
+achieves significant parameter efficiency while maintaining high average performance.
+3.3. Theoretical Analysis
+For brevity, we use a general Dt ∈Rnt×d represents
+the LoRA parameters (Bt or At) for task τt. Let ht =
+h(Dt, x) = W0x + Dtx be an independent empirical risk
+minimizer (ERM) of task τt with weights Dt of rank-nt.
+Proposition 1. (Incremental Subspace Error Bound): Let
+Dt = [D1, D2, . . . , Dt] ∈RNt×d be cumulatively stacked
+weight matrix up to task τt, where Nt = Pt
+i=1 ni. Using
+the Share approximation at task t with k principal basis
+vectors we get ˆDt be the rank-k SVD of Dt such that ˆDt =
+SVD(Dt)[:k]. Then the reconstruction error satisfies:
+∥Dt −ˆDt∥2
+F =
+min(Nt,d)
+X
+i=k+1
+(σ(t)
+i )2,
+where σi’s are the singular values of Dt for the non-
+principal basis vectors. See proof in appendix Sec. 7.1.
+Theorem 2. Let hk ∈Hk : hk = h(ϵV T
+k , x) denote rank-k
+ERM while finetuning for a new task τt+1 with true solution
+h∗∈H : h∗= h(D∗, x) of rank-nt+1. Here ϵ with rank-
+k is trainable and V T
+k are fixed right singular vectors from
+SVD(Dt)[:k]. Given a Lipschitz continuous loss (ℓF (·)) that
+is strong convex over the weight spaces spanned by D and
+V T
+k with some Lipschitz constant (L), we say with probabil-
+ity at least 1 −4δ for some δ > 0,
+∥D∗−Dt+1∥2
+F ≤
+s
+C1nt+1
+St+1
++
+s
+2 ln(1/δ)
+St+1
++ C2
+(5)
+∥D∗−ϵV T
+k ∥2
+F ≤
+s
+C1k
+St+1
++
+s
+2 ln(1/δ)
+St+1
++C
+nt+1
+X
+i=k+1
+σ2
+i +C2
+(6)
+σk+1, . . . , σnt+1 denote singular values of D∗V⊥, where
+V⊥contains right singular vectors of Dt orthogonal to Vk.
+Here, we assuming ∥D∥F ≤B and normalized input data.
+Here St+1 = |St+1| refers to dataset size for task τt+1.
+Theorem 2 gives an upper bound on the Frobenius-norm
+error of ϵV T
+k
+and Dt+1 with respect tosh D∗.
+The re-
+fined bound in Eq. (6) is tighter when task τt+1 lies largely
+in the shared principal subspace, as reflected in the sec-
+ond term involving the truncated singular values of Dt+1.
+In this regime, the first term
+p
+k/St+1 dominates. When
+nt+1 ≥k, the bound in 6 is therefore tighter than that in
+5. Likewise, when nt+1 ≤k, the bound for Dt+1 is tighter
+than that for ϵV T
+k .
+If D∗has substantial mass outside the estimated top-k
+singular directions, the second term in 5 becomes signifi-
+cant, making direct comparison of the two bounds harder.
+Yet in such cases, ϵV T
+k cannot converge well because it is
+confined to the top-k components of ˆD(t), whereas Dt+1
+can still perform substantially better as it can express be-
+yond this subspace. Proof in appendix Sec. 7.1.
+4. Experimental Evaluation
+We evaluate Share across diverse vision and language tasks
+using two rigorous baselines: (1) non-CL LoRA, where
+separate adapters are independently trained per task to avoid
+catastrophic forgetting [13], and (2) Joint LoRA, trained
+simultaneously on all tasks, representing theoretical perfor-
+mance upper bounds. Experiments span multiple architec-
+tures (ViT [5], RoBERTa [25], LLaMA [38], Mistral [11],
+Flux [4]), demonstrating Share’s diverse applicability.
+For direct comparisons with existing parameter-efficient
+continual learning methods, we focus on image classifi-
+cation and 3D pose estimation tasks, where established
+benchmarks exist. We include comparisons with prompt-
+
+
+===== PAGE 6 =====
+based methods that, while avoiding data storage, still re-
+quire maintaining task-specific parameters. Broader com-
+parisons with other PeFT methods are deferred to future
+work due to their limited continual learning capabilities.
+We implement two realistic continual learning scenar-
+ios: (1) data-only, where a single adapter initializes the sys-
+tem followed by streaming data, and (2) hybrid, which inte-
+grates both adapters and data incrementally. These configu-
+rations reflect real-world deployment constraints where his-
+torical data access is limited. For each experiment, we ana-
+lyze parameter count, memory requirements, and temporary
+expansion during adaptation. We also evaluate Share-full,
+which finetunes the coefficients after Step 3 in Sec. 3.2.3 to
+maximize performance.
+Our results demonstrate that Share achieves up to 100×
+parameter reduction and 281× memory savings while main-
+taining performance comparable to upper-bound baselines,
+despite learning in a replay-free continual manner. Sec. 4.5
+shows Share’s capability for efficient continual model
+merging and serving multiple LoRAs at scale, with detailed
+ablations provided in the supplementary material.
+4.1. Continual Natural Language Understanding
+Setup
+We evaluate Share on the Continual GLUE
+benchmark [41] using RoBERTabase [25] across six tasks
+(MRPC, SST-2, CoLA, QNLI, RTE, STS-B) in a chal-
+lenging replay-free continual learning setting. Following
+prior work [18], we exclude time-intensive MNLI and
+QQP tasks. This data-only configuration initializes Share
+with a single LoRA adapter, testing its ability to build
+a
+foundational
+subspace
+from
+minimal
+initialization.
+During adaptation, Share temporarily expands to 450K
+parameters (Sec. 3), still significantly fewer than LoRA.
+Hyperparameters include LoRA rank r = 32, Share factors
+k = 32, pseudo-rank p = 8, and temporary factors φ = 4,
+following Sec. 3.2.4.
+Analysis
+Table
+1
+demonstrates
+Share’s
+exceptional
+efficiency-performance tradeoff.
+The continual learning
+progression shows consistent knowledge retention as
+Share’s foundational subspace evolves.
+Notably, we ob-
+serve evidence of backward knowledge transfer, where
+performance on early tasks (e.g., CoLA improving from
+56.00 to 59.81) benefits from learning subsequent tasks—a
+phenomenon rarely achieved in parameter-efficient con-
+tinual learning.
+This bidirectional knowledge transfer
+emerges from Share’s dynamic subspace refinement, where
+the analytical recalculation of coefficients allows earlier
+tasks to leverage representations discovered through later
+learning.
+Remarkably, Share-full achieves 83.44% average perfor-
+mance with only 0.012M parameters (0.29MB), marginally
+surpassing non-continual LoRA’s 83.43% which requires
+7.2M parameters (81.6MB) across six separate adapters.
+This represents a 100× reduction in trainable parameters
+and an unprecedented 281× memory savings while main-
+taining competitive performance.
+Fig. 5 in appendix illustrates how Share rapidly con-
+verges to an effective foundational subspace. The analytical
+knowledge integration enables more stable learning com-
+pared to LoRA’s potentially noisy gradient-based optimiza-
+tion, explaining Share-full’s slight performance advantage
+despite using orders of magnitude fewer parameters.
+4.2. Continual Image Classification
+Setup
+Following established continual learning bench-
+marks [12, 43, 50], we evaluate Share on four standard
+datasets: CIFAR-100 [20], Food-101 [2], Caltech-101, and
+Flowers-102 [29]. Each dataset is restricted to 100 classes
+and divided into 10 tasks of 10 classes each. We imple-
+ment a data-only setup using ViT-B/16 [5] pretrained on
+ImageNet-21K as the backbone. For Share, we set k = 10,
+p = 1, φ = 2 and finetune for 10 epochs per task.
+We compare against both naive baselines (Full-seq,
+Linear-seq) and state-of-the-art rehearsal-free methods,
+including regularization-based approaches (EWC [17],
+LwF
+[21])
+and
+architecture-based
+methods
+spanning
+prompts (L2P [44], DAP [12], CODA-Prompt [36], Dual-
+Prompt [43]) and adapters (EASE [51]). Following [12],
+we report final accuracy (Acc.) and forgetting rate.
+Analysis Table 2 reveals Share’s superior performance
+across all datasets. On CIFAR-100, Share achieves 94.20%
+accuracy with only 0.10M parameters—matching the up-
+per bound while outperforming the next best method
+(DAP) which requires nearly twice the parameters (0.19M).
+Share also consistently demonstrates the lowest forgetting
+rates, despite using fewer parameters than all competing
+architecture-based methods.
+Notably, Share surpasses prompt-based methods that re-
+quire storing task-specific prompts and adapter approaches
+that accumulate separate adapters per task. While prompt-
+based methods like DualPrompt and CODA-P show com-
+petitive performance on some datasets, they require more
+parameters than Share. This efficiency advantage becomes
+increasingly significant as the number of tasks grows, high-
+lighting Share’s scalability for long task sequences.
+Unlike specialized methods optimized specifically for
+image classification, Share maintains this performance
+while demonstrating versatility across diverse domains—a
+capability not established for existing approaches.
+4.3. Continual 3D Object Pose Estimation
+Setup
+We evaluate Share on continual 3D pose esti-
+mation [6] using Pascal3D+ [46] (natural images of 12
+rigid object categories) and Occluded Pascal3D+ [14, 49]
+1All Share results significantly outperform catastrophic forgetting base-
+lines (p < 0.01, paired t-test).
+
+
+===== PAGE 7 =====
+Method
+# Params
+CIFAR-100
+Food-100
+Caltech-100
+Flowers-100
+Acc.
+Forg.↓
+Acc.
+Forg.↓
+Acc.
+Forg.↓
+Acc.
+Forg.↓
+Upper Bound
+86M
+94.20 ± 0.8
+–
+90.40 ± 1.2
+–
+98.32 ± 0.2
+–
+98.83 ± 0.8
+–
+Full-seq
+86M
+30.39 ± 1.9
+67.53 ± 0.5
+26.90 ± 0.5
+68.97 ± 1.1
+27.04 ± 1.2
+73.12 ± 1.3
+35.64 ± 1.9
+69.21 ± 0.2
+Linear-seq
+0.08M
+68.43 ± 0.1
+21.93 ± 0.1
+60.58 ± 0.3
+23.66 ± 0.3
+76.17 ± 0.1
+25.78 ± 0.4
+78.95 ± 0.6
+17.34 ± 0.6
+EWC
+86M
+59.60 ± 1.3
+23.73 ± 3.0
+55.27 ± 1.1
+26.34 ± 3.4
+57.96 ± 1.8
+29.26 ± 1.6
+69.79 ± 1.8
+24.65 ± 0.1
+LwF
+86M
+68.22 ± 1.6
+25.14 ± 2.4
+60.15 ± 0.7
+24.63 ± 0.8
+63.26 ± 1.4
+33.42 ± 1.9
+71.78 ± 2.0
+15.44 ± 1.5
+L2P
+86M
+83.05 ± 1.0
+2.12 ± 0.1
+70.48 ± 1.4
+4.86 ± 0.5
+89.34 ± 1.8
+6.93 ± 0.4
+94.53 ± 1.2
+7.21 ± 0.2
+DualPrompt
+0.35M
+84.77 ± 0.7
+1.40 ± 0.3
+75.31 ± 0.6
+2.85 ± 0.3
+91.52 ± 0.9
+4.84 ± 0.1
+95.25 ± 0.8
+5.60 ± 0.4
+CODA-P
+0.42M
+86.25 ± 0.7
+1.16 ± 0.2
+77.58 ± 1.2
+2.73 ± 0.5
+91.44 ± 0.3
+4.03 ± 2.1
+97.02 ± 0.4
+4.67 ± 0.3
+DAP
+0.19M
+94.05 ± 1.2
+0.41 ± 0.1
+88.37 ± 0.6
+0.92 ± 0.1
+97.23 ± 0.3
+2.52 ± 0.8
+96.49 ± 0.1
+2.28 ± 1.0
+EASE
+0.28M
+87.81 ± 0.8
+0.52 ± 0.0
+88.82 ± 1.5
+1.41 ± 0.6
+96.54 ± 0.5
+3.48 ± 1.5
+97.53 ± 0.2
+5.40 ± 1.0
+Share
+0.10M
+94.20 ± 0.9
+0.40 ± 0.4
+90.10 ± 1.2
+0.7 ± 0.9
+97.70 ± 1.1
+2.18 ± 2.4
+97.90 ± 0.7
+2.33 ± 1.2
+Table 2. Comprehensive Evaluation of Continual Learning Methods on Image Classification Tasks
+Params refer to trainable parameters per task stream in continual setting with ViT-B/16 backbone (86M parameters). Full-seq, EWC, and LwF fine-tune all
+parameters, while other methods use parameter-efficient strategies. Acc.: final accuracy after learning all tasks; Forg.↓: forgetting rate (lower is better).
+T1: Spongebob Style
+T2: Soviet Propaganda
+T3: Nouveau Art
+T4: Airbrush
+barack obama, poster with the text
+"OBAMA", visual flourishes
+Bob Ross, underwater, cartoon in the
+style
+tourists in Paris, on a poster, text that says
+"LONDON"
+ 
+Elvis Presley, poster, large text "ELVIS"
+Share
+(Continual)
+LoRA
+(Non- Continual)
+Figure 3. Comparing continually finetuned Share results with individual LoRAs on different tasks for text-to-image generation
+(introducing progressive occlusion levels L1-L3).
+This
+task requires estimating 3D rotation parameters (azimuth,
+elevation,
+and in-plane rotation) without explicit 3D
+information.
+Following [6], we measure accuracy using
+the π/6 metric—the percentage of predictions where the
+geodesic distance between predicted and ground truth
+rotation matrices is below π/6 radians.
+Performance is
+assessed across four occlusion levels (L0-L3) using a
+pretrained ResNet50 backbone. Share operates with only
+1M parameters (k = 16, φ = 4) under strictly replay-free
+conditions, compared to baseline methods requiring 25M
+parameters and exemplar storage.
+Analysis Tab. 3 reveals Share’s superior performance across
+all occlusion levels, consistently outperforming replay-
+based methods including iNeMO despite operating with-
+out exemplar storage. This demonstrates Share’s ability to
+maintain effective geometric representations under visual
+degradation through its foundational subspace approach.
+The 96% parameter reduction while achieving enhanced oc-
+clusion robustness establishes Share as an efficient solution
+for real-world deployment scenarios where objects are fre-
+quently partially occluded. These results extend parameter-
+efficient continual learning beyond classification to com-
+
+
+===== PAGE 8 =====
+Method
+Params ↓
+P3D
+L1
+L2
+L3
+Upper Bound
+30M
+88.10
+73.20
+58.40
+37.80
+Data-Replay Methods
+LwF†
+25M
+53.47
+44.58
+39.77
+36.61
+ICaRL†
+25M
+57.74
+44.03
+38.15
+33.52
+iNeMO†
+25M
+79.28
+64.71
+52.26
+34.01
+Share
+1M
+81.80
+69.11
+55.60
+35.50
+Table 3. Continual 3D Pose Estimation on Pascal3D+ and Oc-
+cluded Pascal3D+ using π/6 accuracy. Methods marked with †
+utilize data-replay. Share achieves competitive performance with
+significantly fewer parameters.
+plex spatial reasoning tasks, preserving geometric relation-
+ships across task boundaries without compromising perfor-
+mance.
+Method
+T1
+T2
+T3
+T4
+Share (CL)
+23.227
+–
+–
+–
+23.490↑.26 22.374
+–
+–
+23.281↓.21 22.699↑.32 24.121
+–
+23.382↑.10 22.400↓.30 24.436↑.31 21.432
+LoRA (non-CL)
+22.776
+22.985
+24.079
+21.089
+Table 4. CLIP scores across sequential tasks (T1–T4) for contin-
+ual text-to-image generation. Results are the mean of 3 random
+seeds. ↑and ↓indicate backward transfer and forgetting relative
+to the previous step, respectively. Share demonstrates significant
+backward knowledge transfer (p < 0.01).
+4.4. Text to Image Generation
+In this experiment, we demonstrate the Share’s ability to
+effectively manage complex tasks and multimodal archi-
+tectures, such as Text-to-Image Models. As far as we are
+aware, ours is the one of the earliest work for doing Param-
+eter Efficient Continual Learning for such models without
+requiring data replay or a mixture of experts like setup.
+Setup We design this experiment as a hybrid task.
+We
+choose Flux [4] as our pretrained text-to-image generation
+model. We choose 4 continual tasks represented by LoRA
+adapters or associated prompt-image data.
+For compar-
+ison, we compare with a non-CL LoRA. For initializing
+Share, we utilize the publicly available LoRA adapter from
+the HuggingFace community library [40]. Hyperparameter:
+LoRA r = 32, Share k = 32, p = 8 and the pretrained
+model is Flux [4].
+Analysis In the absence of quantitative measures, we
+present qualitative results for individual LoRAs and con-
+tinual Share in Fig. 3.
+The CL tasks span various art
+styles, with additional results and details in the Appendix.
+Our findings demonstrate that continual training with Share
+achieves performance comparable to individual LoRAs.
+Notably, we observe up to a 20× reduction in model size
+compared to 20 LoRAs, with further reductions as the num-
+ber of tasks increases. Crucially, a single set of Share fac-
+tors, equal to one adapter, is used for all tasks in Fig. 3.
+4.5. Continual Asynchronous Learning and Serving
+of LoRAs at Scale
+Setup
+We introduce a novel setup for Continual Model
+Merging and Learning at Scale, inspired by the continual
+model merging [27] and LoRA scaling [34] literature. This
+setup enables efficient large-scale model serving and per-
+sonalization. We utilize 500 publicly available LoRAs [3]
+and conduct a continual learning experiment with 50 Lo-
+RAs arriving incrementally, updating our Share model. We
+evaluate Share’s performance across 2 randomly sampled
+in-distribution (IID) tasks for each LoRA incremental task
+batch and 9 out-of-distribution (OOD) tasks (Appendix
+Tab. 7) and compare the performance with non-continual
+model merging method TIES [47]. Here, LoRA r = 16,
+Share k = 32, p = 8 and model is Mistral-7b [11].
+Analysis Tab. 5 demonstrates our method’s performance
+in a strictly continual, zero-shot setting. Results show ro-
+bust knowledge retention, with most tasks maintaining 90-
+99% of original performance across ten sequential learning
+episodes. Tab. 7 reveals Share’s effectiveness on out-of-
+distribution tasks, achieving an average Rouge-L score of
+55.89 across nine OOD tasks—significantly outperforming
+the non-continual TIES [47] while approaching individual
+LoRAs (73.75). Notably, Share maintains 71-95% relative
+performance on most OOD tasks despite using a single set
+of shared factors rather than task-specific adapters, demon-
+strating its robust generalization capabilities. Fig. 6 illus-
+trates Share’s efficiency-performance trade-off across both
+in-distribution and out-of-distribution scenarios. The factor
+subspace quality improves incrementally with each adapter
+integration (Fig. 5), becoming increasingly representative
+with diverse knowledge.
+A single set of Share factors can compress hundreds of
+task-specific adapters, yielding 96× memory savings. This
+enables scenarios like large-scale model serving with per-
+sonalization capabilities. Users can efficiently finetune only
+lightweight coefficient parameters. Share accomplishes this
+compression through a data and gradient-free analytical
+process, eliminating computational burden typically asso-
+ciated with model merging or continual learning, and facil-
+itating asynchronous, distributed learning paradigms.
+5. Conclusion
+This paper introduces Share, a novel parametric effi-
+cient continual finetuning framework that addresses the
+challenges of both efficiently and continually finetuning
+
+
+===== PAGE 9 =====
+T1
+T2
+T3
+T4
+T5
+T6
+T7
+T8
+T9
+T10
+T11
+T-0
+83.70 (1.00)
+T-1
+82.42 (0.98)
+63.34 (1.00)
+T-2
+79.46 (0.94)
+62.29 (0.98)
+86.96 (1.00)
+T-3
+77.03 (0.92)
+62.25 (0.98)
+86.12 (0.99)
+93.69 (1.00)
+T-4
+76.58 (0.91)
+62.09 (0.98)
+85.87 (0.98)
+93.25 (0.99)
+75.89 (1.00)
+T-5
+76.16 (0.90)
+61.88 (0.97)
+85.37 (0.98)
+93.19 (0.99)
+75.92 (1.00)
+45.64 (1.00)
+T-6
+76.57 (0.91)
+61.66 (0.97)
+84.98 (0.98)
+92.98 (0.99)
+76.00 (1.00)
+45.66 (1.00)
+58.27 (1.00)
+T-7
+75.85 (0.90)
+61.73 (0.97)
+84.73 (0.97)
+92.64 (0.99)
+73.61 (0.97)
+45.65 (1.00)
+57.78 (0.99)
+80.68 (1.00)
+T-8
+75.87 (0.91)
+61.68 (0.97)
+84.75 (0.97)
+92.12 (0.98)
+73.61 (0.97)
+45.67 (1.00)
+54.43 (0.93)
+80.20 (0.99)
+52.84 (1.00)
+T-9
+75.34 (0.90)
+61.65 (0.97)
+84.67 (0.97)
+92.10 (0.98)
+73.68 (0.97)
+45.62 (0.99)
+54.89 (0.94)
+79.99 (0.99)
+51.86 (0.98)
+80.10 (1.00)
+T-10
+76.23 (0.91)
+61.52 (0.97)
+84.67 (0.97)
+91.52 (0.97)
+72.07 (0.95)
+45.62 (0.99)
+56.14 (0.96)
+80.14 (0.99)
+51.45 (0.97)
+80.18 (1.00)
+42.71 (1.00)
+Table 5. Continual Learning with Lots of LoRAs. We report the absolute and relative Rouge-L scores at each time-step. Diagonal
+elements (1.00) are highlighted for clarity.
+large-scale pretrained models. By incrementally learning
+and updating a shared foundational subspace, Share enables
+the incremental acquisition of new knowledge by a single
+model without catastrophic forgetting.
+This approach
+offers significant advantages in terms of parameter effi-
+ciency, memory footprint, and computational cost, and
+also allows an avenue of reusing community resources
+(LoRA adapters). Our empirical evaluation demonstrates
+the effectiveness of Share across diverse tasks and large
+pretrained models, including image classification, natural
+language understanding,
+and text-to-image generative
+models.
+Notably, we show 7 sets of experiments for
+computer vision and language tasks,
+showcasing the
+comprehensive nature of our evaluation and analysis.
+Share could have a positive societal and environmen-
+tal impact since it enables continual learning for large
+pretrained models, reduces resource use, and empowers
+ordinary users and researchers with limited compute
+resources, to finetune large models continually.
+Future
+work aims to extend Share to support learning from scratch.
+References
+[1] Peter L. Bartlett and Shahar Mendelson. Rademacher and
+gaussian complexities: risk bounds and structural results. J.
+Mach. Learn. Res., 3(null):463–482, 2003. 4
+[2] Lukas Bossard, Matthieu Guillaumin, and Luc Van Gool.
+Food-101 – mining discriminative components with random
+forests. In European Conference on Computer Vision, 2014.
+6
+[3] Rickard Br¨uel-Gabrielsson, Jiacheng Zhu, Onkar Bhardwaj,
+Leshem Choshen, Kristjan Greenewald, Mikhail Yurochkin,
+and Justin Solomon. Compress then serve: Serving thou-
+sands of lora adapters with little overhead, 2024. 8, 5
+[4] Tim Dockhorn, apolin´ario, Jonas M¨uller, omahs, deforum,
+Zeke Sikelianos, Thibaut, TJKDev1, Paul CJ Hetherington,
+Neil Movva, Matteo Ferrando, Kyle Lacey, Ikko Eltociear
+Ashimine, Emil Sadek, Emad Bagheri, Dr. Artificial, Cody
+Brownstein, and Andrei Filatov. black-forest-labs/flux. 2024.
+5, 8
+[5] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov,
+Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner,
+Mostafa Dehghani, Matthias Minderer, Georg Heigold, Syl-
+vain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is
+worth 16x16 words: Transformers for image recognition at
+scale. In International Conference on Learning Representa-
+tions, 2021. 5, 6
+[6] Tom Fischer, Yaoyao Liu, Artur Jesslen, Noor Ahmed,
+Prakhar Kaushik, Angtian Wang, Alan Yuille, Adam Ko-
+rtylewski, and Eddy Ilg. inemo: Incremental neural mesh
+models for robust class-incremental learning, 2024. 6, 7
+[7] Robert M. French. Catastrophic forgetting in connectionist
+networks. Trends in Cognitive Sciences, 3(4):128–135, 1999.
+3
+[8] Matan Gavish and David L. Donoho.
+The optimal hard
+threshold for singular values is 4/
+√
+3. IEEE Transactions
+on Information Theory, 60(8):5040–5053, 2014. 4, 5
+[9] Amir Gholami, Sehoon Kim, Zhen Dong, Zhewei Yao,
+Michael W Mahoney, and Kurt Keutzer. A survey of quan-
+tization methods for efficient neural network inference. In
+Low-Power Computer Vision, pages 291–326. Chapman and
+Hall/CRC, 2022. 3
+[10] Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-
+Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen.
+Lora: Low-rank adaptation of large language models. arXiv
+preprint arXiv:2106.09685, 2021. 1, 2, 3, 4
+[11] Albert Q. Jiang, Alexandre Sablayrolles, Arthur Mensch,
+Chris Bamford, Devendra Singh Chaplot, Diego de las
+Casas, Florian Bressand, Gianna Lengyel, Guillaume Lam-
+ple, Lucile Saulnier, L´elio Renard Lavaud, Marie-Anne
+Lachaux, Pierre Stock, Teven Le Scao, Thibaut Lavril,
+Thomas Wang, Timoth´ee Lacroix, and William El Sayed.
+Mistral 7b, 2023. 5, 8
+[12] Dahuin Jung, Dongyoon Han, Jihwan Bang, and Hwanjun
+Song. Generating instance-level prompts for rehearsal-free
+continual learning. In Proceedings of the IEEE/CVF Interna-
+tional Conference on Computer Vision, pages 11847–11857,
+2023. 6, 5
+[13] Prakhar Kaushik, Alex Gain, Adam Kortylewski, and Alan
+Yuille. Understanding catastrophic forgetting and remem-
+
+
+===== PAGE 10 =====
+bering in continual learning with optimal relevance mapping,
+2021. 2, 3, 5
+[14] Prakhar Kaushik, Aayush Mishra, Adam Kortylewski, and
+Alan Yuille. Source-free and image-only unsupervised do-
+main adaptation for category level object pose estimation. In
+The Twelfth International Conference on Learning Represen-
+tations, 2024. 6
+[15] Prakhar Kaushik, Shravan Chaudhari, Ankit Vaidya, Rama
+Chellappa, and Alan Yuille. The universal weight subspace
+hypothesis, 2025. 2
+[16] Prakhar Kaushik, Ankit Vaidya, Shravan Chaudhari, and
+Alan Yuille.
+EigenLoRAx: Recycling Adapters to Find
+Principal Subspaces for Resource-Efficient Adaptation and
+Inference . In 2025 IEEE/CVF Conference on Computer Vi-
+sion and Pattern Recognition Workshops (CVPRW), pages
+649–659, Los Alamitos, CA, USA, 2025. IEEE Computer
+Society. 2, 3
+[17] James Kirkpatrick, Razvan Pascanu, Neil Rabinowitz, Joel
+Veness, Guillaume Desjardins, Andrei A. Rusu, Kieran
+Milan, John Quan, Tiago Ramalho, Agnieszka Grabska-
+Barwinska, Demis Hassabis, Claudia Clopath, Dharshan Ku-
+maran, and Raia Hadsell.
+Overcoming catastrophic for-
+getting in neural networks.
+Proceedings of the National
+Academy of Sciences, 114(13):3521–3526, 2017. 6
+[18] Dawid Jan Kopiczko, Tijmen Blankevoort, and Yuki M.
+Asano.
+VeRA: Vector-based Random Matrix Adaptation.
+2023. 3, 6
+[19] Simon Kornblith, Mohammad Norouzi, Honglak Lee, and
+Geoffrey Hinton. Similarity of neural network representa-
+tions revisited, 2019. 3
+[20] Alex Krizhevsky, Vinod Nair, and Geoffrey Hinton. Cifar-
+100 (canadian institute for advanced research). 2009. 6
+[21] Zhizhong Li and Derek Hoiem. Learning without forgetting,
+2017. 6
+[22] Yan-Shuo Liang and Wu-Jun Li.
+Inflora:
+Interference-
+free low-rank adaptation for continual learning.
+In 2024
+IEEE/CVF Conference on Computer Vision and Pattern
+Recognition (CVPR), pages 23638–23647, 2024. 3
+[23] Anne-Laure Ligozat, Julien Lef`evre, Aur´elie Bugeau, and
+Jacques Combaz.
+Unraveling the hidden environmen-
+tal impacts of ai solutions for environment.
+ArXiv,
+abs/2110.11822, 2021. 1
+[24] Shih-Yang Liu,
+Chien-Yi Wang,
+Hongxu Yin,
+Pavlo
+Molchanov, Yu-Chiang Frank Wang, Kwang-Ting Cheng,
+and Min-Hung Chen. Dora: Weight-decomposed low-rank
+adaptation, 2024. 3
+[25] Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Mandar
+Joshi, Danqi Chen, Omer Levy, Mike Lewis, Luke Zettle-
+moyer, and Veselin Stoyanov. Roberta: A robustly optimized
+bert pretraining approach. ArXiv, abs/1907.11692, 2019. 5,
+6
+[26] Sourab Mangrulkar,
+Sylvain Gugger,
+Lysandre Debut,
+Younes Belkada,
+Sayak Paul,
+and Benjamin Bossan.
+Peft: State-of-the-art parameter-efficient fine-tuning meth-
+ods. https://github.com/huggingface/peft,
+2022. 4
+[27] Daniel Marczak, Bartłomiej Twardowski, Tomasz Trzci´nski,
+and Sebastian Cygert.
+Magmax:
+Leveraging model
+merging for seamless continual learning.
+arXiv preprint
+arXiv:2407.06322, 2024. 3, 8, 5
+[28] Thomas P. Minka. Automatic choice of dimensionality for
+pca. In Proceedings of the 13th International Conference
+on Neural Information Processing Systems, page 577–583,
+Cambridge, MA, USA, 2000. MIT Press. 4, 5
+[29] Maria-Elena Nilsback and Andrew Zisserman. Automated
+flower classification over a large number of classes. In In-
+dian Conference on Computer Vision, Graphics and Image
+Processing, 2008. 6
+[30] Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee,
+Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, and
+Peter J Liu. Exploring the limits of transfer learning with a
+unified text-to-text transformer. Journal of machine learning
+research, 21(140):1–67, 2020. 2
+[31] Victor Sanh, Albert Webson, Colin Raffel, Stephen H Bach,
+Lintang Sutawika, Zaid Alyafeai, Antoine Chaffin, Ar-
+naud Stiegler, Teven Le Scao, Arun Raja, et al.
+Multi-
+task prompted training enables zero-shot task generalization.
+arXiv preprint arXiv:2110.08207, 2021. 2
+[32] Viraj Shah, Nataniel Ruiz, Forrester Cole, Erika Lu, Svet-
+lana Lazebnik, Yuanzhen Li, and Varun Jampani. Ziplora:
+Any subject in any style by effectively merging loras.
+In
+European Conference on Computer Vision, pages 422–438.
+Springer, 2025. 3
+[33] Pratyusha Sharma, Jordan T. Ash, and Dipendra Misra.
+The Truth is in There:
+Improving Reasoning in Lan-
+guage Models with Layer-Selective Rank Reduction, 2023.
+arXiv:2312.13558 [cs]. 3
+[34] Ying Sheng, Shiyi Cao, Dacheng Li, Coleman Hooper,
+Nicholas Lee, Shuo Yang, Christopher Chou, Banghua
+Zhu, Lianmin Zheng, Kurt Keutzer, et al.
+S-lora: Serv-
+ing thousands of concurrent lora adapters.
+arXiv preprint
+arXiv:2311.03285, 2023. 3, 8, 5
+[35] James Seale Smith, Yen-Chang Hsu, Zsolt Kira, Yilin Shen,
+and Hongxia Jin. Continual diffusion with stamina: Stack-
+and-mask incremental adapters.
+2024 IEEE/CVF Confer-
+ence on Computer Vision and Pattern Recognition Work-
+shops (CVPRW), pages 1744–1754, 2023. 3
+[36] James Seale Smith, Leonid Karlinsky, Vyshnavi Gutta, Paola
+Cascante-Bonilla, Donghyun Kim, Assaf Arbelle, Rameswar
+Panda, Rogerio Feris, and Zsolt Kira. Coda-prompt: Contin-
+ual decomposed attention-based prompting for rehearsal-free
+continual learning. In Proceedings of the IEEE/CVF Confer-
+ence on Computer Vision and Pattern Recognition (CVPR),
+pages 11909–11919, 2023. 6
+[37] James Seale Smith, Yen-Chang Hsu, Lingyu Zhang, Ting
+Hua, Zsolt Kira, Yilin Shen, and Hongxia Jin. Continual dif-
+fusion: Continual customization of text-to-image diffusion
+with c-loRA. Transactions on Machine Learning Research,
+2024. 3
+[38] Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier
+Martinet, Marie-Anne Lachaux, Timoth´ee Lacroix, Baptiste
+Rozi`ere, Naman Goyal, Eric Hambro, Faisal Azhar, Aure-
+lien Rodriguez, Armand Joulin, Edouard Grave, and Guil-
+laume Lample. Llama: Open and efficient foundation lan-
+guage models. ArXiv, abs/2302.13971, 2023. 5
+
+
+===== PAGE 11 =====
+[39] M.A. Turk and A.P. Pentland. Face recognition using eigen-
+faces. In Proceedings. 1991 IEEE Computer Society Con-
+ference on Computer Vision and Pattern Recognition, pages
+586–591, 1991. 3
+[40] Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro
+Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj,
+Dhruv Nair, Sayak Paul, William Berman, Yiyi Xu, Steven
+Liu, and Thomas Wolf.
+Diffusers: State-of-the-art diffu-
+sion models. https://github.com/huggingface/
+diffusers, 2022. 8, 4, 5
+[41] Alex Wang, Amanpreet Singh, Julian Michael, Felix Hill,
+Omer Levy, and Samuel R. Bowman. Glue: A multi-task
+benchmark and analysis platform for natural language un-
+derstanding, 2019. 4, 6
+[42] Xiao Wang, Tianze Chen, Qiming Ge, Han Xia, Rong Bao,
+Rui Zheng, Qi Zhang, Tao Gui, and Xuanjing Huang. Or-
+thogonal subspace learning for language model continual
+learning. In The 2023 Conference on Empirical Methods in
+Natural Language Processing, 2023. 2, 3
+[43] Zifeng Wang, Zizhao Zhang, Sayna Ebrahimi, Ruoxi Sun,
+Han Zhang, Chen-Yu Lee, Xiaoqi Ren, Guolong Su, Vin-
+cent Perot, Jennifer Dy, et al. Dualprompt: Complementary
+prompting for rehearsal-free continual learning. European
+Conference on Computer Vision, 2022. 6
+[44] Zifeng Wang, Zizhao Zhang, Chen-Yu Lee, Han Zhang,
+Ruoxi Sun, Xiaoqi Ren, Guolong Su, Vincent Perot, Jennifer
+Dy, and Tomas Pfister.
+Learning to prompt for continual
+learning. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition, pages 139–149,
+2022. 6
+[45] Yeming Wen and Swarat Chaudhuri.
+Batched low-
+rank adaptation of foundation models.
+arXiv preprint
+arXiv:2312.05677, 2023. 3
+[46] Yu Xiang, Roozbeh Mottaghi, and Silvio Savarese. Beyond
+pascal: A benchmark for 3d object detection in the wild. In
+IEEE Winter Conference on Applications of Computer Vision
+(WACV), 2014. 6
+[47] Prateek Yadav, Derek Tam, Leshem Choshen, Colin A Raf-
+fel, and Mohit Bansal. Ties-merging: Resolving interference
+when merging models. Advances in Neural Information Pro-
+cessing Systems, 36, 2024. 3, 8
+[48] Jiazuo Yu, Yunzhi Zhuge, Lu Zhang, Ping Hu, Dong Wang,
+Huchuan Lu, and You He.
+Boosting continual learning
+of vision-language models via mixture-of-experts adapters.
+2024 IEEE/CVF Conference on Computer Vision and Pat-
+tern Recognition (CVPR), pages 23219–23230, 2024. 3
+[49] Xiaoding Yuan, Guofeng Zhang, Prakhar Kaushik, Artur
+Jesslen, Adam Kortylewski, and Alan Yuille.
+Scaling 3d
+compositional models for robust classification and pose es-
+timation.
+In Proceedings of the IEEE/CVF International
+Conference on Computer Vision (ICCV), pages 6406–6415,
+2025. 6
+[50] Qizhe Zhang, Ruichuan An, Bocheng Zou, Zhi Zhang, and
+Shanghang Zhang. Hyperadapter: Generating adapters for
+pre-trained model-based continual learning, 2024. 6, 5
+[51] Da-Wei Zhou, Hai-Long Sun, Han-Jia Ye, and De-Chuan
+Zhan. Expandable subspace ensemble for pre-trained model-
+based class-incremental learning, 2024. 6
+[52] Yanqi Zhou, Tao Lei, Hanxiao Liu, Nan Du, Yanping Huang,
+Vincent Y Zhao, Andrew M. Dai, Zhifeng Chen, Quoc V Le,
+and James Laudon. Mixture-of-experts with expert choice
+routing. In Advances in Neural Information Processing Sys-
+tems, 2022. 3
+
+
+===== PAGE 12 =====
+Shared LoRA Subspaces for almost Strict Continual Learning
+Supplementary Material
+6. FAQs
+1. Can Share be initialized without a large number of
+low-rank adapters?
+Yes. While Share leverages the shared common sub-
+space hypothesis, it can effectively discover and refine
+this subspace incrementally through continual learning,
+as demonstrated theoretically in Sec. 3.3 and empiri-
+cally in our experiments.
+The majority of our strict
+continual learning evaluations begin with just a single
+LoRA adapter, from which Share progressively con-
+structs a more comprehensive foundational subspace as
+additional tasks are encountered.
+2. How does Share perform with lower-quality LoRA
+adapters?
+Share demonstrates robustness to adapter quality vari-
+ations when task-specific data is available.
+In such
+scenarios, Share can leverage its evolving foundational
+subspace to potentially outperform the original LoRA
+adapters through cross-task knowledge transfer. How-
+ever, in purely adapter-based scenarios without accom-
+panying data, the quality of the initial adapters estab-
+lishes an information bottleneck that constrains Share’s
+performance ceiling for the corresponding tasks.
+3. What guided the experimental design across diverse
+domains?
+Our
+experimental
+design
+prioritizes
+demonstrating
+Share’s versatility and cross-domain applicability rather
+than exhaustive evaluation within any single domain.
+This approach validates Share as a general-purpose solu-
+tion for parameter-efficient continual fine-tuning across
+vision, language, and multimodal tasks. We deliberately
+included challenging scenarios (e.g., text-to-image gen-
+eration, 3D pose estimation) alongside more standard
+benchmarks to establish Share’s broad utility. The di-
+versity of experiments also underscores Share’s practi-
+cal efficiency, as all evaluations were conducted within
+reasonable computational constraints.
+4. Why benchmark primarily against non-continual
+LoRA rather than other continual learning methods?
+We establish non-continual LoRA as our primary per-
+formance reference because it represents the theoret-
+ical upper bound for task-specific adaptation without
+forgetting constraints. The fact that Share approaches
+this upper bound while operating under strict continual
+learning conditions highlights its exceptional effective-
+ness. Furthermore, the current landscape of parameter-
+efficient continual learning methods is highly domain-
+specific—existing approaches typically target individual
+domains (e.g., image classification or language model-
+ing) and lack the cross-domain versatility that Share pro-
+vides. Implementing multiple domain-specific baselines
+would not only increase computational requirements but
+would contradict the core efficiency principles that mo-
+tivate our work.
+5. Why not integrate conventional continual learning al-
+gorithms with LoRA?
+Conventional continual learning algorithms were pri-
+marily designed for full-parameter fine-tuning scenarios
+and may not transfer optimally to the low-rank adapta-
+tion paradigm without substantial modifications.
+The
+parameter geometry and optimization dynamics differ
+significantly between full-model and low-rank adapta-
+tion settings.
+Additionally, many established contin-
+ual learning techniques (e.g., regularization-based ap-
+proaches) impose computational overheads that would
+undermine the efficiency benefits of parameter-efficient
+tuning. While integrating these approaches with LoRA
+represents an interesting research direction, it falls out-
+side the scope of our current investigation, which focuses
+on developing a natively parameter-efficient continual
+learning framework.
+7. Share: Shared Subspace Adaptation
+2 We provide the detailed algorithm for our method, Share,
+in Algorithm 1
+7.1. Theoretical Analysis
+We restate the notation and proposition from Sec. 3.3 here.
+Proposition 1. (Restating Incremental Subspace Error
+Bound): Let Dt = [D1, D2, . . . , Dt] ∈RNt×d be cumu-
+latively stacked weight matrix up to task τt, where Nt =
+Pt
+i=1 ni. Using the Share approximation at task t with k
+principal basis vectors we get ˆDt be the rank-k SVD of Dt
+such that ˆDt = SVD(Dt)[:k]. Then the reconstruction error
+satisfies:
+∥Dt −ˆDt∥2
+F =
+min(Nt,d)
+X
+i=k+1
+(σ(t)
+i )2,
+where σi’s are the singular values of Dt for the non-
+principal basis vectors. See proof in appendix Sec. 7.1.
+2We
+will
+release
+Share
+code
+which
+is
+compatible
+with
+HuggingFace
+PeFT
+library
+and
+a
+tutorial
+video
+here:
+https://anonymous.4open.science/r/Share-8FF2/
+
+
+===== PAGE 13 =====
+Algorithm 1 Share: Parameter-Efficient Continual Finetuning via Shared Subspace Adaptation
+1: Input: LoRA adapters {∆W t = (At, Bt)}T
+t=1 where Bt ∈Rn×r, At ∈Rr×d, or task data {xt}T
+t=1, hyperparameters:
+principal factors k, temporary factors φ, pseudo-rank p
+2: Output: Principal factors αT , βT , task coefficients {ϵt}T
+t=1
+3:
+4: Initialization:
+▷Extract foundational subspace
+5: if N ≥1 LoRA adapters available then
+6:
+Extract rank vectors: DA = [a11, . . . , aNr]⊤∈RNr×d, DB = [b11, . . . , bNr]⊤∈RNr×n
+7:
+Center matrices: DA ←DA −¯DA, DB ←DB −¯DB
+8:
+Compute SVD: DA = UAΣAV ⊤
+A , DB = UBΣBV ⊤
+B
+9:
+Extract factors: α0 = VA[:, 1 : k] ∈Rd×k, β0 = VB[:, 1 : k] ∈Rn×k
+10: else
+11:
+Train initial LoRA on first task data and proceed as above
+12: end if
+13: Initialize coefficients: ϵ0
+α, ϵ0
+β ∼N(0, σ2) ∈Rk×p
+14:
+15: for t = 1 to T do
+▷Continual learning process
+16:
+At−1 = {αt−1, βt−1, {ϵi}t−1
+i=1}
+▷Current knowledge state
+17:
+if receive task data xt then
+18:
+Continual Adaptation:
+▷Temporary expansion of subspace
+19:
+βt−1→t = βt−1[:, 1 : φ], αt−1→t = αt−1[:, 1 : φ]
+▷Select top factors
+20:
+ϵt−1→t
+α
+, ϵt−1→t
+β
+∼N(0, σ2) ∈Rφ×p
+▷Initialize coefficients
+21:
+Forward pass: h = W0x + (βt−1→tϵt−1→t
+β
+)(αt−1→tϵt−1→t
+α
+)⊤x
+22:
+Optimize {βt−1→t, αt−1→t, ϵt−1→t
+α,β
+} on task data xt
+23:
+ˆAt = (αt−1→tϵt−1→t
+α
+)⊤, ˆBt = βt−1→tϵt−1→t
+β
+▷Task adapter
+24:
+else if receive LoRA adapter ∆W t then
+25:
+ˆAt = At, ˆBt = Bt
+▷Direct adapter integration
+26:
+end if
+27:
+Merging:
+▷Knowledge integration
+28:
+Reconstruct previous task adapters using current factors:
+29:
+for i = 1 to t −1 do
+30:
+ˆAi = (αt−1ϵi
+α)⊤, ˆBi = βt−1ϵi
+β
+31:
+end for
+32:
+Construct factor data matrices from all adapters { ˆAi, ˆBi}t
+i=1
+33:
+Dt
+A = [vec( ˆA1), . . . , vec( ˆAt)]⊤, Dt
+B = [vec( ˆB1), . . . , vec( ˆBt)]⊤
+34:
+Center and perform SVD: Dt
+A = U t
+AΣt
+AV t
+A
+⊤, Dt
+B = U t
+BΣt
+BV t
+B
+⊤
+35:
+Update factors: αt = V t
+A[:, 1 : k], βt = V t
+B[:, 1 : k]
+▷New principal subspace
+36:
+Coefficient Recalculation:
+▷Analytical knowledge preservation
+37:
+for i = 1 to t do
+38:
+ϵi
+α = αt⊤ˆAi, ϵi
+β = βt⊤ˆBi
+▷Project onto new subspace
+39:
+end for
+40:
+Finetuning:
+▷Optional performance enhancement
+41:
+Optimize task-specific coefficients ϵt on task data (if available)
+42: end for
+Furthermore, if tasks are drawn from a distribution with
+bounded covariance E[∥D(t) −µ∥2
+F ] ≤σ2
+task, then the ex-
+pected error growth is bounded.
+Proof:
+The result follows directly from the Eckart-
+Young-Mirsky theorem. For any matrix M ∈Rm×n with
+SVD M = Pr
+i=1 σiuivT
+i , the best rank-k approximation in
+Frobenius norm is Mk = Pk
+i=1 σiuivT
+i , and:
+∥M −Mk∥2
+F =
+r
+X
+i=k+1
+σ2
+i
+Applying this to D(t)
+cum gives the stated bound. The dis-
+
+
+===== PAGE 14 =====
+Figure 4.
+Low Rank Adapters share a foundational subspace.
+We evaluate the Share-full model’s performance against recon-
+struction error after finetuning on the GLUE benchmark. Com-
+pared with non-continuously trained LoRA submatrices (A and B,
+shown in red and blue colors), results show that Share’s founda-
+tional subspace efficiently approximates all LoRAs, suggesting a
+shared subspace. The radius of the circles represent scaled up stan-
+dard deviation of the reconstruction error
+Figure 5. Progression of Factor Subspace of Share. The figure
+shows CKA similarity [19] between Share’s final and intermedi-
+ate factors in the Continual GLUE experiments (Sec. 4.1). Share
+effectively incorporates new factors from incoming data, shown
+by increased similarity over time (circle size represents variance),
+while preserving and converging towards optimal principal factors.
+tributional bound follows from concentration inequalities
+for random matrices under the assumption of bounded task
+covariance.
+Definition 1 (Task Similarity). Two tasks i, j are δ-similar
+if their LoRA parameter distributions satisfy:
+E[∥D(i) −D(j)∥2
+F ] ≤δ · max(E[∥D(i)∥2
+F ], E[∥D(j)∥2
+F ])
+Corollary 1 (Bounded Error Growth). Under δ-similarity
+conditions with δ < 1, the Share approximation error grows
+sub-linearly in the number of tasks:
+E[∥D(T )
+cum −ˆD(T )
+cum∥2
+F ] ≤Ck + δ · T · σ2
+task
+where Ck = Pd
+i=k+1 σ2
+i is the truncation error and σ2
+task
+bounds task variance.
+This theorem demonstrates that updating the founda-
+tional subspace via Share can approximate the subspace of
+the full dataset, provided incremental data exhibits similar-
+ity to prior data.
+Theorem 1. (Restating Theorem 2) Let hk ∈Hk : hk =
+h(ϵV T
+k , x) denote rank-k ERM while finetuning for a new
+task τt+1 with true solution h∗∈H : h∗= h(D∗, x) of
+rank-nt+1. Here ϵ with rank-k is trainable and V T
+k are fixed
+orthonormal basis vectors from SVD(Dt)[:k]. Given a Lip-
+schitz continuous loss (ℓF (·)) that is strong convex over the
+weight spaces spanned by D and V T
+k with some Lipschitz
+constant (L), we say with probability at least 1 −4δ for
+some δ > 0,
+∥D∗−Dt+1∥2
+F ≤
+s
+C1nt+1
+St+1
++
+s
+2 ln(1/δ)
+St+1
++ C2
+(7)
+∥D∗−ϵV T
+k ∥2
+F ≤C1
+s
+k
+St+1
++
+s
+2 ln(1/δ)
+St+1
++C
+nt+1
+X
+i=k+1
+σ2
+i +C2
+(8)
+σk+1, . . . , σnt+1 denote singular values of D∗V⊥, where
+V⊥contains right singular vectors of Dt orthogonal to Vk.
+Here, we assuming ∥D∥F ≤B and normalized input data.
+Proof. The derivation is straightforward. We denote by H
+the hypothesis class of linear predictors
+H =
+
+hD(x) = W0x + Dx
+ D ∈Rn×d, ∥D∥F ≤B
+	
+,
+and by Hk ⊂H the restricted class with rank-constrained
+parameters,
+Hk = {hD(x) = W0x + Dx | rank(D) ≤k, ∥D∥F ≤B} .
+Assuming bounded inputs and an L-Lipschitz loss in the
+prediction, the loss is Lipschitz continuous over both H and
+Hk. Since Hk is non-convex, strong convexity is not as-
+sumed globally over Hk; instead, for both H and Hk, strong
+convexity is assumed only when optimization is restricted to
+fixed linear subspaces of parameters (e.g., predictors of the
+form D = εV ⊤with fixed V ), which is sufficient for the
+analysis and proof of Theorem 2.
+The risk can be written as RF (h) = ESt[ℓF (h)] where
+St is the input data distribution for task t. Let us denote
+hk ∈Hk : hk = h(ϵV T
+k , x) = W0x + ϵV T
+k x. Similarly,
+h∗∈H : h∗= h(D∗, x) = W0x + D∗x and ht+1 ∈H :
+
+
+===== PAGE 15 =====
+ht+1 = h(Dt+1, x) = W0x + Dt+1x. Now, we can write
+the difference in risks for hk and h∗as
+RF (ht+1) −RF (h∗) = ESt
+
+ℓF (ht+1) −ℓF (h∗)
+
+By definition of strong convex loss function for some con-
+stant µ ≥0,
+ESt
+
+ℓF (ht+1) −ℓF (h∗)
+
+≥µ
+2 ∥Dt+1 −D∗∥2
+F
+We also know from generalization error bounds us-
+ing Rademacher Complexity RSt+1(·) from Bartlett and
+Mendelson [1] that with probability at least 1 −2δ,
+|RF (h) −ˆRF (h)| ≤RSt+1(H)
+2
++
+s
+ln(1/δ)
+2St+1
+Now, we can write risk difference as
+RF (ht+1) −RF (h∗) = ˆRF (h∗) −RF (h∗)
++ RF (h) −ˆRF (ht+1)
+−ˆRF (h∗) + ˆRF (ht+1)
+Since ht+1 is the empirical risk minimizer by definition,
+ˆRF (ht+1) ≤ˆRF (h∗). Hence,
+RF (ht+1) −RF (h∗) ≤ˆRF (h∗) −RF (h∗)
++RF (ht+1) −ˆRF (ht+1)
+Then we take a union bound to conclude that with prob-
+ability at least 1 −4δ,
+RF (ht+1) −RF (h∗) ≤RSt+1(H)
+2
++
+s
+2 ln(1/δ)
+St+1
++RSt+1(H)
+2
+Hence, we can also say that with probability at least 1 −4δ,
+µ
+2 ∥D∗−Dt+1∥2
+F ≤RSt+1(H) +
+s
+2 ln(1/δ)
+St+1
+(9)
+The Rademacher complexity of a low-rank weight ma-
+trix class H with rank d can be directly bounded using re-
+sults from [1] as
+RSt+1(H) = O(
+√
+d∥Dt+1∥F
+p
+St+1
+)
+= O(
+√
+d
+p
+St+1
+)
+... for bounded weight norm
+Hence, we get Eq. (7) as follows:
+∥D∗−Dt+1∥2
+F ≤C1
+rnt+1
+St+1
++
+s
+2 ln(1/δ)
+St+1
++ C2
+Similarly, we can also write,
+µ
+2 ∥ϵ∗V T
+k −ϵV T
+k ∥2
+F ≤RF (hk) −RF (h∗k)
+and,
+RF (hk) −RF (h∗k) ≤RSt+1(Hk)
+2
++
+s
+2 ln(1/δ)
+St+1
++ RSt+1(Hk)
+2
+= RSt+1(Hk) +
+s
+2 ln(1/δ)
+St+1
+= C1 ·
+s
+k
+St+1
++
+s
+2 ln(1/δ)
+St+1
++ C2
+Hence, together we get,
+µ
+2 ∥ϵ∗V T
+k −ϵV T
+k ∥≤C1 ·
+s
+k
+St+1
++
+s
+2 ln(1/δ)
+St+1
++ C2
+Now to further prove 8, we use properties of Frobenius
+norm,
+∥D∗−ϵV T
+k ∥2
+F ≤2∥D∗−ϵ∗V T
+k ∥2
+F
++ 2∥ϵV T
+k −ϵ∗V T
+k ∥2
+F
+≤C
+nt+1
+X
+i=k+1
+σ2
+i + 2∥ϵV T
+k −ϵ∗V T
+k ∥2
+F
+where {σi}d
+k+1 are right singular
+values of D∗V⊥
+≤C
+nt+1
+X
+i=k+1
+σ2
+i + C1 ·
+s
+k
+St+1
++
+s
+2 ln(1/δ)
+St+1
++ C2
+We use Eckart-Young-Mirsky theorem to get the second in-
+equality above. This gives us Eq. (8) and concludes the
+proof.
+8. Experiments
+LoRA [10] implementation for all our experiments is taken
+from the HuggingFace PEFT [26] and Diffusers [40] li-
+brary.
+
+
+===== PAGE 16 =====
+8.1. Continual Natural Language Understanding
+The backbone model used is the RoBERTa base [25].
+Hyperparameters
+For LoRA, we use rank= 32, and for
+Share, we use K = 32, φ = 2, p = 8. Learning rate (lr) =
+4e−4, weight decay= 0.1, warmup ratio= 0.6, lr scheduler
+is Reduce LR on Plateau and batch size = 32.
+Figure 6. Continual Model Merging for Hundreds of LoRAs
+Share demonstrates the capacity to continuously learn and inte-
+grate numerous LoRAs (consisting of A and B matrices) alongside
+the associated task data, as illustrated by this graph of performance
+against reconstruction error (utilizing the Frobenius Norm).
+8.2. Continual Image Classification
+Hyperparameters
+For Share, we use K = 10, φ =
+2, p = 1. We train using Adam optimizer, learning rate
+of 0.01, batch size of 128 and 30 epochs. All input images
+are resized to 224 × 224.
+For our baselines, we report the best results from previ-
+ous works[12, 50]. Our calculation for trainable parameters
+is either taken from the specific work, or calculated (as a
+lower bound). Due to the uncertainty in amount of mem-
+ory required to save prompts and adapters, we do not report
+those, but it can be trivially construed that all these methods
+require significantly more memory than Share to save their
+models.
+8.3. Continual Text-to-Image Generation
+We use Flux [4] text to image generation model as our base
+model. We utilize LoRA adapters and data found on Hug-
+gingFace community library [40] and merge them continu-
+ally into our Share model. We follow the recommended hy-
+perparameter recommendations for finetuning Flux models.
+For LoRA, r = 16, and for Share k = 32, p = 8, φ = 2. We
+provide more samples for our trained Share model. Fig. 10
+gives more qualitative examples from our Share model.
+8.4. Continual Asynchronous Learning and Serving
+of LoRAs at Scale
+We introduce a novel setup for Continual Model Merg-
+ing and Learning at Scale, inspired by the continual model
+merging [27] and LoRA scaling [34] literature. This setup
+enables efficient large-scale model servicing and personal-
+ization.
+We used 500 publicly available LoRAs [3] and
+conducted a continual learning experiment with 50 Lo-
+RAs arriving incrementally, updating our Share model. We
+evaluated Share’s performance across 9 out-of-distribution
+(OOD) tasks and 2 randomly sampled in-distribution (IID)
+tasks at each time-step. Tab. 6 and Tab. 7 show the su-
+perior performance of Share on both IID and OOD tasks.
+Share outperforms non-CL methods like TIES while nearly
+matching the performance of LoRA adapters while requir-
+ing upto 96x less memory. The hyperparameters are set to
+LoRA r = 16, Share k = 32, p = 8 and model is Mistral-
+7b [11].
+The idea is to show Share’s efficacy in being able to com-
+press knowledge (in form of low-rank adapters and data)
+into a single set of principal factors and importantly, in a
+continual manner. This has implications in terms of a prob-
+able multi-user AI serving model which can cheaply deploy
+the same Share model to a large number of users while only
+dynamically switching lightweight coefficient parameters.
+Importantly, and unlike current models, users would be able
+to cheaply finetune the coefficients or update their Share
+model and the new temporary factors and coefficients can
+be efficiently transferred back to the main model server. Us-
+ing the Share algorithm Algorithm 1, the base model can be
+updated continually and asynchronously, leading to a con-
+tinuously and efficiently learning AI model.
+8.5. Computational Complexity
+Share’s complexity scales favorably with task sequence
+length:
+• Training: O(T · n · d · p) vs. LoRA’s O(T · r · d · m)
+• Storage: O(k · (d + m) + T · k · p) vs. LoRA’s O(T · r ·
+(d + m))
+8.6. Ablation
+How to decide k, p, φ?
+The number of Share factors k is
+determined by a threshold based on the explained variance
+of the factor data matrix D. We find that k with as low as
+60% explained variance is effective. Other methods [8, 28]
+using the eigenvalues of D can also determine k. Fig. 8
+shows the performance of Share-full finetuned on MRPC
+with a different number of factors k. We note that even
+k = 2 works well.
+
+
+===== PAGE 17 =====
+769
+1448
+362
+615
+1168
+1703
+065
+285
+161
+1606
+694
+1294
+1479
+1489
+296
+363
+123
+129
+590
+1453
+704
+1400
+Avg
+Upper Bound
+97.22
+97.91
+97.11
+38.48
+89.96
+99.05
+96.79
+98.00
+75.74
+98.95
+46.15
+95.45
+80.75
+94.44
+97.88
+89.07
+60.05
+73.89
+84.68
+100
+72.22
+9.56
+81.52
+Share
+T-0
+91.36
+76.04
+T-1
+87.55
+77.29
+96.17
+30.51
+T-2
+81.63
+77.29
+95.70
+28.87
+78.70
+95.21
+T-3
+80.16
+73.89
+95.94
+28.55
+77.16
+95.08
+92.31
+95.07
+T-4
+79.26
+73.89
+95.94
+28.24
+76.85
+94.88
+91.72
+94.77
+58.09
+93.68
+T-5
+78.95
+73.36
+95.70
+28.05
+75.78
+94.95
+91.61
+94.77
+58.16
+93.68
+46.15
+45.13
+T-6
+79.25
+73.89
+95.39
+27.92
+75.01
+94.95
+91.19
+94.77
+58.32
+93.68
+46.15
+45.16
+64.51
+52.02
+T-7
+78.33
+73.36
+95.54
+27.92
+74.86
+94.60
+90.66
+94.62
+58.01
+89.20
+46.15
+45.14
+64.51
+51.05
+95.89
+65.47
+T-8
+78.38
+73.36
+95.54
+27.81
+74.55
+94.95
+89.62
+94.62
+58.01
+89.20
+46.15
+45.19
+58.01
+50.85
+95.89
+64.51
+58.08
+47.59
+T-9
+77.31
+73.36
+95.39
+27.91
+74.39
+94.95
+89.58
+94.62
+58.16
+89.20
+46.15
+45.09
+58.01
+51.77
+95.89
+64.08
+58.11
+45.61
+73.15
+87.04
+T-10
+77.31
+75.14
+95.39
+27.64
+74.39
+94.95
+88.42
+94.62
+58.32
+85.81
+46.15
+45.09
+60.51
+51.77
+95.89
+64.38
+58.12
+44.77
+73.32
+87.04
+77.77
+7.64
+67.47
+Table 6. Continual Learning with Lots of LoRAs in a zero-shot setting. We report the Rouge-L scores for each of the 2 randomly sampled
+IID tasks at each time-step.
+Method
+039
+190
+280
+290
+391
+442
+1342
+1391
+1598
+Avg
+LoRA (Upper Bound)
+58.77 (1.00)
+86.61 (1.00)
+99.19 (1.00)
+93.79 (1.00)
+93.45 (1.00)
+67.84 (1.00)
+19.57 (1.00)
+92.92 (1.00)
+51.58 (1.00)
+73.75
+TIES (non-CL)
+35.18 (0.60)
+22.00 (0.25)
+1.00 (0.01)
+0.00 (0.00)
+78.00 (0.83)
+21.46 (0.32)
+9.93 (0.51)
+1.00 (0.01)
+21.5 (0.42)
+21.12
+Share (CL)
+46.96 (0.80)
+45.84 (0.53)
+70.56 (0.71)
+84.54 (0.90)
+88.56 (0.95)
+49.78 (0.73)
+10.66 (0.54)
+66.34 (0.71)
+39.81 (0.71)
+55.89
+Table 7. Continual Learning with Lots of LoRAs. We report the absolute and relative Rouge-L scores for OOD tasks.
+In addition, Fig. 7 shows the explained variance over
+time for the Continual NLU (GLUE) experiment. It can
+be seen that as the number of continual tasks increases, we
+need marginally more number of principal factors to encom-
+pass most information. However, it can be seen that this
+number quickly converges around the value 32.
+Our empirical analysis shows that φ = [1, k/4] is ef-
+fective for identifying new factors in the foundational sub-
+space. We show ablative results for different values of φ
+for the Continual Natural Language Understanding (GLUE
+Benchmark) - RTE task in Tab. 8. As can be seen, φ = 2
+which we choose in the experiment is a good selection for
+this hyperparameter.
+We also find that a pseudo-rank p of p = 1 is fairly ef-
+fective, with higher values yielding additional performance
+benefits which realtively reduce with increasing p value.
+Starting with p = r/3 is advisable. We ablate this hyperpa-
+rameter in Fig. 9 for the RTE experiment in the Continual
+GLUE benchmark and note that p = 1 works well with
+the larger improvements noted until p = 4. The increase
+in the p value further seems to improve the performance
+marginally.
+Value of Φ
+Accuracy
+φ = 1
+69.675
+φ = 2
+73.290
+φ = 3
+74.368
+φ = 4
+73.285
+Table 8. Ablation for different values of φ for Continual Adapta-
+tion part of the method. This was done for the RTE task on the
+Continual GLUE experiment.
+8.6.1. Limitations
+Our work represents one of the earliest attempts (if not the
+first) to enable parameter-efficient continual learning, lever-
+aging either low-rank adapters or data. However, it relies
+on the assumption of using a single type of backbone model
+for a given task. Share cannot currently integrate multiple
+types of pre-trained architectures or models within a single
+continual learning task. When only adapters are available,
+the performance of Share on a specific task depends heav-
+ily on the quality of the adapter, particularly in the absence
+of additional data. Furthermore, Share is not yet capable of
+cross-task continual learning.
+9. Future Work and Broader Impact
+Future work will focus on extending Share to integrate
+knowledge from diverse, fully trained models. Addition-
+ally, enhancing the continual learning framework for large
+multi-modal models to enable cross-domain and cross-task
+knowledge transfer is another key direction for future re-
+search. Share has the potential for significant positive so-
+cietal impact, particularly in addressing the environmental
+and accessibility challenges posed by large vision and lan-
+guage models. By enabling parameter-efficient fine-tuning,
+it reduces the computational resources required for train-
+ing, thereby lowering energy consumption and carbon foot-
+prints. This makes advanced AI research more accessible to
+a broader range of researchers, including those with limited
+access to large-scale computational infrastructure.
+Furthermore, Share’s ability to support continual learn-
+ing allows massive datasets and complex tasks to be decom-
+posed into smaller, manageable sub-tasks, enabling feder-
+ated and distributed learning approaches. This opens the
+door to more collaborative and decentralized AI develop-
+ment. The memory efficiency and adaptability of Share also
+pave the way for building lifelong learning systems capable
+
+
+===== PAGE 18 =====
+Figure 7. Explained Variance over Time.
+Figure 8. Performance of Share-full on MRPC with different num-
+ber of principal factors/components
+of continuously evolving across diverse tasks and domains.
+These innovations could lead to more sustainable, inclusive,
+and scalable AI systems for the future.
+
+
+===== PAGE 19 =====
+Figure 9. Ablation of Hyperparameter p (dimensionality of coefficients)
+
+
+===== PAGE 20 =====
+Figure 10. More examples from our text-to-image generation continual experiment using Share
