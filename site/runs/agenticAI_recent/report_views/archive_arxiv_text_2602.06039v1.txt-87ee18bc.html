@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2602.06039v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2602.06039v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><pre>
+
+===== PAGE 1 =====
+DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic
+Matching
+Yuxing Lu * 1 2 Yucheng Hu * 3 Xukai Zhao 4 Jiuxin Cao 3
+Abstract
+Multi-agent systems built from prompted large
+language models can improve multi-round rea-
+soning, yet most existing pipelines rely on fixed,
+trajectory-wide communication patterns that are
+poorly matched to the stage-dependent needs
+of iterative problem solving. We introduce Dy-
+Topo, a manager-guided multi-agent framework
+that reconstructs a sparse directed communication
+graph at each round. Conditioned on the man-
+ager’s round goal, each agent outputs lightweight
+natural-language query (need) and key (offer) de-
+scriptors; DyTopo embeds these descriptors and
+performs semantic matching, routing private mes-
+sages only along the induced edges. Across code
+generation and mathematical reasoning bench-
+marks and four LLM backbones, DyTopo con-
+sistently outperforms over the strongest baseline
+(avg. +6.2). Beyond accuracy, DyTopo yields
+an interpretable coordination trace via the evolv-
+ing graphs, enabling qualitative inspection of
+how communication pathways reconfigure across
+rounds.
+1. Introduction
+Multi-agent systems built from prompted large language
+models have become a practical paradigm for multi-round
+reasoning (Tran et al., 2025; Li et al., 2024). By instantiating
+several role-specialized LLM agents and allowing them to
+interact over multiple rounds, these systems can iteratively
+refine partial solutions, cross-check intermediate steps, and
+integrate complementary skills (W¨olflein et al., 2025; Yu
+et al., 2025). This collaboration style is particularly well
+suited to complex problem domains, where effective reason-
+ing emerges from the coordinated interplay of specialized
+agents and from their abilities to collectively revise earlier
+1Peking University, Beijing, China 2Georgia Institute of Tech-
+nology, Atlanta, United States 3Southeast University, Location,
+Country 4Tsinghua University. Correspondence to: Jiuxin Cao
+&lt;jx.cao@seu.edu.cn&gt;.
+Preprint. February 6, 2026.
+Problem
+Problem
+Problem
+Answer
+Answer
+Answer
+LLM
+LLM
+LLM
+A
+Single-agent
+Fixed topology
+Fixed
+B
+E
+B
+A
+D
+C
+Round 1
+Round 2
+Round 3
+Manager
+Manager
+Manager
+round goal g
+round goal g
+round goal g
+1
+2
+3
+Round 1
+Round 2
+Round 3
+A
+B
+C
+D
+E
+A
+B
+C
+D
+E
+A
+B
+C
+D
+E
+C
+Topology adapts across rounds via semantic relevance.
+Dynamic topology (Ours)
+Figure 1. Comparison of communication topologies. (A) Single-
+agent prompting.
+(B) Fixed-topology communication reused
+across rounds. (C) DyTopo dynamically rewires a directed agent
+graph each round based on the round goal and semantic relevance.
+assumptions as new evidence or errors are uncovered.
+A central yet often under-specified aspect of multi-agent
+reasoning is the communication structure: which agents
+exchange information with whom, and when (Goldman &amp;
+Zilberstein, 2003). Many existing pipelines default to a
+fixed, trajectory-wide interaction pattern (e.g., broadcast
+discussion or scripted turn-taking), effectively reusing the
+same topology across all rounds. However, multi-round rea-
+soning is stage-dependent: early rounds tend to benefit from
+broad exploration and shared problem framing, whereas
+later rounds require selective, high-precision exchanges to
+diagnose failures and converge on a coherent solution (Liu
+et al., 2024). This suggests that communication topology
+should be an adaptive object, conditioned on the round-level
+goal, rather than a static design choice.
+We propose DyTopo, a manager-guided multi-round multi-
+agent framework in which the manager specifies a round-
+level goal and determines whether to terminate the interac-
+tion. Given the round goal and the agents’ self-described
+information needs and capabilities, DyTopo induces a di-
+rected communication graph at each round and routes mes-
+sages only along the activated links. This allows the system
+to shift from broad exploration to targeted verification as
+reasoning progresses.
+1
+arXiv:2602.06039v1  [cs.AI]  5 Feb 2026
+
+
+===== PAGE 2 =====
+DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic Matching
+A key ingredient enabling DyTopo’s round-by-round rout-
+ing is a semantic key-query matching scheme across agents.
+Conditioned on the manager’s round goal, each agent pro-
+vides short natural-language descriptors that summarize
+what it can provide to others (a “key”) and what it currently
+seeks (a “query”). DyTopo semantically matches queries
+to keys to induce the directed communication graph for
+each round, and routes messages only along the activated
+links. This decouples what agents generate from how their
+information is routed, enabling communication patterns that
+adapt over rounds. This topology-driven routing yields two
+advantages. First, it improves collaboration by organizing
+information flow around the current round goal rather than
+a static neighborhood. Second, it provides an interpretable
+coordination trace: edges are activated based on explicit
+descriptors and semantic relevance, so the evolving graphs
+can be inspected to reveal how pathways reconfigure over
+time and which patterns correlate with success or failure.
+We evaluate DyTopo on multi-round code generation and
+mathematical reasoning tasks, comparing against single-
+agent prompting, multi-agent baselines with fixed or ran-
+dom communication topologies, and strong recent agentic
+frameworks. The results show that dynamic communication
+topologies consistently improve task performance and re-
+main robust under different experiment settings. We further
+characterize the method through analyses of performance
+versus the number of rounds, qualitative visualizations of
+topology evolution over time, and ablations over the seman-
+tic matching hyperparameters that control link activation.
+2. Related Work
+2.1. LLM-Based Multi-Agent Collaboration
+A growing line of work studies how to compose multiple
+prompted LLM instances into a cooperative system via
+natural-language interaction. Early frameworks emphasize
+role specialization and structured dialogue: CAMEL pro-
+poses role-playing agents guided by inception prompting to
+autonomously collaborate on tasks (Li et al., 2023), while
+AutoGen provides a programmable framework for build-
+ing applications from multiple conversable agents with cus-
+tomizable interaction patterns (Wu et al., 2024). MetaGPT
+further incorporates human-inspired standardized operat-
+ing procedures (SOPs) to coordinate multiple role agents
+and reduce cascading errors in long workflows (Hong et al.,
+2023). Complementary to role-based cooperation, multi-
+agent deliberation improves reasoning and factuality by
+having multiple model instances propose and critique solu-
+tions over multiple rounds (Du et al., 2023). Finally, agent
+systems are often coupled with tools or external models,
+where an LLM acts as a controller that decomposes tasks
+and delegates to specialized executors (Shen et al., 2023).
+While these approaches demonstrate gains from collabora-
+tion, they typically rely on fixed or dense communication
+patterns, leaving open how to adaptively route information
+among agents at inference time.
+2.2. Selective and Dynamic Communication Topologies
+Selective communication has long been studied in multi-
+agent learning and neural routing. In cooperative MARL,
+targeted messaging methods such as TarMAC learn what to
+communicate and whom to address, enabling multi-round co-
+ordination with interpretable communication patterns (Das
+et al., 2019). In large-scale neural architectures, conditional
+computation and routing activate only a small subset of ex-
+perts per token to scale capacity efficiently (Fedus et al.,
+2022), and content-based sparse attention constructs query-
+dependent sparse interaction patterns among tokens (Roy
+et al., 2021). Recently, these principles have been adapted
+to LLM-based agent teams to reduce redundant interactions
+and design task-aware connectivity. AgentPrune identifies
+communication redundancy in multi-agent pipelines and
+prunes low-value messages on the induced spatio-temporal
+message-passing graph (Zhang et al., 2024a). Beyond prun-
+ing, G-Designer generates task-conditioned agent commu-
+nication topologies (Zhang et al., 2024b), and GTD casts
+topology synthesis as a guided diffusion process to optimize
+performance-cost-robustness trade-offs (Jiang et al., 2025).
+Our work complements this direction by studying an explic-
+itly interpretable inference-time routing mechanism: agents
+output textual Need and Offer descriptors and a directed
+topology is constructed each round via semantic similar-
+ity, enabling controlled multi-round message passing and
+topology-level analysis.
+3. Methods
+We formalize DyTopo as a Dynamic Computation Graph
+(DCG), G = {G(t)}T −1
+t=0 , where T is the number of executed
+rounds (indexed by t ∈{0, . . . , T −1}) and T ≤Tmax is
+capped by a fixed budget. Unlike static topologies, DyTopo
+reconstructs G(t) at each communication round t under a
+manager-specified round goal, driven by semantic matching
+between agents’ information needs and offered capabilities.
+In Appendix A, we analyze Dytopo’s complexity advantages
+over fully connected networks. The overall algorithm is
+summarized in Appendix C.
+3.1. Preliminaries
+Let A = {a1, . . . , aN} denote N heterogeneous worker
+agents. Each worker agent ai is instantiated with a role
+description ρi and maintains a local memory buffer H(t)
+i . At
+each round t, agent ai produces communication messages in
+M and lightweight topology descriptors in D. In addition,
+DyTopo includes a Manager meta-agent that maintains a
+2
+
+
+===== PAGE 3 =====
+DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic Matching
+Initial Data Flow
+ &amp; Supervision
+Semantic
+matching
+engine
+Agent A
+Agent B
+Agent C
+Agent D
+Agent Data
+ (Textual Q&amp;K)
+Agent Data
+ (Textual Q&amp;K)
+Initial
+Key Text
+Data
+Updated
+Query
+Text
+Data
+Agent E
+Reviews round results
+Query
+Embedding
+ (Q)
+Key
+Embedding
+ (K)
+Dot Product
+Attention
+(Attention-based Dot Product)
+Updated
+Edge
+Computed
+ Graph
+ Structure
+Semantic Matching
+ &amp; Edge Gen.
+Semantic Edge Generation
+Round t-2, t-1, t: Dynamic
+Communication
+Time / Rounds
+Manager
+Manager
+Agent A
+Agent E
+Round t
+Semantic
+Edge
+Agent C
+Feedback &amp; Context Update
+Agent A
+Agent E
+Round t-1
+Agent B
+Agent C
+Agent D
+Agent A
+Agent E
+Round t-2
+Agent B
+Agent C
+Agent D
+Q (Need)
+ K (Offer)
+Q (Need)
+ K (Offer)
+Q (Need)
+ K (Offer)
+Decides to terminate discussion
+ Sets unified current goal
+Figure 2. DyTopo round-by-round routing via semantic matching. At each round t, each worker agent outputs a query and a key
+descriptor. A semantic matching module embeds these descriptors, computes pairwise similarity, and induces a directed graph G(t).
+Private messages produced at round t are routed according to G(t) after a synchronization barrier and are appended to recipients’ memories
+for round t+1. The Manager provides round goals and updates the next-round context, yielding a closed-loop adaptation across rounds.
+global view and updates the round context C(t)
+task.
+DyTopo uses two message channels: a manager-visible
+public channel Mpub and a routed private channel Mpriv.
+Agent ai outputs a public message m(t)
+pub,i ∈Mpub (visible
+to the Manager and recorded for analysis) and a private
+message m(t)
+priv,i ∈Mpriv (routed to the out-neighbors of
+ai in G(t)).
+In addition, the agent outputs two short natural-language
+descriptors that determine connectivity at round t. The
+query descriptor s(t)
+q,i ∈D summarizes what information
+agent ai currently seeks, and the key descriptor s(t)
+k,i ∈D
+summarizes what information it can provide to others.
+3.2. Per-Round Agent Execution
+3.2.1. SINGLE-PASS INFERENCE AND DESCRIPTOR
+GENERATION
+To ensure computational efficiency, we impose a Single-
+Pass Inference constraint: each agent performs exactly one
+forward pass per round using only its role description, the
+manager-provided round goal, and its local memory. Agents
+generate task-relevant messages and lightweight natural-
+language descriptors used for topology induction.
+Formally, the local state is
+S(t)
+i
+= [ρi; C(t)
+task; H(t)
+i ],
+(1)
+and the agent output is
+O(t)
+i
+= ⟨m(t)
+pub,i, m(t)
+priv,i, s(t)
+q,i, s(t)
+k,i⟩∼πθi(· | S(t)
+i ).
+(2)
+The descriptors s(t)
+q,i and s(t)
+k,i are embedded to induce G(t)
+(Sec. 3.3); private messages are then routed and integrated
+into memories for the next round (Sec. 3.2.2).
+3.2.2. SYNCHRONIZATION BARRIER AND CONTEXT
+UPDATE
+After generating O(t)
+i , agents do not update their local mem-
+ory immediately. Instead, DyTopo applies a Synchroniza-
+tion Barrier: it first induces the directed topology G(t) and
+routes private messages according to the activated edges,
+and only then updates each agent’s memory for next round.
+Let G(t) = (A, E(t)) and define the incoming neighbor set
+as N (t)
+in (i) = { j | (aj →ai) ∈E(t) }.
+The memory update rule is:
+H(t+1)
+i
+= H(t)
+i
+⊕m(t)
+pub,i ⊕Σσ(t)
+i
+
+{m(t)
+priv,j | j ∈N (t)
+in (i)}
+
+.
+(3)
+where ⊕denotes concatenation and N (t)
+in (i) is the set of
+incoming neighbors of agent ai in G(t). Σσ(t)(·) is a context
+aggregation operator that constructs a single prompt block
+from routed private messages by ordering them according
+to an aggregation order σ(t) and then concatenating them
+in that order. This yields a deterministic prompt layout and
+an ordering that is consistent with the induced dependency
+3
+
+
+===== PAGE 4 =====
+DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic Matching
+structure. Here, m(t)
+pub,i is agent ai’s own generated public
+message at round t, and each m(t)
+priv,j is included in agent
+ai’s next-round context only when j is an incoming neighbor
+(i.e., when the edge aj →ai is active in G(t)). Overall, this
+update ensures that agent ai at round t+1 conditions only
+on its prior memory and on information permitted by the
+induced topology G(t).
+3.3. Dynamic Topology via Semantic Matching
+DyTopo induces a directed communication graph at each
+round based on the agents’ textual descriptors. Concretely,
+at round t each agent ai outputs a query descriptor s(t)
+q,i (what
+it needs) and a key descriptor s(t)
+k,i (what it can provide).
+DyTopo embeds these descriptors into a shared semantic
+space and constructs G(t) = (A, E(t)) by activating directed
+edges from providers to consumers according to semantic
+relevance. The resulting topology determines which private
+messages are routed between agents in round t.
+3.3.1. SEMANTIC ALIGNMENT QUANTIFICATION
+Because descriptors are natural language, we map them to
+vectors using a fixed pre-trained semantic encoder, Emb :
+D →Rd, where d is the embedding dimension. For each
+agent ai at round t, we compute
+q(t)
+i
+= Emb
+
+s(t)
+q,i
+
+,
+k(t)
+i
+= Emb
+
+s(t)
+k,i
+
+,
+(4)
+and stack them into matrices Q(t), K(t) ∈RN×d. Here, N
+denotes the number of active agents, and d is the embed-
+ding dimension of the semantic encoder. We posit that a
+communication link should exist from agent j to agent i if
+the semantic capacity offered by j aligns with the need of
+i. We quantify semantic alignment using cosine similarity.
+We ℓ2-normalize embeddings and define
+ˆq(t)
+i
+=
+q(t)
+i
+∥q(t)
+i
+∥2
+,
+ˆk(t)
+j
+=
+k(t)
+j
+∥k(t)
+j
+∥2
+,
+r(t)
+i,j = (ˆq(t)
+i
+)⊤ˆk(t)
+j
+∈[−1, 1].
+(5)
+This score measures how well agent aj’s offered capability
+(key) matches agent ai’s current need (query), and it is
+directly comparable across rounds under a fixed encoder.
+3.3.2. SPARSE GRAPH CONSTRUCTION
+To obtain a sparse topology, we apply hard thresholding to
+the relevance matrix. The binary adjacency matrix A(t) ∈
+{0, 1}N×N is defined as
+A(t)
+j→i = I
+
+r(t)
+i,j &gt; τedge
+
+· (1 −δij),
+(6)
+where I(·) is the indicator function, τedge controls graph
+sparsity, and δij prevents self-loops.
+We then set E(t) = {(aj →ai) | A(t)
+j→i = 1} and define the
+incoming neighbor set:
+N (t)
+in (i) = { j | A(t)
+j→i = 1 }.
+(7)
+Thus, a directed edge aj →ai indicates that aj is selected
+as a provider for ai at round t, and m(t)
+priv,j becomes eligible
+to be routed into ai’s next-round cont</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

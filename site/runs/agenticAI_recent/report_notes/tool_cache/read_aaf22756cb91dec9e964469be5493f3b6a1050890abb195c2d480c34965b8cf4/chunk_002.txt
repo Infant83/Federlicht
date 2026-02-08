@@ -1,0 +1,56 @@
+ 2025; Yin et al., 2025). This gap
+motivates our study of language-guided viewpoint ground-
+ing for multi-view spatial reasoning. We study perspective-
+shift reasoning where the target viewpoint is specified in
+natural language. Given multiple context images and a ques-
+tion, the model needs to ground the description to a target
+camera pose and answer from that perspective.
+A recent line of work tackles perspective-shift reasoning by
+augmenting MLLMs with generative world models that
+actively synthesize additional observations at inference
+time (Lee et al., 2025; Yang et al., 2025c). While promising,
+existing pipelines are often built around a single reference
+view and do not effectively integrate multiple contextual im-
+ages as a unified source of evidence (Lee et al., 2025; Yang
+et al., 2025c). In addition, most controllable generators are
+largely query-agnostic, which can produce imagined views
+that are irrelevant or even inconsistent with the downstream
+question (Yang et al., 2025c). Many of these methods rely
+on expensive test-time procedures such as iterative search
+or multiple candidate rollouts to obtain a useful imagined
+view, resulting in high latency and limited practicality. Fi-
+nally, off-the-shelf novel-view synthesis is typically pose-
+conditioned, whereas MLLMs do not reliably infer target
+camera poses from natural language description, leaving a
+mismatch between language-driven viewpoint specification
+and pose-controlled generation (Jin et al., 2024; Zhou et al.,
+2025).
+1
+arXiv:2602.06041v1  [cs.CV]  5 Feb 2026
+
+
+===== PAGE 2 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Query: If I sit on the sofa behind the 
+black table, is the plant visible next to 
+the TV?
+Mental Image
+CAMCUE: Pose-Aware Imagination
+Synthesized Target 
+View
+View 1
+View 2
+View 3
+Baseline:
+No viewpoint grounding
+Context and Query (Input)
+Model Output
+Answer: Yes, the plant will 
+be visible in your front-right.
+CAMCUE successfully reasons
+using the imagined view.
+Answer: No, The plant is not 
+visible.
+Base model struggles to reason 
+from a shifted perspective.
+Figu

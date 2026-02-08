@@ -1,0 +1,62 @@
+
+
+===== PAGE 1 =====
+InterPrior: Scaling Generative Control for Physics-Based
+Human-Object Interactions
+Sirui Xu1
+Samuel Schulter2
+Morteza Ziyadi2
+Xialin He1
+Xiaohan Fei2
+Yu-Xiong Wang1†
+Liang-Yan Gui1†
+1 University of Illinois Urbana-Champaign
+2 Amazon
+† Equal Advising
+https://sirui-xu.github.io/InterPrior
+Regrasp after Failure
+Steering Control
+Humanoid Robot
+Contact Goal
+Snapshot Goal
+Trajectory Goal
+Figure 1. InterPrior is a versatile generative controller instantiated as a goal-conditioned policy that controls a simulated humanoid to
+follow goal guidance and interact with objects in a physics-based simulator. Three core, composable capabilities enable pursuing (I) long-
+horizon snapshot goals, (II) trajectory goals, and (III) contact goals (Top). Yellow, blue, and red dots respectively denote human, object,
+and contact goals. It demonstrates failure recovery (Bottom Left) from unsuccessful grasps. InterPrior enables steering control from a
+human operator and can be applied to humanoid robot embodiments (Bottom Right). More demo videos are provided in the webpage.
+Abstract
+Humans rarely plan whole-body interactions with objects
+at the level of explicit whole-body movements. High-level
+intentions, such as affordance, define the goal, while co-
+ordinated balance, contact, and manipulation can emerge
+naturally from underlying physical and motor priors. Scal-
+ing such priors is key to enabling humanoids to compose
+and generalize loco-manipulation skills across diverse con-
+texts while maintaining physically coherent whole-body co-
+ordination. To this end, we introduce InterPrior, a scal-
+able framework that learns a unified generative controller
+through large-scale imitation pretraining and post-training
+by reinforcement learning. InterPrior first distills a full-
+reference imitation expert into a versatile, goal-conditioned
+variational policy that reconstructs motion from multimodal
+observations and high-level intent. While the distilled pol-
+icy reconstructs training behaviors, it does not generalize
+reliably due to the vast configuration space of large-scale
+human-object interactions. To address this, we apply data
+augmentation with physical perturbations, and then per-
+form reinforcement learning finetuning to improve compe-
+tence on unseen goals and initializations. Together, these
+steps consolidate the reconstructed latent skills into a valid
+manifold, yielding a motion prior that generalizes beyond
+the training data, e.g., it can incorporate new behaviors
+such as interactions with unseen objects. We further demon-
+strate its effectiveness for user-interactive control and its
+potential for real robot deployment.
+1. Introduction
+Human-object interaction (HOI) is inherently hierarchical:
+humans plan at a high level with sparse intentions, while
+detailed limb coordination, balance, and contact emerge
+through fast, intuitive motor responses [61]. For instance,
+when reaching for a bottle, we plan the hand’s target and
+object motion, while the res

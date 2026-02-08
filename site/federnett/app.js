@@ -50,6 +50,9 @@ const state = {
   jobsExpanded: false,
   historyLogs: {},
   logsCollapsed: false,
+  logMode: "raw",
+  logRenderPending: false,
+  logAutoScrollRequested: false,
   logBuffer: [],
   pipeline: {
     order: [],
@@ -84,11 +87,14 @@ const state = {
     open: false,
     busy: false,
     history: [],
+    runRel: "",
   },
 };
 
 const LOG_LINE_LIMIT = 1400;
 const LOG_LINE_MAX_CHARS = 3200;
+const LOG_MD_MAX_CHARS = 120000;
+const LOG_MD_TAIL_CHARS = 60000;
 
 const STAGE_DEFS = [
   {
@@ -370,20 +376,146 @@ function setAskStatus(message) {
   }
 }
 
-function setAskPanelOpen(open) {
+function askStorageKey(key) {
+  return `federnett-ask-${key}`;
+}
+
+function saveAskGeometry() {
+  const panel = $("#ask-panel");
+  if (!panel || !state.ask.open) return;
+  const rect = panel.getBoundingClientRect();
+  const payload = {
+    left: Math.max(0, Math.round(rect.left)),
+    top: Math.max(0, Math.round(rect.top)),
+    width: Math.max(640, Math.round(rect.width)),
+    height: Math.max(340, Math.round(rect.height)),
+  };
+  localStorage.setItem(askStorageKey("geom"), JSON.stringify(payload));
+}
+
+function clampAskPanelPosition() {
+  const panel = $("#ask-panel");
+  if (!panel) return;
+  const rect = panel.getBoundingClientRect();
+  const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+  const maxTop = Math.max(70, window.innerHeight - rect.height - 12);
+  const left = Math.max(12, Math.min(rect.left, maxLeft));
+  const top = Math.max(70, Math.min(rect.top, maxTop));
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  panel.style.right = "auto";
+}
+
+function restoreAskGeometry(anchor) {
+  const panel = $("#ask-panel");
+  if (!panel) return;
+  let restored = false;
+  const raw = localStorage.getItem(askStorageKey("geom"));
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && Number(parsed.width) > 100 && Number(parsed.height) > 100) {
+        panel.style.width = `${Math.round(parsed.width)}px`;
+        panel.style.height = `${Math.round(parsed.height)}px`;
+      }
+      if (parsed && Number.isFinite(parsed.left) && Number.isFinite(parsed.top)) {
+        panel.style.left = `${Math.round(parsed.left)}px`;
+        panel.style.top = `${Math.round(parsed.top)}px`;
+        panel.style.right = "auto";
+        restored = true;
+      }
+    } catch (err) {
+      // ignore broken local storage values
+    }
+  }
+  if (!restored && anchor && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
+    const rect = panel.getBoundingClientRect();
+    const targetLeft = Math.max(12, Math.min(anchor.x - rect.width + 40, window.innerWidth - rect.width - 12));
+    const targetTop = Math.max(70, Math.min(anchor.y + 8, window.innerHeight - rect.height - 12));
+    panel.style.left = `${Math.round(targetLeft)}px`;
+    panel.style.top = `${Math.round(targetTop)}px`;
+    panel.style.right = "auto";
+  }
+  clampAskPanelPosition();
+}
+
+function ensureAskRunRel() {
+  return selectedRunRel() || state.ask.runRel || "";
+}
+
+async function loadAskHistory(runRel) {
+  const resolvedRun = runRel || "";
+  try {
+    const payload = await fetchJSON(`/api/help/history?run=${encodeURIComponent(resolvedRun)}`);
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    state.ask.history = items
+      .map((item) => ({
+        role: item?.role === "assistant" ? "assistant" : "user",
+        content: String(item?.content || "").slice(0, 4000),
+        ts: item?.ts || new Date().toISOString(),
+      }))
+      .slice(-40);
+    state.ask.runRel = payload?.run_rel || resolvedRun;
+    setAskStatus(state.ask.history.length ? `이력 불러옴 · ${state.ask.history.length}개` : "Ready.");
+  } catch (err) {
+    state.ask.history = [];
+    state.ask.runRel = resolvedRun;
+    setAskStatus(`이력 로드 실패: ${err}`);
+  }
+}
+
+async function saveAskHistory() {
+  try {
+    await fetchJSON("/api/help/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        run: ensureAskRunRel(),
+        items: state.ask.history.slice(-80),
+      }),
+    });
+  } catch (err) {
+    appendLog(`[ask] history save failed: ${err}\n`);
+  }
+}
+
+async function clearAskHistoryAndUi() {
+  try {
+    await fetchJSON("/api/help/history/clear", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run: ensureAskRunRel() }),
+    });
+  } catch (err) {
+    appendLog(`[ask] history clear failed: ${err}\n`);
+  }
+  state.ask.history = [];
+  renderAskAnswer("");
+  renderAskSources([]);
+  setAskStatus("이력이 초기화되었습니다.");
+}
+
+function setAskPanelOpen(open, opts = {}) {
   const panel = $("#ask-panel");
   if (!panel) return;
   state.ask.open = Boolean(open);
   panel.classList.toggle("open", state.ask.open);
   panel.setAttribute("aria-hidden", state.ask.open ? "false" : "true");
+  panel.style.display = state.ask.open ? "block" : "none";
   const button = $("#ask-button");
   if (button) {
     button.classList.toggle("is-active", state.ask.open);
   }
   if (state.ask.open) {
+    restoreAskGeometry(opts.anchor || null);
+    loadAskHistory(ensureAskRunRel()).catch((err) => {
+      setAskStatus(`이력 로드 실패: ${err}`);
+    });
     window.setTimeout(() => {
       $("#ask-input")?.focus();
     }, 0);
+  } else {
+    saveAskGeometry();
   }
 }
 
@@ -464,6 +596,10 @@ async function runAskQuestion() {
   renderAskAnswer("");
   renderAskSources([]);
   try {
+    const runRel = ensureAskRunRel();
+    if (state.ask.runRel !== runRel) {
+      await loadAskHistory(runRel);
+    }
     const result = await fetchJSON("/api/help/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -471,16 +607,23 @@ async function runAskQuestion() {
         question,
         model: model || undefined,
         max_sources: 8,
-        history: state.ask.history.slice(-6),
+        history: state.ask.history.slice(-10),
+        run: runRel || undefined,
       }),
     });
     renderAskAnswer(result.answer || "");
     renderAskSources(result.sources || []);
-    state.ask.history.push({ role: "user", content: question });
-    state.ask.history.push({ role: "assistant", content: String(result.answer || "").slice(0, 2000) });
-    if (state.ask.history.length > 12) {
-      state.ask.history = state.ask.history.slice(-12);
+    const stamp = new Date().toISOString();
+    state.ask.history.push({ role: "user", content: question, ts: stamp });
+    state.ask.history.push({
+      role: "assistant",
+      content: String(result.answer || "").slice(0, 3000),
+      ts: stamp,
+    });
+    if (state.ask.history.length > 40) {
+      state.ask.history = state.ask.history.slice(-40);
     }
+    await saveAskHistory();
     const modelLabel = result.model || (model || "$OPENAI_MODEL");
     const indexed = Number(result.indexed_files || 0);
     if (result.used_llm) {
@@ -512,9 +655,19 @@ function handleAskPanel() {
   $("#ask-button")?.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    setAskPanelOpen(!state.ask.open);
+    if (state.ask.open) {
+      setAskPanelOpen(false);
+      return;
+    }
+    const anchor = { x: ev.clientX || window.innerWidth - 80, y: ev.clientY || 80 };
+    setAskPanelOpen(true, { anchor });
   });
   $("#ask-close")?.addEventListener("click", () => setAskPanelOpen(false));
+  $("#ask-reset")?.addEventListener("click", () => {
+    clearAskHistoryAndUi().catch((err) => {
+      setAskStatus(`Reset failed: ${err}`);
+    });
+  });
   $("#ask-run")?.addEventListener("click", () => runAskQuestion());
   $("#ask-input")?.addEventListener("keydown", (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
@@ -523,18 +676,45 @@ function handleAskPanel() {
     }
   });
   panel.addEventListener("click", (ev) => ev.stopPropagation());
-  document.addEventListener("click", (ev) => {
-    if (!state.ask.open) return;
-    const target = ev.target;
-    if (!(target instanceof Element)) return;
-    if (target.closest("#ask-panel")) return;
-    if (target.closest("#ask-button")) return;
-    setAskPanelOpen(false);
-  });
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && state.ask.open) {
       setAskPanelOpen(false);
     }
+  });
+  const head = panel.querySelector(".ask-panel-head");
+  if (head) {
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let dragging = false;
+    const move = (ev) => {
+      if (!dragging) return;
+      panel.style.left = `${Math.round(ev.clientX - dragOffsetX)}px`;
+      panel.style.top = `${Math.round(ev.clientY - dragOffsetY)}px`;
+      panel.style.right = "auto";
+      clampAskPanelPosition();
+    };
+    const end = () => {
+      if (!dragging) return;
+      dragging = false;
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", end);
+      saveAskGeometry();
+    };
+    head.addEventListener("pointerdown", (ev) => {
+      const target = ev.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("button") || target.closest("input") || target.closest("textarea")) return;
+      const rect = panel.getBoundingClientRect();
+      dragOffsetX = ev.clientX - rect.left;
+      dragOffsetY = ev.clientY - rect.top;
+      dragging = true;
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", end);
+    });
+  }
+  window.addEventListener("resize", () => {
+    if (!state.ask.open) return;
+    clampAskPanelPosition();
   });
 }
 
@@ -869,6 +1049,13 @@ function refreshRunDependentFields() {
   }
 }
 
+function maybeReloadAskHistory() {
+  if (!state.ask.open) return;
+  loadAskHistory(ensureAskRunRel()).catch((err) => {
+    setAskStatus(`이력 로드 실패: ${err}`);
+  });
+}
+
 function refreshRunSelectors() {
   const runSelect = $("#run-select");
   const promptRunSelect = $("#prompt-run-select");
@@ -1004,8 +1191,26 @@ function renderMarkdown(text) {
   const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
   let html = "";
   let inList = false;
+  let listTag = "ul";
   let inCode = false;
   let fenceToken = "";
+  let inTable = false;
+  const closeList = () => {
+    if (!inList) return;
+    html += `</${listTag}>`;
+    inList = false;
+    listTag = "ul";
+  };
+  const closeTable = () => {
+    if (!inTable) return;
+    html += "</tbody></table>";
+    inTable = false;
+  };
+  const parseTableCells = (value) => {
+    const trimmed = value.trim().replace(/^\|/, "").replace(/\|$/, "");
+    return trimmed.split("|").map((cell) => inline(cell.trim()));
+  };
+  const isTableSeparator = (value) => /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(value.trim());
   const inline = (value) => {
     let out = escapeHtml(value ?? "");
     out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
@@ -1014,17 +1219,16 @@ function renderMarkdown(text) {
     out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
     return out;
   };
-  for (const raw of lines) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i];
     const line = raw.trimEnd();
     const lineTrim = raw.trim();
     const fenceMatch = lineTrim.match(/^(```+|~~~+)/);
     if (fenceMatch) {
       const token = fenceMatch[1] || "```";
       if (!inCode) {
-        if (inList) {
-          html += "</ul>";
-          inList = false;
-        }
+        closeList();
+        closeTable();
         html += "<pre><code>";
         inCode = true;
         fenceToken = token;
@@ -1044,37 +1248,64 @@ function renderMarkdown(text) {
       continue;
     }
     if (!line) {
-      if (inList) {
-        html += "</ul>";
-        inList = false;
-      }
+      closeList();
+      closeTable();
       continue;
     }
-    if (line.startsWith("#")) {
-      if (inList) {
-        html += "</ul>";
-        inList = false;
+    if (line.includes("|")) {
+      const next = i + 1 < lines.length ? String(lines[i + 1] || "").trim() : "";
+      if (!inTable && next && isTableSeparator(next)) {
+        closeList();
+        const headerCells = parseTableCells(line);
+        html += "<table><thead><tr>";
+        headerCells.forEach((cell) => {
+          html += `<th>${cell}</th>`;
+        });
+        html += "</tr></thead><tbody>";
+        inTable = true;
+        i += 1;
+        continue;
       }
+      if (inTable) {
+        const rowCells = parseTableCells(line);
+        html += "<tr>";
+        rowCells.forEach((cell) => {
+          html += `<td>${cell}</td>`;
+        });
+        html += "</tr>";
+        continue;
+      }
+    } else {
+      closeTable();
+    }
+    if (line.startsWith("#")) {
+      closeList();
+      closeTable();
       const level = Math.min(line.match(/^#+/)[0].length, 3);
       const text = line.replace(/^#+\s*/, "");
       html += `<h${level}>${inline(text)}</h${level}>`;
       continue;
     }
-    if (line.startsWith("- ") || line.startsWith("* ")) {
-      if (!inList) {
-        html += "<ul>";
+    const unorderedMatch = line.match(/^[-*]\s+(.+)$/);
+    const orderedMatch = line.match(/^\d+\.\s+(.+)$/);
+    if (unorderedMatch || orderedMatch) {
+      const nextTag = orderedMatch ? "ol" : "ul";
+      const payload = orderedMatch ? orderedMatch[1] : unorderedMatch[1];
+      if (!inList || listTag !== nextTag) {
+        closeList();
+        html += `<${nextTag}>`;
         inList = true;
+        listTag = nextTag;
       }
-      html += `<li>${inline(line.slice(2))}</li>`;
+      html += `<li>${inline(payload)}</li>`;
       continue;
     }
-    if (inList) {
-      html += "</ul>";
-      inList = false;
-    }
+    closeList();
+    closeTable();
     html += `<p>${inline(line)}</p>`;
   }
-  if (inList) html += "</ul>";
+  closeList();
+  closeTable();
   if (inCode) html += "</code></pre>";
   return html;
 }
@@ -2446,6 +2677,7 @@ function applyRunFolderSelection(runRel) {
   if (input) input.value = `${runRel}/instruction/${runName}.txt`;
   if (updateRun) updateRun.checked = true;
   updateHeroStats();
+  maybeReloadAskHistory();
 }
 
 function openTemplateModal(name) {
@@ -2735,6 +2967,10 @@ function normalizeLogText(text) {
   if (!text) return "";
   const raw = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (!raw) return "";
+  const trimmed = raw.trim();
+  if (trimmed.toLowerCase() === "[reducer]") {
+    return "";
+  }
   const lines = raw.split("\n");
   const normalized = lines
     .map((line) => {
@@ -2754,14 +2990,68 @@ function setLogBufferFromText(text) {
     return normalizeLogText(line);
   });
   state.logBuffer = buffer.slice(-LOG_LINE_LIMIT);
-  renderLogs();
+  scheduleLogRender(true);
 }
 
-function renderLogs() {
+function isNearBottom(el, threshold = 40) {
+  if (!el) return false;
+  const delta = el.scrollHeight - el.scrollTop - el.clientHeight;
+  return delta <= threshold;
+}
+
+function activeLogElement() {
+  return state.logMode === "markdown" ? $("#log-output-md") : $("#log-output");
+}
+
+function renderLogs(autoScroll = false) {
   const out = $("#log-output");
-  if (!out) return;
-  out.textContent = state.logBuffer.join("");
-  out.scrollTop = out.scrollHeight;
+  const mdOut = $("#log-output-md");
+  const shell = $(".log-shell");
+  if (!out || !mdOut || !shell) return;
+  const raw = state.logBuffer.join("");
+  const shouldStickRaw = autoScroll || isNearBottom(out);
+  const shouldStickMd = autoScroll || isNearBottom(mdOut);
+  out.textContent = raw;
+  if (state.logMode === "markdown") {
+    let mdSource = raw;
+    let notice = "";
+    if (raw.length > LOG_MD_MAX_CHARS) {
+      mdSource = raw.slice(-LOG_MD_TAIL_CHARS);
+      notice =
+        `> Log preview is truncated for markdown rendering (${LOG_MD_TAIL_CHARS.toLocaleString()} chars tail).\n\n`;
+    }
+    mdOut.innerHTML = renderMarkdown(`${notice}${mdSource}`);
+  } else {
+    mdOut.innerHTML = "";
+  }
+  shell.classList.toggle("mode-markdown", state.logMode === "markdown");
+  const active = activeLogElement();
+  if (active && ((state.logMode === "raw" && shouldStickRaw) || (state.logMode === "markdown" && shouldStickMd))) {
+    active.scrollTop = active.scrollHeight;
+  }
+}
+
+function scheduleLogRender(autoScroll = false) {
+  if (autoScroll) state.logAutoScrollRequested = true;
+  if (state.logRenderPending) return;
+  state.logRenderPending = true;
+  window.requestAnimationFrame(() => {
+    state.logRenderPending = false;
+    const shouldScroll = state.logAutoScrollRequested;
+    state.logAutoScrollRequested = false;
+    renderLogs(shouldScroll);
+  });
+}
+
+function setLogMode(mode) {
+  const next = mode === "markdown" ? "markdown" : "raw";
+  state.logMode = next;
+  const btn = $("#log-mode");
+  if (btn) {
+    btn.textContent = next === "markdown" ? "RAW 보기" : "MD 보기";
+  }
+  localStorage.setItem("federnett-log-mode", next);
+  scheduleLogRender(false);
 }
 
 function appendLog(text) {
@@ -2772,12 +3062,12 @@ function appendLog(text) {
   if (state.logBuffer.length > LOG_LINE_LIMIT) {
     state.logBuffer.splice(0, state.logBuffer.length - LOG_LINE_LIMIT);
   }
-  renderLogs();
+  scheduleLogRender(true);
 }
 
 function clearLogs() {
   state.logBuffer = [];
-  renderLogs();
+  scheduleLogRender(false);
 }
 
 function shortId(id) {
@@ -3450,6 +3740,7 @@ function handleRunChanges() {
     updateRunStudio(runRel).catch((err) => {
       appendLog(`[studio] failed to refresh run studio: ${err}\n`);
     });
+    maybeReloadAskHistory();
   });
   $("#instruction-run-select")?.addEventListener("change", () => {
     const runRel = $("#instruction-run-select").value;
@@ -3468,6 +3759,7 @@ function handleRunChanges() {
     updateRunStudio(runRel).catch((err) => {
       appendLog(`[studio] failed to refresh run studio: ${err}\n`);
     });
+    maybeReloadAskHistory();
   });
   $("#prompt-run-select")?.addEventListener("change", () => {
     const runRel = $("#prompt-run-select").value;
@@ -3486,6 +3778,7 @@ function handleRunChanges() {
     updateRunStudio(runRel).catch((err) => {
       appendLog(`[studio] failed to refresh run studio: ${err}\n`);
     });
+    maybeReloadAskHistory();
   });
 }
 
@@ -3552,6 +3845,26 @@ function handleInstructionEditor() {
 function handleFilePreviewControls() {
   const editor = $("#file-preview-editor");
   const saveAsInput = $("#file-preview-saveas-path");
+  const previewSizeSelect = $("#file-preview-size");
+  const previewBlock = $(".preview-block");
+  const applyPreviewSize = (value) => {
+    if (!previewBlock) return;
+    const valid = value === "compact" || value === "expanded" ? value : "fit";
+    previewBlock.dataset.previewSize = valid;
+    if (previewSizeSelect && previewSizeSelect.value !== valid) {
+      previewSizeSelect.value = valid;
+    }
+    localStorage.setItem("federnett-preview-size", valid);
+  };
+  if (previewSizeSelect) {
+    const storedSize = localStorage.getItem("federnett-preview-size") || previewSizeSelect.value || "fit";
+    applyPreviewSize(storedSize);
+    previewSizeSelect.addEventListener("change", () => {
+      applyPreviewSize(previewSizeSelect.value);
+    });
+  } else {
+    applyPreviewSize("fit");
+  }
   editor?.addEventListener("input", () => {
     if (!state.filePreview.canEdit) return;
     state.filePreview.dirty = true;
@@ -4066,6 +4379,11 @@ function handleLogControls() {
   } else {
     setLogsCollapsed(false);
   }
+  const savedMode = localStorage.getItem("federnett-log-mode");
+  setLogMode(savedMode === "markdown" ? "markdown" : "raw");
+  $("#log-mode")?.addEventListener("click", () => {
+    setLogMode(state.logMode === "markdown" ? "raw" : "markdown");
+  });
   $("#log-toggle")?.addEventListener("click", () => {
     setLogsCollapsed(!state.logsCollapsed);
   });

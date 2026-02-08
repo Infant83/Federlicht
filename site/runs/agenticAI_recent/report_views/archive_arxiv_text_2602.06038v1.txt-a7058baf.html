@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2602.06038v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2602.06038v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><pre>
+
+===== PAGE 1 =====
+CommCP: Efficient Multi-Agent Coordination via LLM-Based
+Communication with Conformal Prediction
+Xiaopan Zhang∗, Zejin Wang∗, Zhixu Li, Jianpeng Yao, Jiachen Li‡
+Abstract— To complete assignments provided by humans in
+natural language, robots must interpret commands, generate
+and answer relevant questions for scene understanding, and ma-
+nipulate target objects. Real-world deployments often require
+multiple heterogeneous robots with different manipulation ca-
+pabilities to handle different assignments cooperatively. Beyond
+the need for specialized manipulation skills, effective informa-
+tion gathering is important in completing these assignments.
+To address this component of the problem, we formalize the
+information-gathering process in a fully cooperative setting as
+an underexplored multi-agent multi-task Embodied Question
+Answering (MM-EQA) problem, which is a novel extension
+of canonical Embodied Question Answering (EQA), where
+effective communication is crucial for coordinating efforts
+without redundancy. To address this problem, we propose
+CommCP, a novel LLM-based decentralized communication
+framework designed for MM-EQA. Our framework employs
+conformal prediction to calibrate the generated messages,
+thereby minimizing receiver distractions and enhancing com-
+munication reliability. To evaluate our framework, we intro-
+duce an MM-EQA benchmark featuring diverse, photo-realistic
+household scenarios with embodied questions. Experimental
+results demonstrate that CommCP significantly enhances the
+task success rate and exploration efficiency over baselines.
+The experiment videos, code, and dataset are available on our
+project website: <a href="https://comm-cp.github.io">https://comm-cp.github.io</a>.
+I. INTRODUCTION
+Modern service robots are designed to understand human
+instructions and complete tasks in real-world household
+environments (e.g., “Turn off the TV if it is currently on,”
+“Bring the red pillow from the living room to the bed-
+room”). This process involves interpreting natural language
+commands, generating and answering relevant questions for
+scene understanding and reasoning (e.g., “Is the TV turned
+on?” “What is the color of the pillow?”), and manipulating
+target objects accordingly. A crucial step is answering these
+questions, a task known as Embodied Question Answering
+(EQA) [1], which requires robots to efficiently explore the
+3D environment from a random starting location and actively
+gather information until a confident answer can be provided.
+Prior studies have investigated this in single-agent settings
+[1]–[5]. In contrast, we envision future households with
+multiple heterogeneous service robots, each with distinct
+capabilities and non-transferable assignments. While they
+cannot take over each other’s tasks, they can access all
+generated questions and share observations and interpre-
+tations to enhance exploration efficiency. We define this
+∗Equal contribution
+‡Corresponding author
+X. Zhang, Z. Wang, Z. Li, J. Yao, and J. Li are with the Trustworthy
+Autonomous Systems Laboratory at the University of California, Riverside,
+CA, USA. {xzhan006, jiachen.li}@ucr.edu.
+Robot 2
+I see a mirror relevant to your 
+target shampoo at {position1}.
+position2
+Time 0
+Time 22
+Time 3
+position1
+Where is the 
+shampoo?
+Robot 1
+ I can answer the 
+question now!
+Could you tell me where the 
+shampoo is most likely located?
+I see bath products that may be 
+your target at {position2}.
+Fig. 1.
+In a household setting, robots exchange observations and reasoning
+to collaboratively complete their assigned tasks. Each agent generates
+confident and goal-directed messages using calibrated outputs from LLMs.
+The bottom-left image shows a bird’s-eye view of Robot 1’s navigation
+path after incorporating information received from Robot 2. The top-right
+sequence captures both robots’ camera views at different timestamps.
+cooperative information-gathering setting as a multi-agent
+multi-task EQA (MM-EQA) problem, a novel challenge that
+facilitates multi-robot collaboration in real-world scenarios.
+While existing single-agent EQA solutions can be adapted
+to a multi-agent setting by having each robot work inde-
+pendently, this naive approach is inefficient. Communica-
+tion enables mutual assistance, improving exploration and
+increasing the likelihood of faster task completion. How-
+ever, uncalibrated communication could hinder efficiency by
+sharing irrelevant or misleading information. Therefore, it is
+critical to ensure that messages are accurate and pertinent to
+the recipient’s tasks. This work tackles the MM-EQA prob-
+lem by designing a communication framework that enhances
+multi-agent exploration efficiency and task performance.
+Large language Models (LLMs) have shown great poten-
+tial in solving EQA tasks due to their remarkable ability
+to understand natural-language queries, reason, and provide
+answers in natural language [6]. In the context of MM-EQA,
+natural language is an ideal communication protocol, as
+LLMs are inherently trained to engage in dialogues. Several
+LLM-based communication methods have been proposed in
+other domains [7], [8], but these cannot be directly adapted
+to our MM-EQA setting. Additionally, LLMs often produce
+miscalibrated and overconfident outputs [9], which can result
+in irrelevant or misleading information. This can hinder
+cooperation efficiency, as agents may share inaccurate data,
+arXiv:2602.06038v1  [cs.RO]  5 Feb 2026
+
+
+===== PAGE 2 =====
+reducing overall exploration effectiveness [10].
+Our work tackles this challenge and develops an LLM-
+based communication framework for MM-EQA. Our key
+insight is that an agent should only communicate information
+it confidently deems relevant to its partner agents’ tasks (see
+Fig. 1). We propose CommCP, a novel decentralized LLM-
+based communication framework that employs conformal
+prediction (CP) [11], [12] to calibrate the confidence of
+LLM’s outputs. Our framework ensures that the outputs gen-
+erated by LLMs are more reliable and reduces the negative
+impact of irrelevant or misleading information to partner
+agents, ultimately enhancing the overall task performance
+and efficiency of the multi-agent system. To evaluate our
+proposed framework, we create a novel MM-EQA bench-
+mark based on realistic scenarios and the Habitat-Matterport
+3D (HM3D) dataset [13]. The experimental results show that
+our approach enhances the task success rate and shortens
+completion time by a large margin over baselines.
+The main contributions of this paper are as follows:
+• We formulate the information-gathering process of com-
+pleting assignments provided in natural language as a
+novel multi-agent multi-task embodied question answer-
+ing (MM-EQA) problem, where multiple robots work as
+a team, handling EQA tasks in a shared environment and
+communicating to exchange information or answers.
+• We propose CommCP, a novel LLM-based decentral-
+ized communication framework for MM-EQA, where
+conformal prediction is employed to calibrate the gen-
+erated messages to reduce distractions to other agents
+and improve communication reliability and efficiency.
+• We create a novel MM-EQA benchmark with photo-
+realistic scenarios from the HM3D dataset to vali-
+date the effectiveness of the proposed framework. This
+benchmark is released to facilitate future studies.
+II. RELATED WORK
+A. LLM-based Decentralized Multi-Agent Cooperation
+LLM-based multi-agent cooperation has gained increasing
+attention recently [14], [15], with various systems developed
+for multi-agent tasks [7], [16]–[20]. Unlike single-agent
+or centralized systems, decentralized cooperative systems
+involve peer-to-peer communication, where agents inter-
+act directly, an architecture common in world simulation
+applications [21], [22]. In these systems, communication
+typically takes the form of natural language text generated
+by LLMs, with content varying by application, such as
+sharing environmental observations, coordinating actions,
+or reallocating tasks. However, the effectiveness of LLM-
+generated communication remains underexplored. As noted
+in [6], decentralized communication often incurs costs such
+as bandwidth limitations or delays. Thus, agents must com-
+municate efficiently and avoid unnecessary or redundant
+messages. Current approaches lack mechanisms to assess
+communication quality and rely solely on raw LLM outputs,
+leading to inefficiencies, especially when agents act on
+incomplete or uncertain information.
+B. Conformal Prediction and Calibration
+Recent research has highlighted the miscalibration issue in
+LLMs, where models may exhibit overconfidence or under-
+confidence in their text outputs. This presents a huge chal-
+lenge as foundation models are applied to embodied tasks
+where agents may have miscalibrated confidence in their
+decisions. Previous work [12], [23] has employed conformal
+prediction [11] to formally quantify an LLM’s uncertainty
+in a robot planning context, which ensures that the robot’s
+plans are executed with calibrated confidence. Explore until
+Confident [2] extends this approach by applying multi-step
+conformal prediction in EQA tasks to determine when the
+VLM is sufficiently confident when a visual language model
+(VLM) is sufficiently confident to stop exploration. To our
+best knowledge, we are the first to employ conformal pre-
+diction to enhance multi-agent communication through cal-
+ibrating confidence during collaborative exploration, which
+is a setting not addressed by prior work.
+III. PROBLEM FORMULATION
+Consider a scenario where Na robots are deployed in a
+3D scene with multiple different assignments, each starting
+from an initial pose gi
+0, and aiming to answer the questions
+qi
+1:Nq related to its assignments. The objective is to maximize
+the success rate while minimizing the exploration time, with
+all answers required within a time horizon Tmax. Each robot
+knows all questions, including those assigned to others. They
+can communicate via natural language messages, denoted ζi,
+to exchange information.
+Each robot i ∈Na is equipped with cameras that, at each
+time step t, can provide the robot with an RGB image Ii
+c,t
+and a depth image Ii
+d,t of the local scene as observations.
+The pose (2D position and orientation) of each robot at each
+time step is denoted as gi
+t, with the poses of all robots
+collected into a set Gt = {gi
+t | i = 1, ..., Na}. Each
+robot is equipped with a collision-free planner π to navigate.
+Given the current pose gi
+t and a target position, the planner
+π determines the next feasible pose gi
+t+1, with a low-level
+controller transporting the robot to the planned pose at t+1.
+In this case, a multi-robot multi-task Embodied Question
+Answering (MM-EQA) problem is defined with a tuple
+ξ := (E, G0, Tmax, Q, Y ), where E is the 3D scene with
+dimensions L × W × H, which is discretized into a voxel
+map M composed of cubes with a side length of l. L, W,
+and H representing the length, width, and height of the voxel
+map M; G0 = {gi
+0 | i = 1, ..., Na} is a set of initial poses of
+the robots, and Tmax is the maximum time horizon allowed
+for the robots to explore the scene and complete the task.
+Each robot i is assigned with Nq questions to answer. The
+set Q = {qi
+j | i = 1, ..., Na, j = 1, ..., Nq} collects all the
+questions assigned to the robots, with qi
+j being the jth ques-
+tion assigned to the ith robot. Each question is a multiple-
+choice question with four choices {‘A’, ‘B’, ‘C’, ‘D’}. The
+ground truth answers are denoted by the set Y = {ai
+j ∈
+{‘A’, ‘B’, ‘C’, ‘D’} | i = 1, ..., Na, j = 1, ..., Nq}.
+
+
+===== PAGE 3 =====
+Agent 1
+EQA Tasks
+Raw Prediction 
+Set for     by LLM
+Send Relevant 
+Object Message
+Calibrated 
+Prediction Set 
+for     by LLM
+pass
+Partner’s Request
+Conﬁdence
+Check
+Perception
+Communication
+Finish the 
+Current Task
+fail
+Perception
+Communication
+Finish the 
+Current Task
+Agent 2
+EQA Tasks
+Conﬁdence
+Check
+Conﬁdence
+Check
+Final SV
+SV from VLM
+Semantic Value Map
+Other Robots’ 
+Unsolved Questions
+pass
+pass
+fail
+Perception
+Planning
+Planning
+Perception
+move to the next task
+Send Answer 
+Message
+Observed Objects by VLM
+Getting Answers for 
+Partner’s Questions
+move to the next task
+Natural Language  
+Messages 
+Fig. 2.
+An overview of our framework shows each robot with a perception module, a communication module, a planning module, and a confidence check
+module. At each time step, a robot generates local and global semantic values (SV) based on the current view and the communication message from the
+other robot. It navigates using a 2D weighted semantic value map and handles related object-check requests from other agents. The messages are generated
+based on the robot’s current view, which are calibrated by conformal prediction to enhance relevance.
+IV. METHOD
+This section introduces the CommCP framework, which
+leverages communication to enhance multi-agent exploration
+for the MM-EQA problem. Building upon the approach
+presented in [2] for single-agent single-task EQA, our frame-
+work further enables communication capabilities to improve
+task completion efficiency and success rate. Furthermore, our
+framework can be easily extended to handle more complex
+human assignments in multi-agent settings, where robots
+are tasked with executing downstream tasks based on the
+information they acquire since robots are assigned questions
+based on their capabilities for the downstream tasks.
+The overall framework architecture is illustrated in Fig. 2,
+which consists of four core modules: perception, communi-
+cation, planning, and confidence check modules. The plan-
+ning and confidence check modules are modified from [2]. In
+the communication module, messages are generated and pro-
+jected onto the semantic value map in the planning module
+to guide the robots’ exploration strategies. This module also
+enables a robot to provide answers to other robots’ questions
+when it has sufficient confidence. All notations in this section
+correspond to time t. For each robot i, the perception module
+employs a VLM to detect a set of observed objects Oi
+observe
+from the RGB image Ii
+c with the following prompt:
+Consider the indoor scenario, analyze the provided image and
+list all the objects you observe. Provide the name of each object
+along with its color, separated by a comma.
+The perception module’s detected Oi
+observe are fed into the
+reasoning process to determine which objects to include in
+the communication by employing conformal prediction. Each
+unsolved question is sequentially prompted to the LLM,
+along with Oi
+observe, to generate an answer. If the answer
+passes the confidence check described in Sec. IV.D and the
+question is assigned to the responding robot, it proceeds.
+Otherwise, it sends the answer to the responsible robot.
+A. LLM-Based Object Relevance Reasoning
+In indoor scenarios, objects are typically organized accord-
+ing to patterns of human usage, and LLMs can leverage the
+general knowledge of these patterns. Thus, if LLM assesses
+that an object observed in an area is highly relevant to the
+target object, there is an increased likelihood that the target
+is nearby. Based on this intuition, we design a communica-
+tion framework that enables robots to share relevant object
+information or answers to other robots’ questions.
+During exploration, each robot ˆi sends a request rˆi
+j to seek
+for assistance on its question qˆi
+j and provide its target objects
+Oˆi
+request. The LLM evaluates objects observed by robot i,
+denoted as Oi
+observe, and the observed and target objects are
+labeled as Observed and Request, respectively. We employ
+the zero-shot chain-of-thought [24] to prompt the LLM to
+conduct detailed reasoning before generating a final output.
+The following is the prompts used for the LLM. Here, the
+system prompt is the instruction for the LLM, and the user
+prompt is the content of the conversation with LLM.
+System prompt:
+As a robot in a house, your partner is looking for {Request}
+and you can inform them about what you have observed.
+
+
+===== PAGE 4 =====
+User prompt:
+You observe {Observed}. You</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

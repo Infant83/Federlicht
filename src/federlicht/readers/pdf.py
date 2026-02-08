@@ -23,46 +23,58 @@ def read_pdf_with_fitz(
         import fitz  # type: ignore
     except Exception:
         return "PyMuPDF (pymupdf) is not installed. Cannot read PDF."
-    doc = fitz.open(str(pdf_path))
-    total_pages = doc.page_count
-    start_page = max(0, min(start_page, max(0, total_pages - 1)))
-    if max_pages <= 0:
-        pages = max(0, total_pages - start_page)
-    else:
-        pages = min(max_pages, total_pages - start_page)
-    chunks: list[str] = []
-    for page in range(start_page, start_page + pages):
-        chunks.append(doc.load_page(page).get_text())
-    pages_read = pages
-    text = "\n".join(chunks)
-    if (
-        auto_extend_pages
-        and extend_min_chars
-        and len(text) < extend_min_chars
-        and start_page + pages_read < total_pages
-    ):
-        remaining_pages = total_pages - (start_page + pages_read)
-        extra = min(auto_extend_pages, remaining_pages)
-        for page in range(start_page + pages_read, start_page + pages_read + extra):
-            chunks.append(doc.load_page(page).get_text())
-        pages_read += extra
+    try:
+        doc = fitz.open(str(pdf_path))
+    except Exception as exc:
+        return f"[error] Failed to load PDF '{pdf_path.name}': {exc}"
+    try:
+        total_pages = doc.page_count
+        start_page = max(0, min(start_page, max(0, total_pages - 1)))
+        if max_pages <= 0:
+            pages = max(0, total_pages - start_page)
+        else:
+            pages = min(max_pages, total_pages - start_page)
+        chunks: list[str] = []
+        for page in range(start_page, start_page + pages):
+            try:
+                chunks.append(doc.load_page(page).get_text())
+            except Exception as exc:
+                chunks.append(f"[warn] Failed to read page {page + 1}: {exc}")
+        pages_read = pages
         text = "\n".join(chunks)
-    note = ""
-    if start_page + pages_read < total_pages:
-        first_page = start_page + 1
-        last_page = start_page + pages_read
-        note = (
-            f"\n\n[note] PDF scan truncated: pages {first_page}-{last_page} of {total_pages}. "
-            "Increase --max-pdf-pages or use start_page to read more."
-        )
-    if max_chars > 0:
-        if note:
-            remaining = max_chars - len(note)
-            if remaining <= 0:
-                return note[:max_chars]
-            return f"{text[:remaining]}{note}"
-        return text[:max_chars]
-    return f"{text}{note}"
+        if (
+            auto_extend_pages
+            and extend_min_chars
+            and len(text) < extend_min_chars
+            and start_page + pages_read < total_pages
+        ):
+            remaining_pages = total_pages - (start_page + pages_read)
+            extra = min(auto_extend_pages, remaining_pages)
+            for page in range(start_page + pages_read, start_page + pages_read + extra):
+                try:
+                    chunks.append(doc.load_page(page).get_text())
+                except Exception as exc:
+                    chunks.append(f"[warn] Failed to read page {page + 1}: {exc}")
+            pages_read += extra
+            text = "\n".join(chunks)
+        note = ""
+        if start_page + pages_read < total_pages:
+            first_page = start_page + 1
+            last_page = start_page + pages_read
+            note = (
+                f"\n\n[note] PDF scan truncated: pages {first_page}-{last_page} of {total_pages}. "
+                "Increase --max-pdf-pages or use start_page to read more."
+            )
+        if max_chars > 0:
+            if note:
+                remaining = max_chars - len(note)
+                if remaining <= 0:
+                    return note[:max_chars]
+                return f"{text[:remaining]}{note}"
+            return text[:max_chars]
+        return f"{text}{note}"
+    finally:
+        doc.close()
 
 
 def extract_pdf_images(
@@ -385,12 +397,15 @@ def render_pdf_pages(
     choice = select_figure_renderer(renderer)
     if choice == "none":
         return []
-    if choice == "pdfium":
-        return render_pdf_pages_pdfium(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
-    if choice == "poppler":
-        return render_pdf_pages_poppler(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
-    if choice == "mupdf":
-        return render_pdf_pages_mupdf(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
+    try:
+        if choice == "pdfium":
+            return render_pdf_pages_pdfium(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
+        if choice == "poppler":
+            return render_pdf_pages_poppler(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
+        if choice == "mupdf":
+            return render_pdf_pages_mupdf(pdf_path, output_dir, run_dir, dpi, max_pages, min_area)
+    except Exception:
+        return []
     return []
 
 
@@ -412,47 +427,61 @@ def render_pdf_pages_pdfium(
     output_dir.mkdir(parents=True, exist_ok=True)
     records: list[dict] = []
     pdf_rel = f"./{pdf_path.relative_to(run_dir).as_posix()}"
-    doc = pdfium.PdfDocument(str(pdf_path))
-    pages = len(doc)
-    scale = max(dpi / 72.0, 0.1)
-    for page_index in range(pages):
-        if len(records) >= max_pages:
-            break
-        page = doc.get_page(page_index)
-        try:
-            bitmap = page.render(scale=scale)
-            image = bitmap.to_pil()
-        finally:
-            try:
-                page.close()
-            except Exception:
-                pass
-        crops = extract_image_crops(image, min_area, max_pages - len(records)) if image else []
-        if not crops:
-            continue
-        for crop_index, cropped in enumerate(crops, start=1):
-            tag = f"{pdf_rel}#render-p{page_index + 1}"
-            if len(crops) > 1:
-                tag = f"{tag}-f{crop_index}"
-            name = f"{slugify_url(tag)}.png"
-            img_path = output_dir / name
-            try:
-                cropped.save(img_path, format="PNG")
-            except Exception:
-                continue
-            img_rel = f"./{img_path.relative_to(run_dir).as_posix()}"
-            records.append(
-                {
-                    "pdf_path": pdf_rel,
-                    "image_path": img_rel,
-                    "page": page_index + 1,
-                    "width": int(cropped.width),
-                    "height": int(cropped.height),
-                    "method": "rendered",
-                }
-            )
+    try:
+        doc = pdfium.PdfDocument(str(pdf_path))
+    except Exception:
+        return []
+    try:
+        pages = len(doc)
+        scale = max(dpi / 72.0, 0.1)
+        for page_index in range(pages):
             if len(records) >= max_pages:
                 break
+            try:
+                page = doc.get_page(page_index)
+            except Exception:
+                continue
+            try:
+                bitmap = page.render(scale=scale)
+                image = bitmap.to_pil()
+            except Exception:
+                continue
+            finally:
+                try:
+                    page.close()
+                except Exception:
+                    pass
+            crops = extract_image_crops(image, min_area, max_pages - len(records)) if image else []
+            if not crops:
+                continue
+            for crop_index, cropped in enumerate(crops, start=1):
+                tag = f"{pdf_rel}#render-p{page_index + 1}"
+                if len(crops) > 1:
+                    tag = f"{tag}-f{crop_index}"
+                name = f"{slugify_url(tag)}.png"
+                img_path = output_dir / name
+                try:
+                    cropped.save(img_path, format="PNG")
+                except Exception:
+                    continue
+                img_rel = f"./{img_path.relative_to(run_dir).as_posix()}"
+                records.append(
+                    {
+                        "pdf_path": pdf_rel,
+                        "image_path": img_rel,
+                        "page": page_index + 1,
+                        "width": int(cropped.width),
+                        "height": int(cropped.height),
+                        "method": "rendered",
+                    }
+                )
+                if len(records) >= max_pages:
+                    break
+    finally:
+        try:
+            doc.close()
+        except Exception:
+            pass
     return records
 
 

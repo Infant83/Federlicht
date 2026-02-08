@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2602.06040v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2602.06040v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><pre>
+
+===== PAGE 1 =====
+SwimBird: Eliciting Switchable Reasoning Mode in
+Hybrid Autoregressive MLLMs
+Jintao Tong1,2
+Shilin Yan2†‡
+Hongwei Xue2
+Xiaojun Tang2
+Kunyu Shi2
+Guannan Zhang2
+Ruixuan Li1‡
+Yixiong Zou1‡
+1Huazhong University of Science and Technology
+2Accio Team, Alibaba Group
+† Project Leader
+‡ Corresponding Author
+Abstract
+Multimodal Large Language Models (MLLMs) have made remarkable progress in
+multimodal perception and reasoning by bridging vision and language. However, most existing
+MLLMs perform reasoning primarily with textual CoT, which limits their effectiveness on
+vision-intensive tasks. Recent approaches inject a fixed number of continuous hidden states as “visual
+thoughts” into the reasoning process and improve visual performance, but often at the cost of degraded
+text-based logical reasoning. We argue that the core limitation lies in a rigid, pre-defined reasoning
+pattern that cannot adaptively choose the most suitable thinking modality for different user queries. We
+introduce SwimBird, a reasoning-switchable MLLM that dynamically switches among three reasoning
+modes conditioned on the input: (1) text-only reasoning, (2) vision-only reasoning (continuous hidden
+states as visual thoughts), and (3) interleaved vision–text reasoning. To enable this capability, we
+adopt a hybrid autoregressive formulation that unifies next-token prediction for textual thoughts with
+next-embedding prediction for visual thoughts, and design a systematic reasoning-mode curation
+strategy to construct SwimBird-SFT-92K, a diverse supervised fine-tuning dataset covering all three
+reasoning patterns. By enabling flexible, query-adaptive mode selection, SwimBird preserves strong
+textual logic while substantially improving performance on vision-dense tasks. Experiments across
+diverse benchmarks covering textual reasoning and challenging visual understanding demonstrate
+that SwimBird achieves state-of-the-art results and robust gains over prior fixed-pattern multimodal
+reasoning methods.
+Project Page: <a href="https://accio-lab.github.io/SwimBird">https://accio-lab.github.io/SwimBird</a>
+Github Repo: <a href="https://github.com/Accio-Lab/SwimBird">https://github.com/Accio-Lab/SwimBird</a>
+HuggingFace: <a href="https://huggingface.co/datasets/Accio-Lab/SwimBird-SFT-92K">https://huggingface.co/datasets/Accio-Lab/SwimBird-SFT-92K</a>
+1
+Introduction
+Building on the success of Chain-of-Thought (CoT) [32, 9] reasoning in LLMs, recent multimodal
+research has adopted step-by-step reasoning to decompose complex vision-and-language problems
+into intermediate steps that are easier to solve. With textual CoT, Multimodal Large Language Models
+(MLLMs) [44, 7, 16, 24] have significantly improved on tasks requiring symbolic manipulation,
+numerical calculation, and logical analysis.
+However, this success does not fully transfer to vision-dense tasks where the bottleneck lies in dense
+perception and spatial reasoning rather than logical structure [4]. Typical examples include maze
+solving, fine-grained visual search, and other problems where accurate intermediate visual states
+are essential. On such tasks, purely textual CoT [19] can be an ill-posed interface: the model is
+forced to describe intermediate visual evidence in language even when language is not a faithful
+carrier, causing brittle reasoning and error accumulation [37]. To address this, recent works introduce
+latent visual reasoning [11, 22] that supervises models to generate semantically grounded continuous
+arXiv:2602.06040v1  [cs.CV]  5 Feb 2026
+
+
+===== PAGE 2 =====
+&lt;reason&gt;The rectangle has a width of 1 yard and a height of 2 
+yards. The perimeter of a rectangle is calculated using the formula:
+Perimeter = 2 × (width + height) 
+Substituting the values: 
+Perimeter = 2 × (1 + 2) = 2 × 3 = 6 yards.
+Thus, the perimeter is 6 yards.&lt;/reason&gt; 
+&lt;answer&gt;6&lt;/answer&gt; 
+&lt;think&gt;…… To accurately determine the 
+dimensions, it&#x27;s helpful to visualize the 
+rectangle with its sides clearly 
+labeled. ……&lt;/think&gt;
+&lt;latent&gt; latent embedding &lt;/latent&gt; 
+&lt;think&gt; I can clearly see that the length 
+of the rectangle is 1 yard and the width 
+is also 1 yard. Now, I will substitute these 
+values into the perimeter formula: P = 
+2(1 yd + 1 yd) …….&lt;/think&gt;
+&lt;answer&gt;4&lt;/answer&gt;
+&lt;latent&gt; latent embedding &lt;/latent&gt;
+&lt;answer&gt;4&lt;/answer&gt;
+Question: What is the 
+perimeter of the rectangle?
+1 yd
+1 yd
+2 yd
+2 yd
+Correct Answer: 6
+The rectangle has:
+- Two sides of length 1 yard
+- Two sides of length 2 yards
+The perimeter is the total distance 
+around the shape.
+Perimeter = 1 yd + 2 yd + 1 yd + 2 yd
+Perimeter = (1 + 2 + 1 + 2) yd
+Perimeter = 6 yd
+The perimeter of the rectangle is 6 yards.
+Textual CoT Method
+Unified CoT Method
+Modality Redundant
+Latent Visual CoT Method
+❌
+Modality Mismatch
+SwimBird (Switchable Reasoning Mode)
+What object is situated in 
+the corner of the room 
+depicted in this image?
+Answer: Television
+❌
+Unified CoT Method
+&lt;think&gt;…… To clearly pinpoint the 
+object, I will highlight the relevant 
+area with a bounding box.&lt;/think&gt;
+&lt;latent&gt; latent embedding &lt;/latent&gt; 
+&lt;think&gt;The red bounding box isolates 
+a small, rectangular electronic device 
+on a wooden stand, which appears to 
+be an old television set.…….&lt;/think&gt;
+&lt;answer&gt;tv&lt;/answer&gt;
+&lt;reason&gt; To answer the question, I need to identify the object 
+located in the corner of the provided image. I will mark it with a 
+bounding box for clarity.&lt;/reason&gt;
+&lt;|latent_start|&gt; latent embedding &lt;|latent_end|&gt; 
+&lt;reason&gt; The red box highlights a small rectangular electronic 
+device on a wooden stand that appears to be an old-style 
+television; Based on the highlighted details, it can be identified 
+as a television. &lt;/reason&gt;
+&lt;answer&gt;Television.&lt;/answer&gt;
+SwimBird (Switchable Reasoning Mode)
+&lt;latent&gt; latent embedding &lt;/latent&gt;
+&lt;answer&gt;Chair&lt;/answer&gt;
+Latent Visual CoT Method
+❌
+Based on the image provided, the object 
+situated in the corner of the room is an 
+**air conditioner**.
+Textual CoT Method
+❌
+Quantify the relocation steps 
+between green and red positions
+Correct Answer: 4
+… …
+The path is as follows:
+- From the green square, move right 
+to the red square.
+There is only one step involved in this 
+movement.
+Therefore, the number of relocation 
+steps between the green and red 
+positions is **1**
+Textual CoT Method
+&lt;think&gt;…... it&#x27;s essential to visually 
+trace the most efficient path through 
+the maze, ensuring that all black wall 
+segments are avoided. …….&lt;/think&gt;
+&lt;latent&gt; latent embedding &lt;/latent&gt; 
+&lt;think&gt;…... Starting from the green 
+square and following the blue line 
+until reaching the red square, I find 
+that the total number of steps 
+required is 20.&lt;/think&gt;
+&lt;answer&gt;It takes 20 steps.&lt;/answer&gt;
+Modality Redundant
+Unified CoT Method
+&lt;|latent_start|&gt; latent embedding &lt;|latent_end&gt;
+&lt;answer&gt;4&lt;/answer&gt; 
+&lt;latent&gt; latent embedding &lt;/latent&gt;
+&lt;answer&gt;4&lt;/answer&gt;
+Latent Visual CoT Method
+Modality Mismatch
+❌
+❌
+SwimBird (Switchable Reasoning Mode)
+Figure 1: SwimBird enables query-adaptive multimodal reasoning by dynamically switching
+among text-only, vision-only, and interleaved vision–text modes. As illustrated, it avoids redundant
+latent steps on text-centric queries (Case 1), relies on latent visual thoughts for vision-dense spatial
+problems (Case 2), and interleaves visual grounding with textual deduction when both are needed
+(Case 3), mitigating modality mismatch and improving robustness.
+hidden states as visual thoughts, enabling intermediate visual representations to be maintained and
+updated across steps, which substantially strengthens performance on vision-dense benchmarks.
+Despite these advances, existing multimodal CoT designs largely rely on a rigid, pre-defined reasoning
+pattern. Concretely, prior methods [25, 39, 36] typically fall into three fixed paradigms: text-only
+CoT, vision-only CoT, or interleaved vision–text CoT. As shown in Fig. 1, such fixed patterns create a
+mismatch between the reasoning modality and the actual needs of the question: forcing visual thoughts
+for text-centric queries can interfere with discrete symbolic reasoning, while restricting strongly
+visual queries to text-only reasoning removes an appropriate latent workspace. Even interleaved
+reasoning remains a fixed schedule that may generate redundant modality steps [23].
+We argue that the core limitation is the assumption that a single, static reasoning template can
+generalize across heterogeneous multimodal queries. Different questions demand different internal
+computation formats. Some require only discrete symbolic steps, some require only latent visual
+transitions, and some require tight alternation between visual grounding and textual deduction. A
+more capable MLLM should therefore be able to choose when to think in language, when to think
+in vision, conditioned on the input and the evolving reasoning state.
+Motivated by this, we propose SwimBird, a reasoning-switchable MLLM for query-adaptive mul-
+timodal reasoning. SwimBird is built on two key ideas derived from the limitations above. First,
+we adopt a hybrid autoregressive formulation that supports both (i) standard next-token prediction
+for textual thoughts and (ii) next-embedding prediction for continuous visual thoughts. This unified
+generation interface provides the foundation for switchable reasoning. Second, we attribute the rigid-
+ity of prior patterns partly to training data bias. We therefore design a systematic curation strategy
+that filters and categorizes multimodal CoT samples into reasoning modes based on their visual
+dependency and reasoning characteristics. Through this strategy, we construct SwimBird-SFT-92K,
+a diverse supervised fine-tuning dataset covering text-only, vision-only, and interleaved vision–text
+patterns. With these designs, SwimBird can dynamically switch among three reasoning modes.
+2
+
+
+===== PAGE 3 =====
+Importantly, SwimBird also removes the fixed-budget constraint in visual reasoning. Instead of
+generating a constant-length sequence of visual thought tokens, it dynamically determines the number
+of visual thought tokens during vision-only or interleaved reasoning, allocating more latent compu-
+tation to vision-dense queries while avoiding redundant visual thoughts for text-centric problems.
+As a result, a single model can robustly handle diverse query types, whereas fixed-pattern baselines
+typically excel only on a subset and may underperform when the required thinking modality or
+visual-thought budget deviates from their pre-defined design.
+Our contributions are summarized as follows:
+• We identify two key bottlenecks of prior multimodal CoT frameworks, namely fixed reasoning-
+mode templates and fixed visual-thought lengths, and show how they lead to a modality mismatch
+that harms either vision-dense performance or text-based logical reasoning.
+• We introduce SwimBird, a hybrid autoregressive MLLM that can dynamically switch among text-
+only, vision-only, and interleaved reasoning modes, combining next-token prediction for textual
+thoughts with next-embedding prediction for visual thoughts.
+• We further introduce adaptive visual-thought allocation, enabling SwimBird to dynamically deter-
+mine the number of continuous visual-thought tokens based on query complexity.
+• We design a systematic reasoning-mode curation strategy for multimodal CoT samples and construct
+SwimBird-SFT-92K, a dataset covering three reasoning patterns that enables query-adaptive mode
+selection.
+• Extensive experiments across diverse benchmarks demonstrate that SwimBird achieves state-of-the-
+art performance on both text-centric reasoning and challenging vision-dense tasks, outperforming
+prior fixed-pattern multimodal reasoning methods.
+2
+Related Works
+2.1
+Textual CoT in MLLMs
+The integration of vision and language has evolved from discriminative tasks toward generative
+reasoning frameworks. Early MLLMs focus primarily on visual question answering through direct
+answer generation [13, 15, 27, 14, 35]. With the success of step-by-step reasoning in LLMs, recent
+MLLMs incorporate explicit reasoning chains to handle complex multimodal problems [1, 29, 34].
+These models generate intermediate textual explanations before producing final answers, demonstrat-
+ing improved performance on mathematical word problems, scientific diagram understanding, and
+multi-hop visual reasoning [38, 31, 17]. Despite their effectiveness on logic-heavy benchmarks, these
+text-based reasoning approaches struggle when the core challenge lies in visual perception rather than
+logical decomposition [20]. Tasks requiring spatial transformation tracking, visual state prediction, or
+fine-grained visual comparison expose the fundamental limitation that the model is forced to describe
+intermediate visual evidence in language, even when language is not a faithful or efficient carrier for
+the required information, leading to brittle reasoning and error accumulation.
+2.2
+Latent Visual Reasoning
+Recognizing the constraints of language-only reasoning, researchers have explored alternative com-
+putational substrates for visual thinking [18, 28]. Recent methods propose latent visual reasoning
+by training models to produce continuous embeddings supervised by visual reconstruction objec-
+tives. For instance, Mirage [36] employs hidden states trained to approximate annotated helper
+images, while LVR [11] focuses on reconstructing cropped image regions. SkiLa [22] proposes
+unified reasoning that alternates between generating latent visual tokens and discrete textual tokens.
+However, existing latent reasoning methods uniformly apply the same reasoning structure across all
+inputs: models trained with visual thoughts always generate them, even for purely textual queries.
+Furthermore, these methods use fixed-length latent tokens regardless of whether a problem requires
+minimal or extensive visual deliberation. SwimBird addresses both limitations through dynamic mode
+selection and adaptive visual token budgets, enabling truly query-adaptive multimodal reasoning.
+3
+
+
+===== PAGE 4 =====
+For Textual Thought
+Next Token Prediction
+SwimBird
+…
+LLM Head
+SwimBird
+&lt;reason&gt;The image … &lt;/reason&gt;
+Last Hidden States
+…
+Shifted CE Loss
+Target Logits
+Predicted Logits
+For Visual Thought
+Next Embedding Prediction
+Shifted 
+MSE Loss
+Target Embedding
+Predicted Embedding
+Inference
+…
+&lt;latent&gt;
+&lt;/latent&gt;
+Answer
+Embedding
+…
+Textual CoT
+…
+&lt;latent&gt;
+&lt;/latent&gt;
+Answer
+Embedding
+…
+Vision Only (Dynamic Latent Visual Token Num)
+Interleave Vision-Text
+&lt;latent&gt;
+&lt;/latent&gt;
+…
+Answer
+…
+Textual CoT
+Text Only
+Figure 2: SwimBird adopts a hybrid autoregressive formulation that performs next-token prediction
+for textual thoughts and switches to next-embedding prediction for visual thoughts. During
+inference, SwimBird performs query-adaptive multimodal reasoning by dynamically selecting among
+three modes conditioned on the input: text-only, vision-only, and interleaved vision-text reasoning.
+3
+Method
+SwimBird adopts a hybrid autoregressive formulation that supports both discrete textual tokens
+and continuous latent visual tokens. As shown in Fig. 2 (left), it performs standard next-token
+prediction for textual thoughts, optimized with a shifted cross-entropy loss, and performs next-
+embedding prediction for visual thoughts, optimized with a MSE loss to reconstruct the embeddings
+of intermediate thinking images. During inference (Fig. 2 right), SwimBird performs query-adaptive
+reasoning by generating either (i) text-only traces, (ii) vision-only traces with a variable-length latent
+span, or (iii) interleaved vision–text traces, conditioned on the input.
+3.1
+Hybrid Autoregressive Modeling
+Textual thought as next-token prediction. For textual reasoning spans, SwimBird behaves like a
+standard language model. Given a token sequence {w1, . . . , wT }, the model outputs logits parame-
+terizing
+pθ(wt | w&lt;t, x),
+(1)
+where x denotes the observed image (and prior context). We train these spans with the standard
+cross-entropy loss:
+Ltext = −
+T
+X
+t=1
+log pθ(wt | w&lt;t, x).
+(2)
+This objective preserves the discrete symbolic manipulation and logical consistency of the language
+backbone, which is essential for text-centric reasoning tasks.
+Visual thought as next-embedding prediction. For vision-only reasonin</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

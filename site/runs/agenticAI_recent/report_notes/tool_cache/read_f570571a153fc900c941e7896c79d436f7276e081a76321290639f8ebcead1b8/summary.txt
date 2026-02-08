@@ -1,0 +1,25 @@
+- **제목**: SwimBird: Eliciting Switchable Reasoning Mode in Hybrid Autoregressive MLLMs
+- **저자**: Jintao Tong 외 7명
+- **소속**: Huazhong University of Science and Technology, Accio Team, Alibaba Group
+- **주요 내용**:
+  - MLLMs는 비전과 언어를 연결하여 멀티모달 인식 및 추론에서 발전.
+  - 기존 MLLMs는 텍스트 기반 CoT 사용으로 비전 집약적 작업에서 제한적.
+  - SwimBird는 입력에 따라 세 가지 추론 모드(텍스트 전용, 비전 전용, 비전-텍스트 혼합)를 동적으로 전환.
+  - 하이브리드 자기 회귀 형식으로 텍스트 및 비전 추론 통합.
+  - SwimBird-SFT-92K 데이터셋 구축, 세 가지 추론 패턴 포함.
+  - 실험 결과, 비전 밀집 작업에서 성능 향상.
+  - 다양한 벤치마크에서 최첨단 결과 달성, 이전 MLLM보다 성능 향상.
+
+- **프로젝트 페이지**: [SwimBird Project](https://accio-lab.github.io/SwimBird)
+- **Github Repo**: [SwimBird Github](https://github.com/Accio-Lab/SwimBird)
+- **HuggingFace**: [SwimBird-SFT-92K](https://huggingface.co/datasets/Accio-Lab/SwimBird-SFT-92K)
+
+출처: CHUNK 1/2 [chunk_001.txt]
+- 순수 텍스트 기반 CoT 방법은 중간 시각 상태가 중요한 작업에서 비효율적일 수 있음.
+- 모델이 언어로 중간 시각 증거를 설명해야 하며, 이는 오류를 초래할 수 있음.
+- 최근 연구들은 의미 기반의 연속적인 시각 추론 방법을 도입.
+- 예시: 직사각형의 둘레 계산.
+- 다양한 CoT 방법: Textual, Unified, Modality Redundant, Latent Visual CoT Method.
+- 예시 질문: 방의 구석에 있는 물체는 무엇인가? 답: 텔레비전.
+
+출처: arXiv:2602.06040v1 [cs.CV] 5 Feb 2026 (CHUNK 2/2)

@@ -1,0 +1,41 @@
+tor responses [61]. For instance,
+when reaching for a bottle, we plan the hand’s target and
+object motion, while the rest of the body follows through
+subconscious coordination. Motion imitation policies [87]
+1
+arXiv:2602.06035v1  [cs.CV]  5 Feb 2026
+
+
+===== PAGE 2 =====
+have scaled to large HOI skills but rely on explicit plan-
+ners for dense full-body and object references. In contrast,
+an interaction motor prior should sample feasible loco-
+manipulation behaviors from a distribution conditioned on
+sparse goals, e.g., next-second hand contact, rather than
+simply mimicking deterministic, fully specified trajectories.
+To model a distribution over feasible loco-manipulation
+behaviors, early work [15, 44] learns a generative controller
+via adversarial distributional matching and then uses rein-
+forcement learning (RL) to promote task achievement un-
+der it. These methods can expand motion coverage beyond
+demonstrations, but are hard to scale due to unstable op-
+timization, discriminator mode collapse, and handcrafted
+task objectives. An alternative is to distill reference imi-
+tation policies [37], with goal conditioning [59] achieved
+without task-specific design. While these approaches can
+absorb large-scale data, they can be brittle when reference
+coverage lags far behind the configuration space—as in
+loco-manipulation, where even a few object degrees of free-
+dom can induce a combinatorial explosion of contact modes
+and relative poses with different geometries.
+To address these limitations, we introduce InterPrior,
+a physics-based HOI controller that is scalable along four
+axes (Figure 1). (I) task coverage: a single policy sup-
+ports multiple goal formulations, e.g., sparse targets and
+their compositions; (II) skill coverage: the same training
+recipe scales to large HOI data and enables affordance-rich
+interactions beyond simple grasping; (III) motion coverage:
+it generates expressive trajectories instead of merely recon-
+structing demonstrations; and (IV) dynamics coverage: it
+maintains task success under varied physical properties.
+Our key insight is that RL finetuning is essentia

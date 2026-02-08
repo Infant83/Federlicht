@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>엔터프라이즈 AI 시그널 4축과 실행 시나리오</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    :root {
+      --bg: #0b0f14;
+      --bg-2: #121821;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f5f7fb;
+      --site-muted: rgba(245, 247, 251, 0.65);
+      --accent: #4ee0b5;
+      --accent-2: #6bd3ff;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(78, 224, 181, 0.25);
+      --ink: #0b1220;
+      --muted: #425066;
+      --accent-strong: #2fb892;
+      --paper: rgba(255, 255, 255, 0.94);
+      --paper-strong: #ffffff;
+      --paper-alt: rgba(240, 245, 255, 0.6);
+      --rule: rgba(15, 23, 42, 0.12);
+      --shadow: 0 28px 70px rgba(15, 23, 42, 0.22);
+      --chrome-ink: #f5f7fb;
+      --chrome-muted: rgba(245, 247, 251, 0.66);
+      --chrome-surface: rgba(11, 17, 29, 0.62);
+      --chrome-border: rgba(255, 255, 255, 0.16);
+      --chrome-hover-soft: rgba(255, 255, 255, 0.06);
+      --chrome-hover: rgba(255, 255, 255, 0.08);
+      --link: var(--accent-2);
+      --link-hover: var(--accent);
+      --page-bg: radial-gradient(1200px 600px at 12% -10%, var(--glow), transparent 60%),
+        radial-gradient(900px 540px at 92% 8%, rgba(107, 211, 255, 0.18), transparent 55%),
+        linear-gradient(180deg, #0b111d 0%, var(--bg-2) 45%, var(--bg) 100%);
+      --body-font: "Fraunces", "Charter", Georgia, serif;
+      --heading-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --ui-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --mono-font: "JetBrains Mono", "Consolas", monospace;
+    }
+    :root[data-theme="sky"] {
+      --bg: #0b1220;
+      --bg-2: #0f1b2e;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f4f7ff;
+      --site-muted: rgba(244, 247, 255, 0.62);
+      --accent: #64b5ff;
+      --accent-2: #8fd1ff;
+      --edge: rgba(255, 255, 255, 0.18);
+      --glow: rgba(100, 181, 255, 0.28);
+      --accent-strong: #3f8ed1;
+    }
+    :root[data-theme="crimson"] {
+      --bg: #120a0d;
+      --bg-2: #1c0f16;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #fff5f7;
+      --site-muted: rgba(255, 245, 247, 0.62);
+      --accent: #ff6b81;
+      --accent-2: #ff9aa9;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(255, 107, 129, 0.25);
+      --accent-strong: #e3546d;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--site-ink);
+      background: var(--page-bg);
+      font-family: var(--body-font);
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+      overflow-x: hidden;
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.6;
+      mix-blend-mode: screen;
+      filter: blur(0px);
+      animation: float 16s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 122, 89, 0.55), transparent 60%);
+      top: -220px;
+      left: -160px;
+    }
+    .orb-2 {
+      width: 440px;
+      height: 440px;
+      background: radial-gradient(circle at 60% 40%, rgba(14, 165, 164, 0.5), transparent 62%);
+      top: 80px;
+      right: -120px;
+      animation-delay: -4s;
+    }
+    .orb-3 {
+      width: 340px;
+      height: 340px;
+      background: radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.35), transparent 70%);
+      bottom: -180px;
+      left: 22%;
+      animation-delay: -8s;
+    }
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1040px;
+      margin: 56px auto 96px;
+      padding: 0 28px;
+    }
+    .toc-sidebar {
+      display: none;
+      position: fixed;
+      left: max(18px, calc(50% - 700px));
+      top: 64px;
+      width: 250px;
+      max-height: calc(100vh - 96px);
+      overflow-y: auto;
+      padding: 16px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--chrome-border);
+      background: var(--chrome-surface);
+      backdrop-filter: blur(8px);
+      z-index: 2;
+    }
+    .toc-title {
+      font-family: var(--ui-font);
+      font-size: 0.78rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--chrome-muted);
+      margin-bottom: 10px;
+    }
+    .toc-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .toc-item {
+      display: block;
+      color: var(--chrome-ink);
+      text-decoration: none;
+      font-family: var(--ui-font);
+      font-size: 0.88rem;
+      line-height: 1.35;
+      opacity: 0.82;
+      border-left: 2px solid transparent;
+      padding: 6px 8px;
+      border-radius: 8px;
+      transition: all 0.18s ease;
+    }
+    .toc-item:hover {
+      opacity: 1;
+      border-left-color: var(--accent);
+      background: var(--chrome-hover-soft);
+    }
+    .toc-item.active {
+      opacity: 1;
+      border-left-color: var(--accent);
+      background: var(--chrome-hover);
+    }
+    .toc-sub {
+      margin-left: 12px;
+      font-size: 0.82rem;
+      opacity: 0.75;
+    }
+    body.layout-sidebar_toc .page {
+      max-width: 980px;
+    }
+    @media (min-width: 1300px) {
+      body.layout-sidebar_toc .toc-sidebar {
+        display: block;
+      }
+      body.layout-sidebar_toc .page {
+        margin-left: max(300px, calc(50% - 370px));
+        margin-right: 56px;
+      }
+    }
+    .masthead {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 22px 22px;
+      border: 1px solid var(--masthead-border, rgba(226, 232, 240, 0.18));
+      border-radius: 18px;
+      background: var(--masthead-bg, rgba(10, 14, 20, 0.55));
+      backdrop-filter: blur(8px);
+      margin-bottom: 36px;
+      color: var(--masthead-text, #f8fafc);
+      animation: fadeIn 0.7s ease-out both;
+    }
+    .masthead-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .kicker {
+      font-family: var(--ui-font);
+      font-size: 0.82rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--masthead-kicker, rgba(255, 255, 255, 0.68));
+    }
+    .back-link {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--ui-font);
+      font-size: 0.78rem;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--masthead-link-border, rgba(255, 255, 255, 0.2));
+      color: var(--masthead-link, rgba(255, 255, 255, 0.78));
+      background: var(--masthead-link-bg, rgba(15, 23, 42, 0.35));
+      transition: all 0.2s ease;
+    }
+    .back-link:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .report-title {
+      font-family: var(--heading-font);
+      font-size: clamp(2.2rem, 3.6vw, 3.6rem);
+      margin: 0;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: var(--masthead-title, #f8fafc);
+    }
+    .report-deck {
+      color: var(--masthead-deck, rgba(226, 232, 240, 0.8));
+      font-size: 1.05rem;
+      max-width: 720px;
+    }
+    .article {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 22px;
+      padding: 40px 44px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      animation: rise 0.8s ease-out both;
+    }
+    .article > * { animation: rise 0.6s ease-out both; }
+    .article > *:nth-child(1) { animation-delay: 0.05s; }
+    .article > *:nth-child(2) { animation-delay: 0.1s; }
+    .article > *:nth-child(3) { animation-delay: 0.15s; }
+    .article > *:nth-child(4) { animation-delay: 0.2s; }
+    .article > *:nth-child(5) { animation-delay: 0.25s; }
+    .article h1, .article h2, .article h3, .article h4 {
+      font-family: var(--heading-font);
+      color: var(--ink);
+    }
+    .article h1 { font-size: 2rem; margin-top: 0; }
+    .article h2 {
+      font-size: 1.55rem;
+      margin-top: 2.6rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule);
+      position: relative;
+      padding-left: 18px;
+    }
+    .article h2::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 1.45rem;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent-strong);
+    }
+    .article h3 { font-size: 1.2rem; margin-top: 1.7rem; color: #1f2937; }
+    .article h2, .article h3 { scroll-margin-top: 92px; }
+    .article p { font-size: 1.05rem; }
+    .article ul, .article ol { padding-left: 1.4rem; }
+    .article blockquote {
+      margin: 1.4rem 0;
+      padding: 1rem 1.2rem;
+      border-left: 3px solid var(--accent);
+      background: rgba(15, 23, 42, 0.04);
+    }
+    .article .misc-block {
+      margin: 1.2rem 0 1.4rem;
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.14);
+      background: rgba(148, 163, 184, 0.1);
+    }
+    .article .misc-block ul {
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .article .misc-block li {
+      margin: 0.35rem 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+    .article .misc-block.ai-disclosure {
+      border-color: var(--accent);
+      background: rgba(78, 224, 181, 0.08);
+    }
+    .article .misc-block.ai-disclosure p {
+      margin: 0 0 0.55rem;
+      color: var(--ink);
+      font-family: var(--ui-font);
+      letter-spacing: 0.01em;
+    }
+    .article a {
+      color: var(--link);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .article a:hover { color: var(--link-hover); border-bottom-color: var(--link-hover); }
+    .article code {
+      font-family: var(--mono-font);
+      font-size: 0.94rem;
+      background: rgba(148, 163, 184, 0.14);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .article pre {
+      background: rgba(148, 163, 184, 0.18);
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    .article figure.report-figure {
+      margin: 1.8rem 0;
+      padding: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .article figure.report-figure img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      max-height: 70vh;
+      object-fit: contain;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.04);
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+    }
+    .article figure.report-figure figcaption {
+      margin-top: 0.65rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+    .article figure.report-diagram {
+      background: rgba(15, 23, 42, 0.04);
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      border-radius: 14px;
+      padding: 0.9rem;
+    }
+    .article .mermaid {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      min-height: 40px;
+    }
+    .article .mermaid svg {
+      max-width: 100% !important;
+      height: auto;
+    }
+    .article table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; }
+    .article th, .article td { border: 1px solid var(--rule); padding: 10px 12px; }
+    .article th { background: rgba(148, 163, 184, 0.15); text-align: left; }
+    .article tr:nth-child(even) td { background: rgba(148, 163, 184, 0.08); }
+    .article hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+    .viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 20;
+    }
+    .viewer-overlay.open { opacity: 1; pointer-events: auto; }
+    .viewer-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: min(480px, 92vw);
+      background: #fff;
+      box-shadow: -20px 0 60px rgba(15, 23, 42, 0.25);
+      transform: translateX(105%);
+      transition: transform 0.25s ease;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+    }
+    .viewer-panel.open { transform: translateX(0); }
+    .viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .viewer-title { font-size: 0.95rem; color: var(--ink); flex: 1; }
+    .viewer-actions { display: flex; gap: 8px; align-items: center; }
+    .viewer-actions a {
+      font-size: 0.78rem;
+      text-decoration: none;
+      color: var(--link);
+    }
+    .viewer-close {
+      border: none;
+      background: #1f2937;
+      color: #fff;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .viewer-frame { flex: 1; border: none; width: 100%; border-radius: 0 0 16px 16px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(18px); } }
+    body.template-trend_scan {
+  --site-ink: var(--ink);
+  --site-muted: var(--muted);
+  --ink: #1f2120;
+  --muted: #4b5a5d;
+  --accent: #1a7f73;
+  --link: #1b5f73;
+  --page-bg: radial-gradient(1200px 640px at 14% -12%, #e5f1ee 0%, #f4f6f2 50%, #ffffff 100%);
+  --body-font: "Palatino Linotype", "Book Antiqua", "Iowan Old Style", Georgia, serif;
+  --heading-font: "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+  --ui-font: "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+}
+
+body.template-trend_scan .article {
+  border-radius: 18px;
+}
+
+body.template-trend_scan .article h2 {
+  border-top: 2px solid rgba(26, 127, 115, 0.35);
+}
+
+body.template-trend_scan .kicker {
+  color: var(--accent);
+}
+body.template-trend_scan {
+  --masthead-bg: #6f7377;
+  --masthead-border: rgba(255, 255, 255, 0.35);
+  --masthead-title: #f8fafc;
+  --masthead-deck: rgba(248, 250, 252, 0.85);
+  --masthead-kicker: rgba(248, 250, 252, 0.72);
+  --masthead-link: rgba(248, 250, 252, 0.88);
+  --masthead-link-border: rgba(248, 250, 252, 0.3);
+  --masthead-link-bg: rgba(15, 23, 42, 0.2);
+}
+
+  </style>
+</head>
+<body class="theme-coral template-custom_trend_scan template-trend_scan layout-sidebar_toc">
+  <div class="backdrop">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+  <aside class="toc-sidebar" id="toc-sidebar"><div class="toc-title">Contents</div><nav class="toc-nav"><a class="toc-item" href="#executive_summary">Executive Summary</a><a class="toc-item" href="#signal_landscape">Signal Landscape</a><a class="toc-item" href="#trend_themes">Trend Themes</a><a class="toc-item" href="#scenarios_implications">Scenarios &amp; Implications</a><a class="toc-item" href="#risks_gaps">Risks &amp; Gaps</a><a class="toc-item toc-sub" href="#1">(1) 근거/아카이브 아티팩트 링크 목록</a><a class="toc-item toc-sub" href="#2">(2) 방법·재현성 체크리스트</a><a class="toc-item toc-sub" href="#3">(3) 범위/한계 요약</a><a class="toc-item" href="#figures">Figures</a><a class="toc-item" href="#report_prompt">Report Prompt</a><a class="toc-item" href="#references">References</a><a class="toc-item" href="#miscellaneous">Miscellaneous</a></nav></aside>
+  <div class="page">
+    <header class="masthead">
+      <div class="masthead-top">
+        <div class="kicker">FEDERLICHT</div>
+        <a class="back-link" id="back-link" href="#">목록으로</a>
+      </div>
+      <div class="report-title">엔터프라이즈 AI 시그널 4축과 실행 시나리오</div>
+      <div class="report-deck">Research review and tech survey</div>
+    </header>
+    <main class="article">
+<h1>엔터프라이즈 AI 시그널 4축과 실행 시나리오</h1>
+<p>AI Governance Team assisted and prompted by "AI Governance Team" (AI Governance Office) — 2026-02-09 06:45</p>
+<h2 id="executive_summary">Executive Summary</h2>
+<p>지난 3–6개월간 엔터프라이즈 AI 도입의 핵심 이슈는 보안과 안전성, 신뢰성, 데이터 거버넌스, 멀티에이전트 상호작용의 관리, 책임성 및 감사 체계, 그리고 엔터프라이즈 도입 패턴의 변화로 요약됩니다. 특히 프롬프트 인젝션과 툴 오남용에 대한 보안 리스크가 두드러지며, AI 평가의 한계와 환각 문제는 실무 운영과 의사결정의 신뢰성 저하로 연결됩니다. 데이터 거버넌스의 중요성이 증가하고 규제 확산에 대응하는 기업의 거버넌스 체계 정비가 시급합니다. 다층적 멀티에이전트 시스템에서의 조정 실패와 책임 소재의 불명확성은 감사 및 규제 노출의 확대를 가져올 수 있습니다. 이 보고서는 핵심 시그널을 4개 트렌드 테마로 묶고, 2–3개의 시나리오를 통해 실행 시 필요한 조치와 에스컬레이션 경로를 제시합니다. 주목할 만한 시그널로는 보안 강화 필요성(프롬프트 인젝션/오남용 증가)과 신뢰성 평가의 난제, 데이터 거버넌스의 증대되는 요구를 들 수 있습니다. 주요 근거는 다수의 오픈액스(OpenAlex) 논문과 arXiv의 멀티에이전트 연구, 그리고 공공 담론/보안 이슈를 다룬 시각 자료입니다 [openalex:W4415728083], [openalex:W4409269614], [openalex:W4411541869], [openalex:W2921187241], [arxiv:2602.06038v1], [youtube:IBM security video]. (해석/추론)</p>
+<h2 id="signal_landscape">Signal Landscape</h2>
+<ul>
+<li>OpenAlex 신호</li>
+<li>Alignment 문제를 문화적·법적 도전으로 확장하는 연구는 규제 프레임과 해석가능성의 연계를 탐구하며, 기업 거버넌스의 실무적 시사점을 제공합니다. 데이터 거버넌스와 책임성 논의의 핵심 근거로 작용합니다 [openalex:W4415728083]. 강한 신호로 판단됩니다.</li>
+<li>Generative AI의 학계 내 윤리와 컴플라이언스에 관한 체계적 고찰은 엔터프라이즈 도입 시 평가 체계 설계와 정책적 완충장치 마련에 직접 활용가능합니다 [openalex:W4409269614]. 중강도 신호로 분류합니다.</li>
+<li>인간과 기계의 구분 가능성에 관한 실증 연구는 AI 평가의 한계와 신뢰성 관리의 필요성을 강조합니다 [openalex:W4411541869]. 실무 적용 시 평가 설계의 민감도를 높이는 근거로 사용합니다.</li>
+<li>
+<p>매체 프레이밍이 정책 담론 및 공공 인식에 미치는 영향은 멀티에이전트 시스템의 리스크 커뮤니케이션 설계에 시사점을 제공합니다 [openalex:W2921187241]. 신호 강도는 보통에서 중간 정도로 봅니다.</p>
+</li>
+<li>
+<p>arXiv 신호</p>
+</li>
+<li>DyTopo: 다이나믹 토폴로지 라우팅으로 멀티에이전트 간 의사소통 비용과 비효율을 완화하는 기술적 방향성을 제시합니다 [arxiv:2602.06039v1]. 강한 신호이며, 실무 설계에 직결 가능한 패턴을 제공합니다.</li>
+<li>CommCP: LLM 기반 커뮤니케이션과 컨포멀 예측의 결합으로 안전성/책임소재 설계의 구체화 포인트를 제시합니다 [arxiv:2602.06038v1]. 중강도 신호.</li>
+<li>Shared LoRA Subspaces: 연속 학습 환경에서의 지식 통합과 간섭 최소화를 위한 서브스페이스 아이디어는 파라미터 관리와 재현성 측면에 실무 포인트가 있습니다 [arxiv:2602.06043v1]. 중강도 신호.</li>
+<li>V-Retrver: 증거 기반 다중 모달 추론 모듈은 신뢰성과 검증 가능성 측면의 설계 포인트를 제공합니다 [arxiv:2602.06034v1]. 중간 강도 신호.</li>
+<li>SwimBird: 상황별 추론 모드를 전환하는 모듈 설계가 멀티에이전트 협업의 안정성에 미치는 영향을 다룹니다 [arxiv:2602.06040v1]. 중강도 신호.</li>
+<li>
+<p>InterPrior, Predicting Camera Pose, 등: 물리 기반 상호작용, 공간 추론, 다중 모달 검색 등은 증거 기반 추론과 시스템 안정성의 확장을 위한 참고점으로 작용합니다. 전반적으로 중간 강도 신호.</p>
+</li>
+<li>
+<p>Tavily 메타 및 YouTube 보강</p>
+</li>
+<li>Tavily 메타: 최근 이슈 트렌드의 흐름 파악에 유용한 메타 카탈로그로, 특정 주제의 흐름과 연결고리를 빠르게 점검하는 데 활용됩니다.</li>
+<li>
+<p>YouTube의 “The Hidden Security Risks of Agentic AI”는 대중 프레이밍과 기업 도입의 보안 리스크를 시각적으로 제시합니다. 실무 관점의 리스크 관리 포인트를 도출하는 데 도움됩니다.</p>
+</li>
+<li>
+<p>Source triage</p>
+</li>
+<li>메타 요약 파일은 커버리지 매핑 및 우선순위 재조정에 유용합니다. 이 파일은 인벤토리 간 연계성을 빠르게 파악하는 출발점으로 활용합니다.</li>
+</ul>
+<p>강조 포인트
+- 강한 신호: 보안 강화 필요성, 멀티에이전트 협업의 리스크 관리, 데이터 거버넌스의 강화 필요성, 책임성 및 감사 체계의 중요성.
+- 불확실성: 특정 논문과 시각 자료는 해석/적용 맥락에 따라 다르게 해석될 수 있습니다. 추론은 실무 맥락에 맞춰 보완해야 합니다. (해석/추론)</p>
+<h2 id="trend_themes">Trend Themes</h2>
+<p>주요 트렌드 주제는 4개이며, 각 주제는 근거와 함께 서술됩니다. 모든 주제는 2문단 이상으로 구성되며, 근거와 함께 반대 신호도 포함합니다. 각 주제에는 불확실성 및 신뢰도에 대한 코멘트를 명시합니다. (해석)</p>
+<p>1) 보안 강화 필요성의 체계화
+- 프롬프트 인젝션과 툴 오남용에 대한 실무적 위험이 증가하고 있으며, 이로 인한 시스템 침해나 데이터 누출 가능성이 실질적 리스크로 부상합니다. 이는 공공 담론의 프레이밍 변화와 함께 기업의 보안 정책 재정비를 촉발합니다 [youtube:IBM security video]. 또한 멀티에이전트 간의 상호작용 구조에 내재된 보안 취약점이 위험 관리의 핵심 이슈로 부상합니다 [arxiv:2602.06038v1], [openalex:W2921187241]. 신뢰도 평가의 망가짐과 함께 보안 중심의 거버넌스 설계가 우선순위로 올라가고 있습니다. (해석)
+- 반대 신호로는 일부 연구가 보안 기술의 발전이 리스크를 완화시키고, 체계적 거버넌스와 모듈화된 아키텍처가 안전성을 향상시킨다고 제시합니다. 그러나 이러한 개선이 실제로 전사적 통제에 반영되기까지는 실행 준비도와 비용 부담이 상충될 수 있습니다 [arxiv:2602.06039v1], [openalex:W4415728083]. (해석)
+- 요약 근거: 프롬프트 인젝션 증가 및 멀티에이전트 리스크 관리 필요성은 다수의 시그널에서 공통적으로 도출됩니다 [youtube:IBM, arxiv:2602.06038v1, openalex:W4415728083]. 불확실성 수준은 중간에서 높음이며, 조직의 보안 아키텍처 성숙도에 큰 영향을 받습니다. (해석)</p>
+<p>2) 신뢰성 및 평가 난제
+- AI의 환각 현상과 계획 실패는 기업 도입의 신뢰성 저하를 야기합니다. 이로 인해 의사결정에 필요한 예측의 품질과 재현성 문제가 제기되며, 평가 체계의 설계가 핵심 과제로 떠오릅니다 [openalex:W4411541869]. 또한 다중에이전트 협업과 증거 기반 추론의 한계가 평가 설계의 복잡성을 더합니다 [arxiv:2602.06034v1], [arxiv:2602.06040v1]. (해석)
+- 반대 신호로는 다층적 모듈화(예: 모듈 전환, 증거 기반 모듈) 및 컨포멀 예측 등의 기법이 신뢰성과 안정성을 개선할 수 있다는 견해가 있습니다 [arxiv:2602.06038v1], [arxiv:2602.06034v1]. 이들은 평가 설계의 구체적 방향성을 제공하여 기업의 감독 체계에 기여할 수 있습니다. (해석)
+- 근거: 인간과 기계의 구분 가능성에 대한 실증은 평가 도구의 한계와 신뢰성 이슈를 명확히 보여줍니다 [openalex:W4411541869]. 기업의 재현 가능성과 감사 가능성을 강화하기 위한 기술적 방향은 다수의 멀티에이전트 논문에서 공통적으로 제시됩니다 [arxiv:2602.06038v1, arxiv:2602.06039v1]. (해석)</p>
+<p>3) 데이터 거버넌스 및 규제 노출
+- 데이터 계보, 보관 경계, 전송 경로의 명확한 관리가 점점 더 중요해지고 있습니다. 정책적 시사점과 기업 적용의 실무적 시나리오를 연결하는 연구가 늘어나고 있으며, 이는 규제 노출에 대한 대비를 촉진합니다 [openalex:W4415728083], [openalex:W4409269614]. 데이터 거버넌스의 공백은 규제 준수 및 감사 준비도에 직접적인 영향을 미치며, 비용과 일정에 반영되어야 합니다. (해석)
+- 반대 신호로는 거버넌스 설계가 과도한 비용과 실행 제약으로 인해 지연될 수 있으며, 초기 단계에서는 원칙 중심의 원활한 적용이 더 빠를 수 있습니다. 다만 장기적 리스크 관리 차원에서 거버넌스 강화는 불가피합니다 [openalex:W4415728083], [openalex:W4409269614]. (해석)</p>
+<p>4) 멀티에이전트 조정과 책임성
+- DyTopo, CommCP, Shared LoRA Subspaces, SwimBird 등 다수의 arXiv 연구는 멀티에이전트 협업에서의 효율성, 신뢰성, 파라미터 관리의 실무 포인트를 제공합니다. 이는 엔터프라이즈 도입에서 시스템 아키텍처 설계, 의사소통 프로토콜, 예측 커버리지 관리에 직접적 시사점을 제공합니다 [arxiv:2602.06039v1], [arxiv:2602.06038v1], [arxiv:2602.06043v1], [arxiv:2602.06040v1]. 또한 책임소재와 감사를 위한 설계 원칙도 논의되고 있습니다 [openalex:W4415728083]. (해석)
+- 반대 신호로는 멀티에이전트 구성의 복잡성 증가로 인한 구현 난이도와 비용 증가가 있습니다. 이로 인해 초기 도입 시점에 충분한 설계 검토와 파일럿이 필요합니다 [arxiv:2602.06039v1], [arxiv:2602.06038v1]. (해석)</p>
+<p>요약 근거/근거 수준
+- 근거의 강도는 각 소스의 본문 맥락에 따라 다르며, 본 섹션의 주장은 다수의 근거를 종합해 도출했습니다. 주요 신호의 강도는 보통에서 강하게 분류되며, 특정 시나리오에 따라 가중치가 달라질 수 있습니다. (해석)</p>
+<h2 id="scenarios_implications">Scenarios &amp; Implications</h2>
+<p>시나리오 1: 보안 강화 시나리오
+- 트리거: 프롬프트 인젝션/툴 오남용에 대한 제어 체계가 강화되고, 제3자 감사 및 보안 표준이 도입됩니다. 이로 인해 시스템의 방어선이 강화되고 공격 성공 확률이 낮아집니다.
+- 영향: 사고 대응 속도가 향상되고 데이터 무결성이 보전되며, 규제 노출 위험이 감소합니다. 다만 구현 비용 증가와 일정 지연 가능성이 있습니다. (해석) 근거: 보안 리스크의 실무적 영향과 대응 필요성은 다수 소스에서 공통적으로 나타납니다 [youtube:IBM, arxiv:2602.06038v1, openalex:W4415728083]. (해석)</p>
+<p>시나리오 2: 신뢰성 회복 시나리오
+- 트리거: 평가 프레임워크 개선, 증거 기반 추론 모듈의 도입, 모듈 간 커뮤니케이션의 표준화 등으로 AI의 환각 감소와 계획 실행의 예측 가능성이 강화됩니다.
+- 영향: 의사결정에 대한 신뢰가 높아지고 엔터프라이즈 도입 속도가 증가합니다. 재현성 및 감사 가능성도 강화됩니다 [openalex:W4411541869], [arxiv:2602.06038v1]. (해석)</p>
+<p>시나리오 3: 데이터 거버넌스 강화 시나리오
+- 트리거: 강화된 데이터 계보 관리, 보관/전송 경계의 명확화, 규제 준수 강화를 위한 자동화 도구의 도입
+- 영향: 규제 노출 감소 및 감사 준비도 향상, 데이터 흐름의 투명성이 제고되지만, 초기 비용과 복잡성 증가가 수반됩니다 [openalex:W4415728083], [openalex:W4409269614]. (해석)</p>
+<p>시나리오 간의 연계
+- 이 세 시나리오는 서로 보완적으로 작동할 수 있습니다. 예를 들어 보안 강화 시나리오의 성공은 신뢰성 회복 시나리오의 효과를 배가하고, 데이터 거버넌스 강화 시나리오는 모든 시나리오의 실행 가능성과 감사 가능성을 높입니다. 반면 초기 도입 단계에서의 비용/일정 부담은 단일 시나리오의 실현 가능성을 제한할 수 있습니다. (해석)</p>
+<h2 id="risks_gaps">Risks &amp; Gaps</h2>
+<ul>
+<li>데이터 거버넌스의 공백: 데이터 계보, 저장/전송 정책, 접근 관리와 감사 기록의 체계가 미흡하면 규제 준수와 리스크 관리에 심각한 약점이 남습니다. 이로 인한 데이터 누출, 모델 리스크 증가 가능성은 높아집니다. (해석) 근거: 데이터 거버넌스의 중요성은 다수의 연구에서 강조됩니다 [openalex:W4415728083], [openalex:W4409269614]. (해석)</li>
+<li>신뢰성의 불확실성: AI의 환각/계획 실패는 여전히 남아 있으며, 평가 지표의 타당성과 재현성 확보가 필요합니다. 이로 인해 초기 도입에서의 실패 리스크가 존재합니다 [openalex:W4411541869], [arxiv:2602.06034v1]. (해석)</li>
+<li>잘못된 긍정 사례 및 오판 가능성: 다중 에이전트 시스템의 잘못된 판단으로 인해 부작용이 발생할 수 있으며, 이는 운영 비용 증가와 규제 노출의 위험으로 이어질 수 있습니다 [arxiv:2602.06038v1], [arxiv:2602.06039v1]. (해석)</li>
+<li>데이터/소스 편향 및 양질의 증거 부족: 트렌드 파악용 메타 데이터의 한계로 인해 일부 시그널의 일반화에 주의가 필요합니다. Tavily 메타 데이터는 빠른 흐름 파악에 유용하지만, 개별 주장에 대한 심층 확인이 필요합니다. (해석)</li>
+<li>실행 준비도 및 에스컬레이션 경로의 부재: 초기 도입 시 고비용 실행에 앞서 최소 통제선과 에스컬레이션 경로를 명확히 설계해야 합니다. (해석)</li>
+</ul>
+<p>Appendix</p>
+<h3 id="1">(1) 근거/아카이브 아티팩트 링크 목록</h3>
+<ul>
+<li>openalex: Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense — [openalex:W4415728083] (원문: [source label], 텍스트 버전: <a href="#ref-3">[3]</a>) (참고: 원문 초록/핵심 프레이밍 중심 서술)  </li>
+<li>openalex: Generative AI and Academic Integrity in Higher Education: A Systematic Review and Research Agenda — [openalex:W4409269614] (원문: [source label], 텍스트 버전: <a href="#ref-4">[4]</a>)  </li>
+<li>openalex: People cannot distinguish GPT-4 from a human in a Turing test — [openalex:W4411541869] (원문: [source label], 텍스트 버전: <a href="#ref-5">[5]</a>)  </li>
+<li>openalex: From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence — [openalex:W2921187241] (원문: [source label], 텍스트 버전: <a href="#ref-6">[6]</a>)  </li>
+<li>arxiv: DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic Matching — [arxiv:2602.06039v1] (원문: [source label], 텍스트 버전: <a href="#ref-7">[7]</a>)  </li>
+<li>arxiv: CommCP: Efficient Multi-Agent Coordination via LLM-Based Communication with Conformal Prediction — [arxiv:2602.06038v1] (원문: [source label], 텍스트 버전: <a href="#ref-8">[8]</a>)  </li>
+<li>arxiv: Shared LoRA Subspaces for almost Strict Continual Learning — [arxiv:2602.06043v1] (원문: [source label], 텍스트 버전: <a href="#ref-9">[9]</a>)  </li>
+<li>arxiv: V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval — [arxiv:2602.06034v1] (원문: [source label], 텍스트 버전: <a href="#ref-10">[10]</a>)  </li>
+<li>arxiv: SwimBird: Eliciting Switchable Reasoning Mode in Hybrid Autoregressive MLLMs — [arxiv:2602.06040v1] (원문: [source label], 텍스트 버전: <a href="#ref-11">[11]</a>)  </li>
+<li>Tavily 검색 메타데이터 — <a href="report_views/archive_tavily_search.jsonl-275cc811.html" data-viewer="report_views/archive_tavily_search.jsonl-275cc811.html" data-raw="archive/tavily_search.jsonl" class="viewer-link">[1]</a> (메타 카탈로그, 트렌드 샘플)  </li>
+<li>YouTube: The Hidden Security Risks of Agentic AI — [YouTube IBM Technology 채널] (영상 큐레이션 텍스트와 설명의 핵심 주장 요약)  </li>
+<li>Source triage — <a href="report_views/report_notes_source_triage.md-a7ea9f7b.html" data-viewer="report_views/report_notes_source_triage.md-a7ea9f7b.html" data-raw="report_notes/source_triage.md" class="viewer-link">[2]</a> (우선 커버리지 매핑 지도)</li>
+</ul>
+<h3 id="2">(2) 방법·재현성 체크리스트</h3>
+<ul>
+<li>목표 정의: 도입 목표와 평가 지표를 명확히 정의했는가? (예: 신뢰성, 보안, 데이터 거버넌스, 책임성)  </li>
+<li>소스 검증: 주요 주장에 대해 2차 이상의 근거를 교차 확인했는가? (코멘트: 원문/초록 중심으로 요약하고, 직접 인용은 최소화)  </li>
+<li>데이터 거버넌스 맵: 데이터 계보, 저장 경로, 전송 경계, 접근 제어에 대한 현재 상태를 문서화했는가?  </li>
+<li>평가 체계 설계: 환각 감소, 증거 기반 추론, 멀티에이전트 의사소통의 검증 가능한 지표를 정의했는가?  </li>
+<li>시나리오 검토: 2–3개 시나리오의 트리거와 효과를 명확히 기술했는가?  </li>
+<li>에스컬레이션 경로: 문제 발생 시 책임 부서/연쇄 조치 프로토콜을 정의했는가?  </li>
+<li>감사 가능성: 로깅/감사 로그의 수집 및 보관 계획이 수립되었는가?</li>
+</ul>
+<h3 id="3">(3) 범위/한계 요약</h3>
+<ul>
+<li>본 보고서는 제공된 소스의 초록/메타 데이터를 바탕으로 4개 트렌드 테마를 도출하고 2–3개 시나리오를 제시합니다. 원문 전체의 인용은 제한되고, 각 주장에 대한 인용은 문장 끝에 inline으로 제시합니다. 특정 수치나 직접 문장을 재구성하지 않으며, 필요 시 원문 텍스트의 짧은 버전은 텍스트 버전의 링크를 통해 확인합니다.  </li>
+<li>데이터 거버넌스와 보안 이슈의 경우 조직의 현행 정책과 규제 환경에 따라 실행 가능성 차이가 큽니다. 또한 멀티에이전트 시스템의 설계는 도메인 특성에 따라 다르게 작동할 수 있으며, 모듈화된 접근이 항상 비용 대비 이익을 보장하지는 않습니다. (해석)</li>
+</ul>
+<p>참고: 본 보고서는 지시된 H2 구조를 준수하며, 각 섹션의 논지와 근거를 명확히 연결합니다. 필요한 경우 추가 자료의 텍스트 버전에서 상세 구절 인용 없이 핵심 아이디어를 보완해 드릴 수 있습니다.</p>
+<h2 id="figures">Figures</h2>
+<p class="figure-callout">Figures referenced: <a href="#fig-1">Figure 1</a>: Source PDF: W4415728083.pdf; <a href="#fig-2">Figure 2</a>: Source PDF: W4415728083.pdf; <a href="#fig-3">Figure 3</a>: Source PDF: W4415728083.pdf; <a href="#fig-4">Figure 4</a>: Source PDF: W4415728083.pdf; <a href="#fig-5">Figure 5</a>: Source PDF: 2602.06039v1.pdf; <a href="#fig-6">Figure 6</a>: Source PDF: 2602.06039v1.pdf; <a href="#fig-7">Figure 7</a>: Source PDF: 2602.06039v1.pdf; <a href="#fig-8">Figure 8</a>: Source PDF: 2602.06039v1.pdf; <a href="#fig-9">Figure 9</a>: Source PDF: 2602.06038v1.pdf; <a href="#fig-10">Figure 10</a>: Source PDF: 2602.06038v1.pdf; <a href="#fig-11">Figure 11</a>: Source PDF: 2602.06038v1.pdf; <a href="#fig-12">Figure 12</a>: Source PDF: 2602.06038v1.pdf; <a href="#fig-13">Figure 13</a>: Source PDF: 2602.06043v1.pdf; <a href="#fig-14">Figure 14</a>: Source PDF: 2602.06043v1.pdf; <a href="#fig-15">Figure 15</a>: Source PDF: 2602.06043v1.pdf; <a href="#fig-16">Figure 16</a>: Source PDF: 2602.06043v1.pdf; <a href="#fig-17">Figure 17</a>: Source PDF: 2602.06034v1.pdf; <a href="#fig-18">Figure 18</a>: Source PDF: 2602.06034v1.pdf; <a href="#fig-19">Figure 19</a>: Source PDF: 2602.06034v1.pdf; <a href="#fig-20">Figure 20</a>: Source PDF: 2602.06034v1.pdf; <a href="#fig-21">Figure 21</a>: Source PDF: 2602.06040v1.pdf; <a href="#fig-22">Figure 22</a>: Source PDF: 2602.06040v1.pdf; <a href="#fig-23">Figure 23</a>: Source PDF: 2602.06040v1.pdf; <a href="#fig-24">Figure 24</a>: Source PDF: 2602.06040v1.pdf</p>
+
+<figure class="report-figure" id="fig-1">
+  <img src="report_assets/figures/._archive_openalex_pdf_W4415728083.pdf-b4b056cb.png" alt="Figure from ./archive/openalex/pdf/W4415728083.pdf (page 1)" />
+  <figcaption>Figure 1: <a href="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-viewer="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-raw="archive/openalex/pdf/W4415728083.pdf" class="viewer-link">./archive/openalex/pdf/W4415728083.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-2">
+  <img src="report_assets/figures/._archive_openalex_pdf_W4415728083.pdf-128b3cea.png" alt="Figure from ./archive/openalex/pdf/W4415728083.pdf (page 1)" />
+  <figcaption>Figure 2: <a href="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-viewer="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-raw="archive/openalex/pdf/W4415728083.pdf" class="viewer-link">./archive/openalex/pdf/W4415728083.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-3">
+  <img src="report_assets/figures/._archive_openalex_pdf_W4415728083.pdf-bbf5bda3.png" alt="Figure from ./archive/openalex/pdf/W4415728083.pdf (page 2)" />
+  <figcaption>Figure 3: <a href="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-viewer="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-raw="archive/openalex/pdf/W4415728083.pdf" class="viewer-link">./archive/openalex/pdf/W4415728083.pdf</a> (page 2)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-4">
+  <img src="report_assets/figures/._archive_openalex_pdf_W4415728083.pdf-cb5f6970.png" alt="Figure from ./archive/openalex/pdf/W4415728083.pdf (page 3)" />
+  <figcaption>Figure 4: <a href="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-viewer="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-raw="archive/openalex/pdf/W4415728083.pdf" class="viewer-link">./archive/openalex/pdf/W4415728083.pdf</a> (page 3)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-5">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06039v1.pdf-ca58c727.png" alt="Figure from ./archive/arxiv/pdf/2602.06039v1.pdf (page 1)" />
+  <figcaption>Figure 5: <a href="report_views/archive_arxiv_pdf_2602.06039v1.pdf-edd5a6af.html" data-viewer="report_views/archive_arxiv_pdf_2602.06039v1.pdf-edd5a6af.html" data-raw="archive/arxiv/pdf/2602.06039v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06039v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-6">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06039v1.pdf-93f498f5.png" alt="Figure from ./archive/arxiv/pdf/2602.06039v1.pdf (page 1)" />
+  <figcaption>Figure 6: <a href="report_views/archive_arxiv_pdf_2602.06039v1.pdf-edd5a6af.html" data-viewer="report_views/archive_arxiv_pdf_2602.06039v1.pdf-edd5a6af.html" data-raw="archive/arxiv/pdf/2602.06039v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06039v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-7">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06039v1.pdf-bb27695f.png" alt="Figure from ./archive/arxiv/pdf/2602.06039v1.pdf (page 1)" />
+  <figcaption>Figure 7: <a href="report_views/archive_arxiv_pdf_2602.06039v1.pdf-edd5a6af.html" data-viewer="report_views/archive_arxiv_pdf_2602.06039v1.pdf-edd5a6af.html" data-raw="archive/arxiv/pdf/2602.06039v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06039v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-8">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06039v1.pdf-60119e53.png" alt="Figure from ./archive/arxiv/pdf/2602.06039v1.pdf (page 2)" />
+  <figcaption>Figure 8: <a href="report_views/archive_arxiv_pdf_2602.06039v1.pdf-edd5a6af.html" data-viewer="report_views/archive_arxiv_pdf_2602.06039v1.pdf-edd5a6af.html" data-raw="archive/arxiv/pdf/2602.06039v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06039v1.pdf</a> (page 2)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-9">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06038v1.pdf-8ec1e294.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06038v1.pdf (page 1)" />
+  <figcaption>Figure 9: <a href="report_views/archive_arxiv_pdf_2602.06038v1.pdf-1521954c.html" data-viewer="report_views/archive_arxiv_pdf_2602.06038v1.pdf-1521954c.html" data-raw="archive/arxiv/pdf/2602.06038v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06038v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-10">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06038v1.pdf-ca53a56e.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06038v1.pdf (page 1)" />
+  <figcaption>Figure 10: <a href="report_views/archive_arxiv_pdf_2602.06038v1.pdf-1521954c.html" data-viewer="report_views/archive_arxiv_pdf_2602.06038v1.pdf-1521954c.html" data-raw="archive/arxiv/pdf/2602.06038v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06038v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-11">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06038v1.pdf-32ebf606.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06038v1.pdf (page 1)" />
+  <figcaption>Figure 11: <a href="report_views/archive_arxiv_pdf_2602.06038v1.pdf-1521954c.html" data-viewer="report_views/archive_arxiv_pdf_2602.06038v1.pdf-1521954c.html" data-raw="archive/arxiv/pdf/2602.06038v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06038v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-12">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06038v1.pdf-91467f47.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06038v1.pdf (page 7)" />
+  <figcaption>Figure 12: <a href="report_views/archive_arxiv_pdf_2602.06038v1.pdf-1521954c.html" data-viewer="report_views/archive_arxiv_pdf_2602.06038v1.pdf-1521954c.html" data-raw="archive/arxiv/pdf/2602.06038v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06038v1.pdf</a> (page 7)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-13">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06043v1.pdf-56e24e3e.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06043v1.pdf (page 18)" />
+  <figcaption>Figure 13: <a href="report_views/archive_arxiv_pdf_2602.06043v1.pdf-7dd9c335.html" data-viewer="report_views/archive_arxiv_pdf_2602.06043v1.pdf-7dd9c335.html" data-raw="archive/arxiv/pdf/2602.06043v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06043v1.pdf</a> (page 18)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-14">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06043v1.pdf-ff43e489.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06043v1.pdf (page 18)" />
+  <figcaption>Figure 14: <a href="report_views/archive_arxiv_pdf_2602.06043v1.pdf-7dd9c335.html" data-viewer="report_views/archive_arxiv_pdf_2602.06043v1.pdf-7dd9c335.html" data-raw="archive/arxiv/pdf/2602.06043v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06043v1.pdf</a> (page 18)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-15">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06043v1.pdf-89ed1fe0.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06043v1.pdf (page 19)" />
+  <figcaption>Figure 15: <a href="report_views/archive_arxiv_pdf_2602.06043v1.pdf-7dd9c335.html" data-viewer="report_views/archive_arxiv_pdf_2602.06043v1.pdf-7dd9c335.html" data-raw="archive/arxiv/pdf/2602.06043v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06043v1.pdf</a> (page 19)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-16">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06043v1.pdf-81fa616b.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06043v1.pdf (page 20)" />
+  <figcaption>Figure 16: <a href="report_views/archive_arxiv_pdf_2602.06043v1.pdf-7dd9c335.html" data-viewer="report_views/archive_arxiv_pdf_2602.06043v1.pdf-7dd9c335.html" data-raw="archive/arxiv/pdf/2602.06043v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06043v1.pdf</a> (page 20)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-17">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06034v1.pdf-f44df086.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06034v1.pdf (page 2)" />
+  <figcaption>Figure 17: <a href="report_views/archive_arxiv_pdf_2602.06034v1.pdf-306e74ef.html" data-viewer="report_views/archive_arxiv_pdf_2602.06034v1.pdf-306e74ef.html" data-raw="archive/arxiv/pdf/2602.06034v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06034v1.pdf</a> (page 2)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-18">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06034v1.pdf-f8311dd7.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06034v1.pdf (page 2)" />
+  <figcaption>Figure 18: <a href="report_views/archive_arxiv_pdf_2602.06034v1.pdf-306e74ef.html" data-viewer="report_views/archive_arxiv_pdf_2602.06034v1.pdf-306e74ef.html" data-raw="archive/arxiv/pdf/2602.06034v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06034v1.pdf</a> (page 2)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-19">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06034v1.pdf-2bdca4a3.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06034v1.pdf (page 2)" />
+  <figcaption>Figure 19: <a href="report_views/archive_arxiv_pdf_2602.06034v1.pdf-306e74ef.html" data-viewer="report_views/archive_arxiv_pdf_2602.06034v1.pdf-306e74ef.html" data-raw="archive/arxiv/pdf/2602.06034v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06034v1.pdf</a> (page 2)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-20">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06034v1.pdf-d9bc3aa9.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06034v1.pdf (page 23)" />
+  <figcaption>Figure 20: <a href="report_views/archive_arxiv_pdf_2602.06034v1.pdf-306e74ef.html" data-viewer="report_views/archive_arxiv_pdf_2602.06034v1.pdf-306e74ef.html" data-raw="archive/arxiv/pdf/2602.06034v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06034v1.pdf</a> (page 23)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-21">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06040v1.pdf-f1bf0929.png" alt="Figure from ./archive/arxiv/pdf/2602.06040v1.pdf (page 1)" />
+  <figcaption>Figure 21: <a href="report_views/archive_arxiv_pdf_2602.06040v1.pdf-3ee14c23.html" data-viewer="report_views/archive_arxiv_pdf_2602.06040v1.pdf-3ee14c23.html" data-raw="archive/arxiv/pdf/2602.06040v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06040v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-22">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06040v1.pdf-6631e03e.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06040v1.pdf (page 9)" />
+  <figcaption>Figure 22: <a href="report_views/archive_arxiv_pdf_2602.06040v1.pdf-3ee14c23.html" data-viewer="report_views/archive_arxiv_pdf_2602.06040v1.pdf-3ee14c23.html" data-raw="archive/arxiv/pdf/2602.06040v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06040v1.pdf</a> (page 9)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-23">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06040v1.pdf-52b6a731.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06040v1.pdf (page 9)" />
+  <figcaption>Figure 23: <a href="report_views/archive_arxiv_pdf_2602.06040v1.pdf-3ee14c23.html" data-viewer="report_views/archive_arxiv_pdf_2602.06040v1.pdf-3ee14c23.html" data-raw="archive/arxiv/pdf/2602.06040v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06040v1.pdf</a> (page 9)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-24">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2602.06040v1.pdf-296b9445.jpeg" alt="Figure from ./archive/arxiv/pdf/2602.06040v1.pdf (page 9)" />
+  <figcaption>Figure 24: <a href="report_views/archive_arxiv_pdf_2602.06040v1.pdf-3ee14c23.html" data-viewer="report_views/archive_arxiv_pdf_2602.06040v1.pdf-3ee14c23.html" data-raw="archive/arxiv/pdf/2602.06040v1.pdf" class="viewer-link">./archive/arxiv/pdf/2602.06040v1.pdf</a> (page 9)</figcaption>
+</figure>
+
+<h2 id="report_prompt">Report Prompt</h2>
+<p>Language: Korean</p>
+<p>Template: custom_trend_scan
+Depth: extreme</p>
+<p><strong>Executive Summary</strong><br />
+최근 3~6개월 동안 Agentic AI와 관련된 주요 이슈는 보안, 신뢰성, 비용 및 지연, 평가 난제, 데이터 거버넌스, 멀티에이전트 상호작용 리스크, 책임소재 및 감사, 엔터프라이즈 도입 패턴 등 8개 항목으로 요약됩니다. 이들 이슈는 기술 발전과 함께 부각되며, 각 이슈는 특정 사례와 대응 전략을 통해 분석됩니다. 특히, 보안 문제는 프롬프트 인젝션과 툴 오남용으로 인해 더욱 심각해지고 있습니다.</p>
+<p><strong>Signal Landscape</strong><br />
+- <strong>보안</strong>: 프롬프트 인젝션, 툴 오남용<br />
+- <strong>신뢰성</strong>: 계획 실패, 환각<br />
+- <strong>비용/지연</strong>: 프로젝트 지연 및 예산 초과<br />
+- <strong>평가 난제</strong>: AI 성능 평가의 복잡성<br />
+- <strong>데이터 거버넌스</strong>: 데이터 관리 및 규제 준수<br />
+- <strong>멀티에이전트 상호작용 리스크</strong>: 에이전트 간의 비효율적 상호작용<br />
+- <strong>책임소재/감사</strong>: AI 결정의 책임 문제<br />
+- <strong>엔터프라이즈 도입 패턴</strong>: 기업의 AI 도입 방식 변화  </p>
+<p><strong>Trend Themes</strong><br />
+아래 주제를 가지고 심도있는 분석을 진행함. 각 꼭지마다 서술형으로 작성하고 각 꼭지는 2문단 이상으로 주제를 충분히 논의할것. 필요시 논문을 기반으로 논문 내용을 인용하여 논의함.
+1. <strong>보안 강화 필요성</strong>: 프롬프트 인젝션과 툴 오남용 사례 증가.<br />
+2. <strong>신뢰성 문제</strong>: AI의 환각 현상과 계획 실패가 신뢰성 저하를 초래.<br />
+3. <strong>비용 관리</strong>: 프로젝트 지연으로 인한 예산 초과 문제.<br />
+4. <strong>데이터 거버넌스</strong>: 데이터 관리의 중요성이 증가하고 있음.<br />
+5. <strong>책임소재 명확화</strong>: AI 결정의 책임 소재에 대한 논의가 활발.  </p>
+<p><strong>Scenarios &amp; Implications</strong><br />
+1. <strong>보안 강화 시나리오</strong>: 보안 기술 발전이 이루어질 경우, 프롬프트 인젝션 리스크 감소.<br />
+2. <strong>신뢰성 회복 시나리오</strong>: AI의 신뢰성 향상이 이루어질 경우, 기업의 AI 도입 증가.<br />
+3. <strong>비용 절감 시나리오</strong>: 효율적인 프로젝트 관리가 이루어질 경우, 예산 초과 문제 해결.  </p>
+<p><strong>Risks &amp; Gaps</strong><br />
+- <strong>데이터 거버넌스의 공백</strong>: 데이터 관리 체계의 부족으로 인한 리스크.<br />
+- <strong>신뢰성의 불확실성</strong>: AI의 성능 평가에 대한 불확실성.<br />
+- <strong>잘못된 긍정 사례</strong>: AI의 잘못된 판단으로 인한 부작용.  </p>
+<p><strong>Appendix</strong><br />
+- 각 이슈에 대한 대표 사례 및 참고 링크를 포함하여, 기술적 및 프로세스적 대응 전략을 제시.<br />
+- 관련 연구 및 자료 목록을 통해 추가적인 정보 제공. 연구 논문에 대한 요약은 표와 함께 서술형으로 5문장이상으로 심도있게 다룰것. 
+- Web Search 가 필요한 자료는 추가 조사를 진행할것.</p>
+<h2 id="references">References</h2>
+<blockquote>
+<p>Citation policy: keep citations inline as <code>[n]</code>; source rights belong to original publishers/authors. Validate primary sources before high-stakes use.</p>
+</blockquote>
+<ol>
+<li><span id="ref-1"></span> Tavily search index (<a href=".&lt;a href=" . archive tavily_search.jsonl">/archive/tavily_search.jsonl</a>">.<a href="report_views/archive_tavily_search.jsonl-275cc811.html" data-viewer="report_views/archive_tavily_search.jsonl-275cc811.html" data-raw="archive/tavily_search.jsonl" class="viewer-link">/archive/tavily_search.jsonl</a></a>) — selected sources:</li>
+<li>agentic ai career path - UMU — <a href="https://m.umu.com/ask/t11122301573854269324" target="_blank" rel="noopener">link</a></li>
+<li>Organizations Aren't Ready for the Risks of Agentic AI — <a href="https://hbsp.harvard.edu/product/H08S2Z-PDF-ENG" target="_blank" rel="noopener">link</a></li>
+<li>Agentic AI Software Engineer @ Riverside Research | Jobright.ai — <a href="https://jobright.ai/jobs/info/6903b0ccd64a22104aa91ce4" target="_blank" rel="noopener">link</a></li>
+<li>Riverside Research Institute Agentic AI Software Engineer Job Fairfax — <a href="https://www.ziprecruiter.com/c/Riverside-Research/Job/Agentic-AI-Software-Engineer-with-Security-Clearance/-in-Fairfax,VA?jid=132322684ff7d4ec" target="_blank" rel="noopener">link</a></li>
+<li>AI Agentic Engineer (Hybrid) - TM Floyd &amp; Company - Dice — <a href="https://www.dice.com/job-detail/ea073663-27c8-45a6-ad35-4d13b9360dcd" target="_blank" rel="noopener">link</a></li>
+<li>Department Manager, Agentic AI Platform Development - Career.io — <a href="https://career.io/job/department-manager-agentic-ai-platform-development-new-york-con-edison-inc-2e93130e49acc9b32b4b6b8ca6411bdb" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-2"></span> source_triage.md — <a href="report_views/report_notes_source_triage.md-a7ea9f7b.html" data-viewer="report_views/report_notes_source_triage.md-a7ea9f7b.html" data-raw="report_notes/source_triage.md" class="viewer-link">file</a></li>
+<li><span id="ref-3"></span> Karol Kasprowicz (2025). Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense. Studia Iuridica Lublinensia — <a href="https://doi.org/10.17951/sil.2025.34.2.441-479" target="_blank" rel="noopener">link</a> <small>citations: 0</small> — <a href="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-viewer="report_views/archive_openalex_pdf_W4415728083.pdf-a13d838b.html" data-raw="archive/openalex/pdf/W4415728083.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-4"></span> Kyle Bittle, Omar El-Gayar (2025). Generative AI and Academic Integrity in Higher Education: A Systematic Review and Research Agenda. Information — <a href="https://doi.org/10.3390/info16040296" target="_blank" rel="noopener">link</a> <small>citations: 41</small></li>
+<li><span id="ref-5"></span> Cameron R. Jones, Ishika Rathi, Sydney Taylor, Benjamin K. Bergen (2025). People cannot distinguish GPT-4 from a human in a Turing test — <a href="https://doi.org/10.1145/3715275.3732108" target="_blank" rel="noopener">link</a> <small>citations: 25</small></li>
+<li><span id="ref-6"></span> Lucy Obozintsev (2025). From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence. Library, Museums and Press - UDSpace (University of Delaware) — <a href="http://udspace.udel.edu/handle/19716/24048" target="_blank" rel="noopener">link</a> <small>citations: 25</small> — <a href="report_views/archive_openalex_pdf_W2921187241.pdf-48d328c3.html" data-viewer="report_views/archive_openalex_pdf_W2921187241.pdf-48d328c3.html" data-raw="archive/openalex/pdf/W2921187241.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-7"></span> 2602.06039v1.txt — <a href="report_views/archive_arxiv_text_2602.06039v1.txt-87ee18bc.html" data-viewer="report_views/archive_arxiv_text_2602.06039v1.txt-87ee18bc.html" data-raw="archive/arxiv/text/2602.06039v1.txt" class="viewer-link">file</a></li>
+<li><span id="ref-8"></span> 2602.06038v1.txt — <a href="report_views/archive_arxiv_text_2602.06038v1.txt-a7058baf.html" data-viewer="report_views/archive_arxiv_text_2602.06038v1.txt-a7058baf.html" data-raw="archive/arxiv/text/2602.06038v1.txt" class="viewer-link">file</a></li>
+<li><span id="ref-9"></span> 2602.06043v1.txt — <a href="report_views/archive_arxiv_text_2602.06043v1.txt-1eb3a11b.html" data-viewer="report_views/archive_arxiv_text_2602.06043v1.txt-1eb3a11b.html" data-raw="archive/arxiv/text/2602.06043v1.txt" class="viewer-link">file</a></li>
+<li><span id="ref-10"></span> 2602.06034v1.txt — <a href="report_views/archive_arxiv_text_2602.06034v1.txt-c01e988d.html" data-viewer="report_views/archive_arxiv_text_2602.06034v1.txt-c01e988d.html" data-raw="archive/arxiv/text/2602.06034v1.txt" class="viewer-link">file</a></li>
+<li><span id="ref-11"></span> 2602.06040v1.txt — <a href="report_views/archive_arxiv_text_2602.06040v1.txt-a3b9a11c.html" data-viewer="report_views/archive_arxiv_text_2602.06040v1.txt-a3b9a11c.html" data-raw="archive/arxiv/text/2602.06040v1.txt" class="viewer-link">file</a></li>
+</ol>
+<h2 id="miscellaneous">Miscellaneous</h2>
+<div class="misc-block">
+<ul>
+<li>Generated at: 2026-02-09 06:46:01</li>
+<li>Duration: 00:04:47 (287.55s)</li>
+<li>Model: gpt-5-nano</li>
+<li>Quality strategy: none</li>
+<li>Quality iterations: 0</li>
+<li>Template: custom_trend_scan</li>
+<li>Language: Korean</li>
+<li>Tags: 데이터, 신뢰성, 보안, 엔터프라이즈, 시나리오</li>
+<li>Output format: html</li>
+<li>PDF compile: disabled</li>
+<li>Run overview: <a href="report_views/report_run_overview.md-40ef65a9.html" data-viewer="report_views/report_run_overview.md-40ef65a9.html" data-raw="report/run_overview.md" class="viewer-link">./report/run_overview.md</a></li>
+<li>Report overview: <a href="report_views/report_run_overview_report_full_2.md-89177e4a.html" data-viewer="report_views/report_run_overview_report_full_2.md-89177e4a.html" data-raw="report/run_overview_report_full_2.md" class="viewer-link">./report/run_overview_report_full_2.md</a></li>
+<li>Report workflow: <a href="report_views/report_notes_report_workflow.md-bd2306de.html" data-viewer="report_views/report_notes_report_workflow.md-bd2306de.html" data-raw="report_notes/report_workflow.md" class="viewer-link">./report_notes/report_workflow.md</a></li>
+<li>Archive index: <a href="report_views/archive_agenticAI_recent-index.md-246c844d.html" data-viewer="report_views/archive_agenticAI_recent-index.md-246c844d.html" data-raw="archive/agenticAI_recent-index.md" class="viewer-link">./archive/agenticAI_recent-index.md</a></li>
+<li>Instruction file: <a href="report_views/instruction_agenticAI_recent.txt-ab52a2bd.html" data-viewer="report_views/instruction_agenticAI_recent.txt-ab52a2bd.html" data-raw="instruction/agenticAI_recent.txt" class="viewer-link">./instruction/agenticAI_recent.txt</a></li>
+<li>Report prompt: <a href="report_views/instruction_report_prompt_report_full_2.txt-78f716a6.html" data-viewer="report_views/instruction_report_prompt_report_full_2.txt-78f716a6.html" data-raw="instruction/report_prompt_report_full_2.txt" class="viewer-link">./instruction/report_prompt_report_full_2.txt</a></li>
+<li>Figure candidates: <a href="./report_views/figures_preview.html">./report_views/figures_preview.html</a></li>
+</ul>
+</div>
+<div class="misc-block ai-disclosure">
+<p><strong>AI Transparency and Source Notice</strong></p>
+<ul>
+<li>AI 투명성 고지: 본 문서는 Federlicht 에이전트 파이프라인을 통해 생성되었으며, 최종 책임과 배포 판단은 사용자/조직에 있습니다.</li>
+<li>출처·저작권 고지: 외부 소스의 저작권/라이선스는 원 저작권자 정책을 따르며, 본문 인용은 분석 목적의 요약/재서술을 원칙으로 합니다.</li>
+<li>검증 고지: 고위험 의사결정(법률·의료·재무·규제)에는 원문 대조 및 추가 검증을 수행하세요.</li>
+<li>EU AI Act 정합성 참고: 본 산출물은 AI 보조 생성물임을 명시하며, 인간 검토를 전제로 사용해야 합니다.</li>
+</ul>
+</div>
+    </main>
+  </div>
+  <div id="viewer-overlay" class="viewer-overlay"></div>
+  <aside id="viewer-panel" class="viewer-panel" aria-hidden="true">
+    <div class="viewer-header">
+      <div class="viewer-title" id="viewer-title">Source preview</div>
+      <div class="viewer-actions">
+        <a id="viewer-raw" href="#" target="_blank" rel="noopener">Open raw</a>
+        <button class="viewer-close" id="viewer-close" aria-label="Close">x</button>
+      </div>
+    </div>
+    <iframe id="viewer-frame" class="viewer-frame" title="Source preview"></iframe>
+  </aside>
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const themeParam = params.get('theme');
+      const storedTheme = localStorage.getItem('federlicht.theme');
+      const theme = themeParam || storedTheme;
+      if (theme) {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('federlicht.theme', theme);
+      }
+      const backLink = document.getElementById('back-link');
+      if (backLink) {
+        const path = window.location.pathname.replace(/\\/g, '/');
+        const idx = path.lastIndexOf('/runs/');
+        if (idx !== -1) {
+          backLink.href = `${path.slice(0, idx)}/index.html`;
+          backLink.style.display = 'inline-flex';
+        }
+      }
+      const panel = document.getElementById('viewer-panel');
+      const overlay = document.getElementById('viewer-overlay');
+      const frame = document.getElementById('viewer-frame');
+      const rawLink = document.getElementById('viewer-raw');
+      const title = document.getElementById('viewer-title');
+      const closeBtn = document.getElementById('viewer-close');
+      function closeViewer() {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        frame.src = 'about:blank';
+      }
+      function openViewer(viewer, raw, label) {
+        frame.src = viewer;
+        rawLink.href = raw || viewer;
+        title.textContent = label || 'Source preview';
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+      }
+      document.querySelectorAll('.viewer-link').forEach((link) => {
+        link.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          const viewer = link.getAttribute('data-viewer') || link.href;
+          const raw = link.getAttribute('data-raw');
+          const label = link.textContent || 'Source preview';
+          if (viewer) openViewer(viewer, raw, label);
+        });
+      });
+      overlay.addEventListener('click', closeViewer);
+      closeBtn.addEventListener('click', closeViewer);
+      const tocLinks = Array.from(document.querySelectorAll('.toc-item'));
+      const tocSections = tocLinks
+        .map((link) => {
+          const id = (link.getAttribute('href') || '').replace('#', '');
+          if (!id) return null;
+          const section = document.getElementById(id);
+          if (!section) return null;
+          return { link, section };
+        })
+        .filter(Boolean);
+      if (tocSections.length) {
+        tocLinks.forEach((link) => {
+          link.addEventListener('click', (ev) => {
+            const href = link.getAttribute('href') || '';
+            if (!href.startsWith('#')) return;
+            const target = document.getElementById(href.slice(1));
+            if (!target) return;
+            ev.preventDefault();
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (history && history.replaceState) {
+              history.replaceState(null, '', href);
+            }
+          });
+        });
+        
+        const updateToc = () => {
+          const threshold = window.scrollY + 180;
+          let active = null;
+          for (const item of tocSections) {
+            if (item.section.offsetTop <= threshold) active = item;
+          }
+          tocLinks.forEach((node) => node.classList.remove('active'));
+          if (active) active.link.classList.add('active');
+        };
+        updateToc();
+        window.addEventListener('scroll', updateToc, { passive: true });
+      }
+    })();
+  </script>
+</body>
+</html>

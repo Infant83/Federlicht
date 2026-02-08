@@ -1,0 +1,82 @@
+
+
+===== PAGE 1 =====
+Studia Iuridica Lublinensia vol. 34, 2, 2025
+DOI: 10.17951/sil.2025.34.2.441-479
+﻿
+Karol Kasprowicz
+Maria Curie-Skłodowska University (Lublin), Poland
+ORCID: 0000-0001-6328-052X
+karol.kasprowicz@mail.umcs.pl
+Alignment Problem as Cultural and Legal Challenge: 
+Artificial Intelligence, Interpretability, and Searching 
+for Sense
+Problem dostosowania jako wyzwanie kulturowe i prawne. Sztuczna 
+inteligencja, interpretowalność i poszukiwanie sensu
+ABSTRACT
+The article examines the AI alignment problem as a fundamental challenge of cross-cultural 
+communication between human interpretive frameworks and algorithmic optimization. The author 
+argues that effective AI alignment requires integrating cultural sense-making practices and legal 
+frameworks that vary across societies. The analysis reveals how current regulatory attempts, including 
+the EU AI Act and national AI strategies, struggle with three interconnected challenges: ensuring the 
+interpretability of algorithmic decisions, managing the indeterminism inherent in AI systems, and 
+addressing knowledge extraction controversies. Through examination of emerging AI agents, Big 
+Tech’s regulatory capture, and the rise of AI nationalism, the study demonstrates that alignment fail-
+ures stem not from technical limitations alone, but from inadequate engagement with diverse cultural 
+logics of interpretation. The author proposes frameworks that adapt AI systems to varied contexts 
+while maintaining core functionality and concludes that solving alignment requires computational 
+cultural modelling capable of navigating value pluralism. The analysis warns that without integrating 
+technical safety mechanisms with cultural frameworks of societies, AI systems risk becoming tools 
+of extraction and control rather than beneficial partners for societies.
+Keywords: alignment; artificial intelligence; interpretability; regulations; sense-making; culture
+CORRESPONDENCE ADDRESS: Karol Kasprowicz, PhD, Assistant Professor, Maria Curie- 
+-Skłodowska University (Lublin), Faculty of Law and Administration, Institute of Legal Sciences, 
+5 Maria Curie-Skłodowska Square, 20-031 Lublin, Poland.
+Pobrane z czasopisma Studia Iuridica Lublinensia http://studiaiuridica.umcs.pl
+Data: 08/02/2026 02:33:46
+UMCS
+
+
+===== PAGE 2 =====
+Karol Kasprowicz
+442
+The Zeroth Law of Robotics
+A robot may not injure humanity, or,
+through inaction, allow humanity to come to harm.
+I. Asimov, Robots and Empire (1985)
+INTRODUCTION
+In 1942, I. Asimov proposed the Three Laws of Robotics as a fictional foun-
+dation for safe coexistence between humans and intelligent machines.1 Eight dec-
+ades later, in an era of advanced artificial intelligence (AI) systems, we face far 
+more complex challenge: ensuring AI systems operate according to human values 
+and goals. Science fiction has long explored potential futures where intelligent 
+machines interact with humanity, but Asimov’s Laws represent perhaps the most 
+enduring attempt to codify principles governing such interactions.2 Nevertheless, 
+fictional guidelines, while elegant in their simplicity,3 fail to address the nuanced 
+challenges of modern AI systems that operate through statistical patterns rather 
+than deterministic rules.4
+Thus, the AI alignment problem is essentially a problem of cross-cultural com-
+munication between the world of human interpretation and the world of algorithmic 
+optimization. I presume that this framing reveals a key dimension of usefulness of 
+AI to human life – interpretability as more than a technical problem and sense-mak-
+ing of real uses of AI. It represents a challenge of translation between two distinct 
+forms of intelligence: human understanding built on cultural contexts, emotional 
+resonance, and embodied experience vs machine learning systems operating through 
+statistical pattern recognition across massive datasets. Interpretability challenges 
+emerge from technical opacity as well as from fundamental differences in how 
+humans and AI systems process information. While humans interpret through con-
+textual understanding, cultural frameworks, and embodied experience, AI systems 
+operate through statistical correlations that may lack causal understanding. This gap 
+creates profound challenges for ensuring AI systems genuinely align with human 
+intentions rather than merely optimizing for specified objectives that incompletely 
+capture human values.5
+1	
+ I. Asimov, Runaround, “Astounding Science Fiction” 1942, no. 3, pp. 94–103.
+2	  Cf. K. Mamak, Whether to Save a Robot or a Human: On the Ethical and Legal Limits of 
+Protections for Robots, “Frontiers in Robotics and AI” 2021, vol. 8.
+3	  For example, see J. Zajdel, Limes Inferior, Warszawa 1982; N. Bostrom, Deep Utopia: Life 
+and Meaning in a Solved World, 2024; S. Lem, Golem XIV, Kraków 1981.
+4	
+ Cf. M. de Sautoy, The Creativity Code: Art and Innovation in the Age of AI, Cambridge 2020.
+5	
+ A. Elliott, Making Sense of AI: Our Algorithmic World, Cambridge 202

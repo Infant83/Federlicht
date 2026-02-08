@@ -17,6 +17,8 @@ except Exception:  # pragma: no cover - optional runtime dependency
 
 
 _INCLUDE_PATHS = (
+    "pyproject.toml",
+    "CHANGELOG.md",
     "README.md",
     "docs",
     "src",
@@ -86,12 +88,21 @@ _STOPWORDS = {
 _MAX_FILE_BYTES = 400_000
 _CHUNK_LINES = 80
 _CHUNK_OVERLAP = 24
-_MAX_SOURCE_TEXT = 1200
+_MAX_SOURCE_TEXT = 360
 _MAX_CONTEXT_CHARS = 12000
 _CACHE_LOCK = threading.Lock()
 _INDEX_CACHE: dict[str, "_IndexCache"] = {}
 _HISTORY_TURNS = 6
 _HISTORY_CHARS = 900
+_META_PATH_HINTS = (
+    "pyproject.toml",
+    "CHANGELOG.md",
+    "README.md",
+    "docs/federlicht_report.md",
+    "docs/federnett_roadmap.md",
+    "src/federnett/app.py",
+    "src/federnett/help_agent.py",
+)
 
 
 @dataclass
@@ -210,12 +221,17 @@ def _query_tokens(question: str) -> list[str]:
     deduped: list[str] = []
     seen: set[str] = set()
     for tok in raw_tokens:
-        if tok in _STOPWORDS:
-            continue
-        if tok in seen:
-            continue
-        seen.add(tok)
-        deduped.append(tok)
+        parts = [tok]
+        # Split mixed-script tokens (e.g., "federnett에서" -> "federnett", "에서")
+        parts.extend(re.findall(r"[a-z0-9_]{2,}", tok))
+        parts.extend(re.findall(r"[가-힣]{2,}", tok))
+        for part in parts:
+            if part in _STOPWORDS:
+                continue
+            if part in seen:
+                continue
+            seen.add(part)
+            deduped.append(part)
     return deduped
 
 
@@ -237,7 +253,13 @@ def _iter_chunks(lines: list[str]) -> list[tuple[int, int, str]]:
     return chunks
 
 
-def _chunk_score(path: str, text: str, tokens: list[str], question_l: str) -> float:
+def _chunk_score(
+    path: str,
+    text: str,
+    tokens: list[str],
+    question_l: str,
+    run_rel_l: str = "",
+) -> float:
     if not text:
         return 0.0
     text_l = text.lower()
@@ -250,6 +272,8 @@ def _chunk_score(path: str, text: str, tokens: list[str], question_l: str) -> fl
     score = 0.0
     if question_l and len(question_l) >= 6 and question_l in text_l:
         score += 10.0
+    if run_rel_l and path_l.startswith(run_rel_l):
+        score += 4.0
     for tok in tokens:
         count = token_counts.get(tok, 0)
         if count:
@@ -264,19 +288,64 @@ def _chunk_score(path: str, text: str, tokens: list[str], question_l: str) -> fl
     )
     if option_intent and "--" in text and ("option" in text_l or "arg" in text_l):
         score += 1.0
+    meta_intent = any(
+        token in question_l
+        for token in ("version", "버전", "changelog", "변경", "release", "readme", "업데이트")
+    )
+    if meta_intent and any(
+        marker in path_l for marker in ("pyproject.toml", "readme.md", "changelog.md", "__init__.py")
+    ):
+        score += 7.0
+    auth_intent = any(
+        token in question_l
+        for token in ("login", "signin", "auth", "계정", "로그인", "권한", "인증", "프로필")
+    )
+    if auth_intent and any(marker in path_l for marker in ("auth", "profile", "agent_profiles", "federnett")):
+        score += 5.0
     return score
 
 
-def _select_sources(root: Path, question: str, max_sources: int) -> tuple[list[dict[str, Any]], int]:
+def _fallback_sources(index: _IndexCache, max_sources: int) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for hint in _META_PATH_HINTS:
+        doc = index.docs.get(hint)
+        if not doc or not doc.lines:
+            continue
+        excerpt = "\n".join(doc.lines[: min(20, len(doc.lines))]).strip()
+        if len(excerpt) > _MAX_SOURCE_TEXT:
+            excerpt = excerpt[: _MAX_SOURCE_TEXT - 1] + "..."
+        out.append(
+            {
+                "path": doc.rel_path,
+                "start_line": 1,
+                "end_line": min(len(doc.lines), 20),
+                "score": 0.1,
+                "excerpt": excerpt,
+            },
+        )
+        if len(out) >= max(1, max_sources):
+            break
+    for idx, item in enumerate(out, start=1):
+        item["id"] = f"S{idx}"
+    return out
+
+
+def _select_sources(
+    root: Path,
+    question: str,
+    max_sources: int,
+    run_rel: str | None = None,
+) -> tuple[list[dict[str, Any]], int]:
     index = _load_index(root)
     tokens = _query_tokens(question)
     question_l = question.strip().lower()
+    run_rel_l = (run_rel or "").strip().replace("\\", "/").strip("/").lower()
     scored: list[dict[str, Any]] = []
     for doc in index.docs.values():
         if not doc.lines:
             continue
         for start, end, text in _iter_chunks(doc.lines):
-            score = _chunk_score(doc.rel_path, text, tokens, question_l)
+            score = _chunk_score(doc.rel_path, text, tokens, question_l, run_rel_l=run_rel_l)
             if score <= 0:
                 continue
             excerpt = text.strip()
@@ -295,6 +364,8 @@ def _select_sources(root: Path, question: str, max_sources: int) -> tuple[list[d
         key=lambda item: (-float(item["score"]), len(str(item["path"])), int(item["start_line"])),
     )
     selected = scored[: max(1, max_sources)]
+    if not selected:
+        selected = _fallback_sources(index, max_sources)
     for idx, item in enumerate(selected, start=1):
         item["id"] = f"S{idx}"
     return selected, len(index.docs)
@@ -357,7 +428,15 @@ def _call_llm(
     context = _build_context(sources)
     system = (
         "You are Federnett usage guide assistant. "
-        "Answer in Korean by default. Provide practical steps and option guidance. "
+        "Default output language is Korean. "
+        "Prioritize Federnett UI workflow first, then explain CLI only if explicitly requested. "
+        "If CLI is not explicitly requested, do not output shell command lines. "
+        "For version/release questions, prioritize pyproject.toml and CHANGELOG evidence first. "
+        "Do not invent features/settings not grounded in the provided context. "
+        "If a feature is unavailable, explicitly say it is unavailable now. "
+        "Do not suggest unsafe/destructive commands. "
+        "Do not claim execution you did not perform or files you did not modify. "
+        "Keep replies concise and actionable. "
         "Use provided context when relevant; if uncertain, explicitly say so. "
         "For pure greeting/small-talk, respond in 1-2 short sentences and ask what they want to do next. "
         "For technical usage questions, include evidence with [S#] markers when sources exist."
@@ -368,11 +447,16 @@ def _call_llm(
         "출력 지침:\n"
         "- 인사/잡담이면 1~2문장으로 짧게 답하고 형식 목록은 생략.\n"
         "- 사용법 질문이면 아래 형식을 사용:\n"
-        "  1) 핵심 답변(짧게)\n"
+        "  1) 핵심 답변(짧게, Federnett 기준)\n"
         "  2) 실행 절차\n"
         "  3) 옵션/체크 권장값\n"
         "  4) 주의사항\n"
         "  5) 근거 [S#] (소스가 있을 때)\n"
+        "- 코드블록은 반드시 마크다운 fenced code block(```)을 사용.\n"
+        "- 질문자가 CLI를 명시하지 않았다면 Federnett UI 단계로 안내.\n"
+        "- CLI를 요청받지 않은 상태에서는 명령어를 출력하지 말고, 화면 기준 동작만 안내.\n"
+        "- 제공된 소스에 없는 기능(예: 로그인/SSO/권한체계)은 임의로 추가하지 말 것.\n"
+        "- 이 에이전트는 안내 전용이므로, 파일 수정/실행을 했다고 쓰지 말 것.\n"
     )
     messages: list[dict[str, str]] = [{"role": "system", "content": system}]
     if history:
@@ -410,9 +494,9 @@ def _call_llm(
 def _fallback_answer(question: str, sources: list[dict[str, Any]]) -> str:
     if not sources:
         return (
-            "질문과 직접 매칭되는 코드/문서를 찾지 못했습니다.\n"
-            "기능명/옵션명을 포함해 다시 질문해 주세요.\n"
-            "예: `Feather에서 --agentic-search와 --max-iter 차이`"
+            "LLM 호출 또는 소스 매칭이 실패했습니다.\n"
+            "질문에 기능명/옵션명/파일명을 함께 적어 다시 시도해 주세요.\n"
+            "예: `federlicht의 --template-rigidity와 --temperature-level 차이`"
         )
     lines = [
         "LLM 응답을 사용할 수 없어 코드/문서 검색 결과 기반으로 요약합니다.",
@@ -431,6 +515,43 @@ def _fallback_answer(question: str, sources: list[dict[str, Any]]) -> str:
     return "\n".join(lines).strip()
 
 
+def _infer_safe_action(question: str, run_rel: str | None = None) -> dict[str, Any] | None:
+    q = (question or "").strip().lower()
+    if not q:
+        return None
+    explicit_run = any(
+        token in q
+        for token in ("실행", "run", "start", "돌려", "해줘", "해 줘", "시작", "재작성", "다시 작성")
+    )
+    if not explicit_run:
+        return None
+    if any(token in q for token in ("feather부터", "연속", "end-to-end", "파이프라인")):
+        return {
+            "type": "run_feather_then_federlicht",
+            "label": "Feather -> Federlicht 실행",
+            "run_rel": run_rel or "",
+            "safety": "현재 화면 폼 값만 사용",
+            "summary": "수집부터 보고서 생성까지 연속 실행",
+        }
+    if "feather" in q or any(token in q for token in ("자료 수집", "검색", "크롤링", "아카이브")):
+        return {
+            "type": "run_feather",
+            "label": "Feather 실행",
+            "run_rel": run_rel or "",
+            "safety": "현재 화면 폼 값만 사용",
+            "summary": "자료 수집/아카이브 실행",
+        }
+    if "federlicht" in q or "보고서" in q:
+        return {
+            "type": "run_federlicht",
+            "label": "Federlicht 실행",
+            "run_rel": run_rel or "",
+            "safety": "현재 화면 폼 값만 사용",
+            "summary": "현재 Run 기준 보고서 생성",
+        }
+    return None
+
+
 def answer_help_question(
     root: Path,
     question: str,
@@ -438,11 +559,17 @@ def answer_help_question(
     model: str | None = None,
     max_sources: int = 8,
     history: list[dict[str, str]] | None = None,
+    run_rel: str | None = None,
 ) -> dict[str, Any]:
     q = (question or "").strip()
     if not q:
         raise ValueError("question is required")
-    sources, indexed_files = _select_sources(root, q, max_sources=max(3, min(max_sources, 16)))
+    sources, indexed_files = _select_sources(
+        root,
+        q,
+        max_sources=max(3, min(max_sources, 16)),
+        run_rel=run_rel,
+    )
     error_msg = ""
     used_llm = False
     used_model = ""
@@ -459,4 +586,5 @@ def answer_help_question(
         "model": used_model,
         "error": error_msg,
         "indexed_files": indexed_files,
+        "action": _infer_safe_action(q, run_rel=run_rel),
     }

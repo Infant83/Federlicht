@@ -148,16 +148,34 @@ class ReportOrchestrator:
         overview_path = helpers.write_run_overview(run_dir, instruction_file, index_file)
         baseline_report = helpers.find_baseline_report(run_dir)
         notes_dir = helpers.resolve_notes_dir(run_dir, args.notes_dir)
+        configured_tool_char_limit = int(getattr(args, "max_tool_chars", 0) or 0)
+        tool_budget_source = "cli" if configured_tool_char_limit > 0 else "auto"
+        if configured_tool_char_limit > 0:
+            tool_char_limit = configured_tool_char_limit
+        else:
+            # Default conservatively to avoid silent context blowups in scout/evidence.
+            lang_for_budget = helpers.normalize_lang(args.lang)
+            char_ratio = 2 if helpers.is_korean_language(lang_for_budget) else 4
+            token_cap = int(
+                getattr(args, "max_input_tokens", 0)
+                or getattr(helpers, "DEFAULT_MAX_INPUT_TOKENS", 0)
+                or 128000
+            )
+            tool_char_limit = max(16000, min(48000, int(token_cap * char_ratio * 0.14)))
+        fs_read_cap = max(1500, min(4000, max(2000, tool_char_limit // 8)))
+        fs_total_cap = max(8000, min(tool_char_limit, int(tool_char_limit * 0.35)))
         # Keep run_dir as backend root so built-in file tools can resolve archive paths reliably.
-        # Bound filesystem read/list payloads in the backend to prevent context blowups.
+        # Bound filesystem-tool reads/list payloads in the backend to prevent context blowups.
         backend = helpers.SafeFilesystemBackend(
             root_dir=run_dir,
-            max_read_chars=max(3000, min(12000, int(getattr(args, "max_tool_chars", 0) or 0) or 6000)),
+            max_read_chars=fs_read_cap,
+            max_total_chars=fs_total_cap,
         )
         cache_dir = notes_dir / "cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_schema_version = "v4"
         cache_enabled = bool(getattr(args, "cache", True))
+        cache_scope_signature = ""
         supporting_dir: Optional[Path] = None
         supporting_summary: Optional[str] = None
         alignment_max_chars = min(args.quality_max_chars, 8000)
@@ -228,6 +246,7 @@ class ReportOrchestrator:
                 model,
                 prompt,
                 payload,
+                cache_scope_signature,
                 tool_char_limit,
                 tool_budget_source,
                 str(run_dir),
@@ -353,28 +372,20 @@ class ReportOrchestrator:
             candidate = pdf_path.with_suffix(".txt")
             return candidate if candidate.exists() else None
 
-        configured_tool_char_limit = int(getattr(args, "max_tool_chars", 0) or 0)
-        tool_budget_source = "cli" if configured_tool_char_limit > 0 else "auto"
-        if configured_tool_char_limit > 0:
-            tool_char_limit = configured_tool_char_limit
-        else:
-            # Keep tool output bounded even when the CLI flag is omitted.
-            # This prevents scout/evidence histories from silently exceeding model context.
-            lang_for_budget = helpers.normalize_lang(args.lang)
-            char_ratio = 2 if helpers.is_korean_language(lang_for_budget) else 4
-            token_cap = int(
-                getattr(args, "max_input_tokens", 0)
-                or getattr(helpers, "DEFAULT_MAX_INPUT_TOKENS", 0)
-                or 128000
-            )
-            tool_char_limit = max(16000, int(token_cap * char_ratio * 0.25))
         tool_chars_used = 0
-        reducer_chunk_chars = 4500
-        reducer_chunk_overlap = 200
-        reducer_max_chunk_summaries = 12
+        reducer_chunk_chars = 3000
+        reducer_chunk_overlap = 120
+        reducer_max_chunk_summaries = 8
         tool_cache_dir = notes_dir / "tool_cache"
         tool_cache_dir.mkdir(parents=True, exist_ok=True)
         reducer_runner: Optional[Callable[[str, str, int], str]] = None
+
+        def clean_reducer_text(text: str) -> str:
+            if not text:
+                return ""
+            lines = [line for line in text.splitlines() if line.strip().lower() != "[reducer]"]
+            cleaned = "\n".join(lines).strip()
+            return cleaned or text.strip()
 
         def split_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
             if chunk_size <= 0 or not text:
@@ -412,12 +423,13 @@ class ReportOrchestrator:
                 chunk_file = f"chunk_{idx:03d}.txt"
                 header = f"CHUNK {idx}/{total} [{chunk_file}] ({source_label})"
                 prompt = "\n".join([header, chunk])
-                summaries.append(reducer_runner(prompt, source_label, per_chunk_target))
+                summaries.append(clean_reducer_text(reducer_runner(prompt, source_label, per_chunk_target)))
             if len(summaries) == 1:
                 summary = summaries[0]
             else:
                 joined = "\n".join(summaries)
-                summary = reducer_runner(
+                summary = clean_reducer_text(
+                    reducer_runner(
                     "\n".join(
                         [
                             f"CHUNK_SUMMARIES ({source_label})",
@@ -427,6 +439,7 @@ class ReportOrchestrator:
                     ),
                     source_label,
                     max_chars,
+                )
                 )
             return helpers.truncate_text_middle(summary, max_chars)
 
@@ -542,60 +555,67 @@ class ReportOrchestrator:
             except (FileNotFoundError, ValueError) as exc:
                 return f"[error] {exc}"
             limit = args.max_chars if max_chars is None else max_chars
-            if path.suffix.lower() == ".pdf":
-                page_limit = args.max_pdf_pages if max_pages is None else max_pages
-                page_start = 0 if start_page is None else max(0, start_page)
-                txt_path = resolve_pdf_text(path)
-                if txt_path:
-                    text = normalize_rel_paths(read_text_file(txt_path, start, limit))
-                    rel_label = txt_path.relative_to(run_dir).as_posix()
-                    payload = f"[from text] {rel_label}\n\n{text}"
-                    return apply_tool_budget(payload, text, rel_label)
-                pdf_text = helpers.read_pdf_with_fitz(
-                    path,
-                    page_limit,
-                    limit,
-                    start_page=page_start,
-                    auto_extend_pages=int(getattr(args, "pdf_extend_pages", 0) or 0),
-                    extend_min_chars=int(getattr(args, "pdf_extend_min_chars", 0) or 0),
+            try:
+                if path.suffix.lower() == ".pdf":
+                    page_limit = args.max_pdf_pages if max_pages is None else max_pages
+                    page_start = 0 if start_page is None else max(0, start_page)
+                    txt_path = resolve_pdf_text(path)
+                    if txt_path:
+                        text = normalize_rel_paths(read_text_file(txt_path, start, limit))
+                        rel_label = txt_path.relative_to(run_dir).as_posix()
+                        payload = f"[from text] {rel_label}\n\n{text}"
+                        return apply_tool_budget(payload, text, rel_label)
+                    pdf_text = helpers.read_pdf_with_fitz(
+                        path,
+                        page_limit,
+                        limit,
+                        start_page=page_start,
+                        auto_extend_pages=int(getattr(args, "pdf_extend_pages", 0) or 0),
+                        extend_min_chars=int(getattr(args, "pdf_extend_min_chars", 0) or 0),
+                    )
+                    rel_label = path.relative_to(run_dir).as_posix()
+                    payload = f"[from pdf] {rel_label}\n\n{pdf_text}"
+                    return apply_tool_budget(payload, pdf_text, rel_label)
+                if path.suffix.lower() == ".pptx":
+                    slide_limit = getattr(args, "max_pptx_slides", 0)
+                    slide_start = 0 if start_page is None else max(0, start_page)
+                    pptx_text = helpers.read_pptx_text(
+                        path,
+                        slide_limit,
+                        limit,
+                        start_slide=slide_start,
+                        include_notes=True,
+                    )
+                    rel_label = path.relative_to(run_dir).as_posix()
+                    payload = f"[from pptx] {rel_label}\n\n{pptx_text}"
+                    return apply_tool_budget(payload, pptx_text, rel_label)
+                if path.suffix.lower() in {".docx", ".doc"}:
+                    docx_text = helpers.read_docx_text(path, limit, start=start)
+                    rel_label = path.relative_to(run_dir).as_posix()
+                    payload = f"[from docx] {rel_label}\n\n{docx_text}"
+                    return apply_tool_budget(payload, docx_text, rel_label)
+                if path.suffix.lower() in {".xlsx", ".xls"}:
+                    sheet_limit = 0 if max_pages is None else max_pages
+                    sheet_start = 0 if start_page is None else max(0, start_page)
+                    xlsx_text = helpers.read_xlsx_text(
+                        path,
+                        limit,
+                        max_sheets=sheet_limit,
+                        start_sheet=sheet_start,
+                    )
+                    rel_label = path.relative_to(run_dir).as_posix()
+                    payload = f"[from xlsx] {rel_label}\n\n{xlsx_text}"
+                    return apply_tool_budget(payload, xlsx_text, rel_label)
+                text = normalize_rel_paths(read_text_file(path, start, limit))
+                rel_label = path.relative_to(run_dir).as_posix()
+                payload = f"[from text] {rel_label}\n\n{text}"
+                return apply_tool_budget(payload, text, rel_label)
+            except Exception as exc:
+                rel_label = path.relative_to(run_dir).as_posix()
+                return (
+                    f"[error] Failed to read '{rel_label}': {exc}. "
+                    "Skip this file and continue with other sources."
                 )
-                rel_label = path.relative_to(run_dir).as_posix()
-                payload = f"[from pdf] {rel_label}\n\n{pdf_text}"
-                return apply_tool_budget(payload, pdf_text, rel_label)
-            if path.suffix.lower() == ".pptx":
-                slide_limit = getattr(args, "max_pptx_slides", 0)
-                slide_start = 0 if start_page is None else max(0, start_page)
-                pptx_text = helpers.read_pptx_text(
-                    path,
-                    slide_limit,
-                    limit,
-                    start_slide=slide_start,
-                    include_notes=True,
-                )
-                rel_label = path.relative_to(run_dir).as_posix()
-                payload = f"[from pptx] {rel_label}\n\n{pptx_text}"
-                return apply_tool_budget(payload, pptx_text, rel_label)
-            if path.suffix.lower() in {".docx", ".doc"}:
-                docx_text = helpers.read_docx_text(path, limit, start=start)
-                rel_label = path.relative_to(run_dir).as_posix()
-                payload = f"[from docx] {rel_label}\n\n{docx_text}"
-                return apply_tool_budget(payload, docx_text, rel_label)
-            if path.suffix.lower() in {".xlsx", ".xls"}:
-                sheet_limit = 0 if max_pages is None else max_pages
-                sheet_start = 0 if start_page is None else max(0, start_page)
-                xlsx_text = helpers.read_xlsx_text(
-                    path,
-                    limit,
-                    max_sheets=sheet_limit,
-                    start_sheet=sheet_start,
-                )
-                rel_label = path.relative_to(run_dir).as_posix()
-                payload = f"[from xlsx] {rel_label}\n\n{xlsx_text}"
-                return apply_tool_budget(payload, xlsx_text, rel_label)
-            text = normalize_rel_paths(read_text_file(path, start, limit))
-            rel_label = path.relative_to(run_dir).as_posix()
-            payload = f"[from text] {rel_label}\n\n{text}"
-            return apply_tool_budget(payload, text, rel_label)
 
         tools = [list_archive_files, list_supporting_files, read_document]
 
@@ -807,15 +827,22 @@ class ReportOrchestrator:
             reserve: int = 3000,
             minimum: int = 2000,
             default_budget: int = 24000,
+            hard_cap: int = 36000,
         ) -> Optional[int]:
             fallback = getattr(helpers, "DEFAULT_MAX_INPUT_TOKENS", None)
             budget = max_tokens or args.max_input_tokens or fallback
             if not budget:
-                return max(minimum, default_budget)
-            return max(minimum, int(budget) - reserve)
+                return max(minimum, min(default_budget, hard_cap))
+            return max(minimum, min(int(budget) - reserve, hard_cap))
 
         def resolve_writer_budget(max_tokens: Optional[int]) -> Optional[int]:
-            return resolve_stage_budget(max_tokens, reserve=8000, minimum=10000, default_budget=48000)
+            return resolve_stage_budget(
+                max_tokens,
+                reserve=9000,
+                minimum=10000,
+                default_budget=42000,
+                hard_cap=42000,
+            )
 
         def estimate_chars_for_tokens(token_budget: int) -> int:
             ratio = 2 if helpers.is_korean_language(language) else 4
@@ -1357,6 +1384,37 @@ class ReportOrchestrator:
             source_triage_text = state.source_triage_text
         source_triage_path = notes_dir / "source_triage.md"
         source_triage_path.write_text(source_triage_text, encoding="utf-8")
+        try:
+            cache_scope_signature = cache_key(
+                source_index_path.read_text(encoding="utf-8", errors="ignore"),
+                source_triage_text,
+                bool(getattr(args, "web_search", False)),
+                bool(getattr(args, "agentic_search", False)),
+            )
+        except Exception:
+            cache_scope_signature = cache_key(
+                source_triage_text,
+                bool(getattr(args, "web_search", False)),
+                bool(getattr(args, "agentic_search", False)),
+            )
+
+        def build_static_scout_notes(max_items: int = 12) -> str:
+            lines = [
+                "Static scout fallback summary (overflow-safe).",
+                "Top candidate sources:",
+            ]
+            top_items = source_triage[: max(1, max_items)]
+            for idx, item in enumerate(top_items, start=1):
+                path = str(item.get("path") or item.get("rel_path") or "(unknown)")
+                kind = str(item.get("kind") or item.get("source_type") or "source")
+                reason = str(item.get("reason") or item.get("note") or "")
+                if reason:
+                    lines.append(f"- {idx}. [{kind}] {path} — {reason}")
+                else:
+                    lines.append(f"- {idx}. [{kind}] {path}")
+            lines.append("")
+            lines.append("Guidance: proceed to evidence using these sources; verify claims before writer stage.")
+            return "\n".join(lines).strip()
         if not context_from_state:
             try:
                 rel_index = source_index_path.relative_to(run_dir).as_posix()
@@ -1425,7 +1483,13 @@ class ReportOrchestrator:
             )
         scout_notes = ""
         if stage_enabled("scout"):
-            scout_budget = resolve_stage_budget(scout_max, reserve=3000, minimum=2000)
+            scout_budget = resolve_stage_budget(
+                scout_max,
+                reserve=4000,
+                minimum=2000,
+                default_budget=16000,
+                hard_cap=18000,
+            )
             scout_payload, _, _ = build_stage_payload(scout_sections, scout_budget)
             cached = False
             try:
@@ -1500,13 +1564,25 @@ class ReportOrchestrator:
                         )
                     )
                 fallback_payload, _, _ = build_stage_payload(fallback_sections, fallback_budget)
-                scout_notes = self._runner.run(
-                    "Scout Notes (fallback)",
-                    scout_fallback_agent,
-                    {"messages": [{"role": "user", "content": fallback_payload}]},
-                    show_progress=True,
-                )
-                record_stage("scout", "ran", "overflow_fallback")
+                try:
+                    scout_notes = self._runner.run(
+                        "Scout Notes (fallback)",
+                        scout_fallback_agent,
+                        {"messages": [{"role": "user", "content": fallback_payload}]},
+                        show_progress=True,
+                    )
+                    record_stage("scout", "ran", "overflow_fallback")
+                except Exception as fallback_exc:
+                    if not is_context_overflow(fallback_exc):
+                        raise
+                    scout_notes = build_static_scout_notes()
+                    helpers.print_progress(
+                        "Scout Notes (static fallback)",
+                        sanitize_console_text(scout_notes),
+                        args.progress,
+                        args.progress_chars,
+                    )
+                    record_stage("scout", "ran", "overflow_static_fallback")
             else:
                 if cached:
                     helpers.print_progress(
@@ -1561,7 +1637,13 @@ class ReportOrchestrator:
                         min_limit=800,
                     )
                 )
-            clarifier_budget = resolve_stage_budget(clarifier_max, reserve=3000, minimum=2000)
+            clarifier_budget = resolve_stage_budget(
+                clarifier_max,
+                reserve=4000,
+                minimum=2000,
+                default_budget=12000,
+                hard_cap=14000,
+            )
             clarifier_payload, _, _ = build_stage_payload(clarifier_sections, clarifier_budget)
             try:
                 clarification_questions = self._runner.run(
@@ -1754,7 +1836,13 @@ class ReportOrchestrator:
         plan_context = ""
         align_plan = None
         if stage_enabled("plan"):
-            plan_budget = resolve_stage_budget(plan_max, reserve=3000, minimum=2000)
+            plan_budget = resolve_stage_budget(
+                plan_max,
+                reserve=4000,
+                minimum=2000,
+                default_budget=16000,
+                hard_cap=20000,
+            )
             plan_payload, _, _ = build_stage_payload(plan_sections, plan_budget)
             cached = False
             try:
@@ -1860,7 +1948,13 @@ class ReportOrchestrator:
                         min_limit=800,
                     )
                 )
-            web_budget = resolve_stage_budget(web_max, reserve=3000, minimum=2000)
+            web_budget = resolve_stage_budget(
+                web_max,
+                reserve=4000,
+                minimum=2000,
+                default_budget=14000,
+                hard_cap=18000,
+            )
             web_payload, _, _ = build_stage_payload(web_sections, web_budget)
             try:
                 web_text = self._runner.run(
@@ -2062,7 +2156,13 @@ class ReportOrchestrator:
                         max_lines=supporting_line_limit,
                     )
                 )
-            evidence_budget = resolve_stage_budget(evidence_max, reserve=3000, minimum=2000)
+            evidence_budget = resolve_stage_budget(
+                evidence_max,
+                reserve=4500,
+                minimum=2500,
+                default_budget=22000,
+                hard_cap=26000,
+            )
             evidence_input, _, _ = build_stage_payload(evidence_sections, evidence_budget)
             cached = False
             try:
@@ -2097,13 +2197,30 @@ class ReportOrchestrator:
                 )
                 fallback_budget = max(2000, (evidence_budget // 2) if evidence_budget else 2000)
                 fallback_payload, _, _ = build_stage_payload(evidence_sections, fallback_budget)
-                evidence_notes = self._runner.run(
-                    "Evidence Notes (fallback)",
-                    evidence_agent,
-                    {"messages": [{"role": "user", "content": fallback_payload}]},
-                    show_progress=True,
-                )
-                record_stage("evidence", "ran", "overflow_fallback")
+                try:
+                    evidence_notes = self._runner.run(
+                        "Evidence Notes (fallback)",
+                        evidence_agent,
+                        {"messages": [{"role": "user", "content": fallback_payload}]},
+                        show_progress=True,
+                    )
+                    record_stage("evidence", "ran", "overflow_fallback")
+                except Exception as fallback_exc:
+                    if not is_context_overflow(fallback_exc):
+                        raise
+                    evidence_notes = (
+                        "Evidence fallback summary (overflow-safe).\n\n"
+                        f"{build_static_scout_notes(max_items=8)}\n\n"
+                        "Limitations: evidence extraction was reduced due model context limits. "
+                        "Re-run with a higher-capacity model or lower stage scope."
+                    )
+                    helpers.print_progress(
+                        "Evidence Notes (static fallback)",
+                        sanitize_console_text(evidence_notes),
+                        args.progress,
+                        args.progress_chars,
+                    )
+                    record_stage("evidence", "ran", "overflow_static_fallback")
             (notes_dir / "evidence_notes.md").write_text(evidence_notes, encoding="utf-8")
             align_evidence = run_alignment_check("evidence", evidence_notes)
             verification_requests = parse_verification_requests(evidence_notes)

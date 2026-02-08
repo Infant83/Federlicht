@@ -1,0 +1,54 @@
+
+
+===== PAGE 1 =====
+Studia Iuridica Lublinensia vol. 34, 2, 2025
+DOI: 10.17951/sil.2025.34.2.441-479
+﻿
+Karol Kasprowicz
+Maria Curie-Skłodowska University (Lublin), Poland
+ORCID: 0000-0001-6328-052X
+karol.kasprowicz@mail.umcs.pl
+Alignment Problem as Cultural and Legal Challenge: 
+Artificial Intelligence, Interpretability, and Searching 
+for Sense
+Problem dostosowania jako wyzwanie kulturowe i prawne. Sztuczna 
+inteligencja, interpretowalność i poszukiwanie sensu
+ABSTRACT
+The article examines the AI alignment problem as a fundamental challenge of cross-cultural 
+communication between human interpretive frameworks and algorithmic optimization. The author 
+argues that effective AI alignment requires integrating cultural sense-making practices and legal 
+frameworks that vary across societies. The analysis reveals how current regulatory attempts, including 
+the EU AI Act and national AI strategies, struggle with three interconnected challenges: ensuring the 
+interpretability of algorithmic decisions, managing the indeterminism inherent in AI systems, and 
+addressing knowledge extraction controversies. Through examination of emerging AI agents, Big 
+Tech’s regulatory capture, and the rise of AI nationalism, the study demonstrates that alignment fail-
+ures stem not from technical limitations alone, but from inadequate engagement with diverse cultural 
+logics of interpretation. The author proposes frameworks that adapt AI systems to varied contexts 
+while maintaining core functionality and concludes that solving alignment requires computational 
+cultural modelling capable of navigating value pluralism. The analysis warns that without integrating 
+technical safety mechanisms with cultural frameworks of societies, AI systems risk becoming tools 
+of extraction and control rather than beneficial partners for societies.
+Keywords: alignment; artificial intelligence; interpretability; regulations; sense-making; culture
+CORRESPONDENCE ADDRESS: Karol Kasprowicz, PhD, Assistant Professor, Maria Curie- 
+-Skłodowska University (Lublin), Faculty of Law and Administration, Institute of Legal Sciences, 
+5 Maria Curie-Skłodowska Square, 20-031 Lublin, Poland.
+Pobrane z czasopisma Studia Iuridica Lublinensia http://studiaiuridica.umcs.pl
+Data: 08/02/2026 02:33:46
+UMCS
+
+
+===== PAGE 2 =====
+Karol Kasprowicz
+442
+The Zeroth Law of Robotics
+A robot may not injure humanity, or,
+through inaction, allow humanity to come to harm.
+I. Asimov, Robots and Empire (1985)
+INTRODUCTION
+In 1942, I. Asimov proposed the Three Laws of Robotics as a fictional foun-
+dation for safe coexistence between humans and intelligent machines.1 Eight dec-
+ades later, in an era of advanced artificial intelligence (AI) systems, we face far 
+more complex challenge: ensuring AI systems operate according to human values 
+and goals. Science fiction has long explored potential futures where intelligent 
+machines interact with humanity, but Asimov’s Laws represent perhaps the most 
+enduring attempt to codify pr

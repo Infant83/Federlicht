@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>에이전틱 AI 연구 보고서</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    :root {
+      --bg: #0b0f14;
+      --bg-2: #121821;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f5f7fb;
+      --site-muted: rgba(245, 247, 251, 0.65);
+      --accent: #4ee0b5;
+      --accent-2: #6bd3ff;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(78, 224, 181, 0.25);
+      --ink: #0b1220;
+      --muted: #425066;
+      --accent-strong: #2fb892;
+      --paper: rgba(255, 255, 255, 0.94);
+      --paper-strong: #ffffff;
+      --paper-alt: rgba(240, 245, 255, 0.6);
+      --rule: rgba(15, 23, 42, 0.12);
+      --shadow: 0 28px 70px rgba(15, 23, 42, 0.22);
+      --chrome-ink: #f5f7fb;
+      --chrome-muted: rgba(245, 247, 251, 0.66);
+      --chrome-surface: rgba(11, 17, 29, 0.62);
+      --chrome-border: rgba(255, 255, 255, 0.16);
+      --chrome-hover-soft: rgba(255, 255, 255, 0.06);
+      --chrome-hover: rgba(255, 255, 255, 0.08);
+      --link: var(--accent-2);
+      --link-hover: var(--accent);
+      --page-bg: radial-gradient(1200px 600px at 12% -10%, var(--glow), transparent 60%),
+        radial-gradient(900px 540px at 92% 8%, rgba(107, 211, 255, 0.18), transparent 55%),
+        linear-gradient(180deg, #0b111d 0%, var(--bg-2) 45%, var(--bg) 100%);
+      --body-font: "Fraunces", "Charter", Georgia, serif;
+      --heading-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --ui-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --mono-font: "JetBrains Mono", "Consolas", monospace;
+    }
+    :root[data-theme="sky"] {
+      --bg: #0b1220;
+      --bg-2: #0f1b2e;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f4f7ff;
+      --site-muted: rgba(244, 247, 255, 0.62);
+      --accent: #64b5ff;
+      --accent-2: #8fd1ff;
+      --edge: rgba(255, 255, 255, 0.18);
+      --glow: rgba(100, 181, 255, 0.28);
+      --accent-strong: #3f8ed1;
+    }
+    :root[data-theme="crimson"] {
+      --bg: #120a0d;
+      --bg-2: #1c0f16;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #fff5f7;
+      --site-muted: rgba(255, 245, 247, 0.62);
+      --accent: #ff6b81;
+      --accent-2: #ff9aa9;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(255, 107, 129, 0.25);
+      --accent-strong: #e3546d;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--site-ink);
+      background: var(--page-bg);
+      font-family: var(--body-font);
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+      overflow-x: hidden;
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.6;
+      mix-blend-mode: screen;
+      filter: blur(0px);
+      animation: float 16s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 122, 89, 0.55), transparent 60%);
+      top: -220px;
+      left: -160px;
+    }
+    .orb-2 {
+      width: 440px;
+      height: 440px;
+      background: radial-gradient(circle at 60% 40%, rgba(14, 165, 164, 0.5), transparent 62%);
+      top: 80px;
+      right: -120px;
+      animation-delay: -4s;
+    }
+    .orb-3 {
+      width: 340px;
+      height: 340px;
+      background: radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.35), transparent 70%);
+      bottom: -180px;
+      left: 22%;
+      animation-delay: -8s;
+    }
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1040px;
+      margin: 56px auto 96px;
+      padding: 0 28px;
+    }
+    .toc-sidebar {
+      display: none;
+      position: fixed;
+      left: max(18px, calc(50% - 700px));
+      top: 64px;
+      width: 250px;
+      max-height: calc(100vh - 96px);
+      overflow-y: auto;
+      padding: 16px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--chrome-border);
+      background: var(--chrome-surface);
+      backdrop-filter: blur(8px);
+      z-index: 2;
+    }
+    .toc-title {
+      font-family: var(--ui-font);
+      font-size: 0.78rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--chrome-muted);
+      margin-bottom: 10px;
+    }
+    .toc-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .toc-item {
+      display: block;
+      color: var(--chrome-ink);
+      text-decoration: none;
+      font-family: var(--ui-font);
+      font-size: 0.88rem;
+      line-height: 1.35;
+      opacity: 0.82;
+      border-left: 2px solid transparent;
+      padding: 6px 8px;
+      border-radius: 8px;
+      transition: all 0.18s ease;
+    }
+    .toc-item:hover {
+      opacity: 1;
+      border-left-color: var(--accent);
+      background: var(--chrome-hover-soft);
+    }
+    .toc-item.active {
+      opacity: 1;
+      border-left-color: var(--accent);
+      background: var(--chrome-hover);
+    }
+    .toc-sub {
+      margin-left: 12px;
+      font-size: 0.82rem;
+      opacity: 0.75;
+    }
+    body.layout-sidebar_toc .page {
+      max-width: 980px;
+    }
+    @media (min-width: 1300px) {
+      body.layout-sidebar_toc .toc-sidebar {
+        display: block;
+      }
+      body.layout-sidebar_toc .page {
+        margin-left: max(300px, calc(50% - 370px));
+        margin-right: 56px;
+      }
+    }
+    .masthead {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 22px 22px;
+      border: 1px solid var(--masthead-border, rgba(226, 232, 240, 0.18));
+      border-radius: 18px;
+      background: var(--masthead-bg, rgba(10, 14, 20, 0.55));
+      backdrop-filter: blur(8px);
+      margin-bottom: 36px;
+      color: var(--masthead-text, #f8fafc);
+      animation: fadeIn 0.7s ease-out both;
+    }
+    .masthead-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .kicker {
+      font-family: var(--ui-font);
+      font-size: 0.82rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--masthead-kicker, rgba(255, 255, 255, 0.68));
+    }
+    .back-link {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--ui-font);
+      font-size: 0.78rem;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--masthead-link-border, rgba(255, 255, 255, 0.2));
+      color: var(--masthead-link, rgba(255, 255, 255, 0.78));
+      background: var(--masthead-link-bg, rgba(15, 23, 42, 0.35));
+      transition: all 0.2s ease;
+    }
+    .back-link:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .report-title {
+      font-family: var(--heading-font);
+      font-size: clamp(2.2rem, 3.6vw, 3.6rem);
+      margin: 0;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: var(--masthead-title, #f8fafc);
+    }
+    .report-deck {
+      color: var(--masthead-deck, rgba(226, 232, 240, 0.8));
+      font-size: 1.05rem;
+      max-width: 720px;
+    }
+    .article {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 22px;
+      padding: 40px 44px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      animation: rise 0.8s ease-out both;
+    }
+    .article > * { animation: rise 0.6s ease-out both; }
+    .article > *:nth-child(1) { animation-delay: 0.05s; }
+    .article > *:nth-child(2) { animation-delay: 0.1s; }
+    .article > *:nth-child(3) { animation-delay: 0.15s; }
+    .article > *:nth-child(4) { animation-delay: 0.2s; }
+    .article > *:nth-child(5) { animation-delay: 0.25s; }
+    .article h1, .article h2, .article h3, .article h4 {
+      font-family: var(--heading-font);
+      color: var(--ink);
+    }
+    .article h1 { font-size: 2rem; margin-top: 0; }
+    .article h2 {
+      font-size: 1.55rem;
+      margin-top: 2.6rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule);
+      position: relative;
+      padding-left: 18px;
+    }
+    .article h2::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 1.45rem;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent-strong);
+    }
+    .article h3 { font-size: 1.2rem; margin-top: 1.7rem; color: #1f2937; }
+    .article h2, .article h3 { scroll-margin-top: 92px; }
+    .article p { font-size: 1.05rem; }
+    .article ul, .article ol { padding-left: 1.4rem; }
+    .article blockquote {
+      margin: 1.4rem 0;
+      padding: 1rem 1.2rem;
+      border-left: 3px solid var(--accent);
+      background: rgba(15, 23, 42, 0.04);
+    }
+    .article .misc-block {
+      margin: 1.2rem 0 1.4rem;
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.14);
+      background: rgba(148, 163, 184, 0.1);
+    }
+    .article .misc-block ul {
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .article .misc-block li {
+      margin: 0.35rem 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+    .article .misc-block.ai-disclosure {
+      border-color: var(--accent);
+      background: rgba(78, 224, 181, 0.08);
+    }
+    .article .misc-block.ai-disclosure p {
+      margin: 0 0 0.55rem;
+      color: var(--ink);
+      font-family: var(--ui-font);
+      letter-spacing: 0.01em;
+    }
+    .article a {
+      color: var(--link);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .article a:hover { color: var(--link-hover); border-bottom-color: var(--link-hover); }
+    .article code {
+      font-family: var(--mono-font);
+      font-size: 0.94rem;
+      background: rgba(148, 163, 184, 0.14);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .article pre {
+      background: rgba(148, 163, 184, 0.18);
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    .article figure.report-figure {
+      margin: 1.8rem 0;
+      padding: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .article figure.report-figure img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      max-height: 70vh;
+      object-fit: contain;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.04);
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+    }
+    .article figure.report-figure figcaption {
+      margin-top: 0.65rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+    .article figure.report-diagram {
+      background: rgba(15, 23, 42, 0.04);
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      border-radius: 14px;
+      padding: 0.9rem;
+    }
+    .article .mermaid {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      min-height: 40px;
+    }
+    .article .mermaid svg {
+      max-width: 100% !important;
+      height: auto;
+    }
+    .article table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; }
+    .article th, .article td { border: 1px solid var(--rule); padding: 10px 12px; }
+    .article th { background: rgba(148, 163, 184, 0.15); text-align: left; }
+    .article tr:nth-child(even) td { background: rgba(148, 163, 184, 0.08); }
+    .article hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+    .viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 20;
+    }
+    .viewer-overlay.open { opacity: 1; pointer-events: auto; }
+    .viewer-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: min(480px, 92vw);
+      background: #fff;
+      box-shadow: -20px 0 60px rgba(15, 23, 42, 0.25);
+      transform: translateX(105%);
+      transition: transform 0.25s ease;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+    }
+    .viewer-panel.open { transform: translateX(0); }
+    .viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .viewer-title { font-size: 0.95rem; color: var(--ink); flex: 1; }
+    .viewer-actions { display: flex; gap: 8px; align-items: center; }
+    .viewer-actions a {
+      font-size: 0.78rem;
+      text-decoration: none;
+      color: var(--link);
+    }
+    .viewer-close {
+      border: none;
+      background: #1f2937;
+      color: #fff;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .viewer-frame { flex: 1; border: none; width: 100%; border-radius: 0 0 16px 16px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(18px); } }
+    body.template-default,
+body.template-arxiv_preprint,
+body.template-acs_review {
+  --site-ink: var(--ink);
+  --site-muted: var(--muted);
+  --ink: #1d1b17;
+  --muted: #59524a;
+  --accent: #8b3f2d;
+  --masthead-bg: #6f7377;
+  --masthead-border: rgba(255, 255, 255, 0.35);
+  --masthead-title: #f8fafc;
+  --masthead-deck: rgba(248, 250, 252, 0.85);
+  --masthead-kicker: rgba(248, 250, 252, 0.72);
+  --masthead-link: rgba(248, 250, 252, 0.88);
+  --masthead-link-border: rgba(248, 250, 252, 0.3);
+  --masthead-link-bg: rgba(15, 23, 42, 0.2);
+  --chrome-ink: rgba(248, 250, 252, 0.94);
+  --chrome-muted: rgba(248, 250, 252, 0.66);
+  --chrome-surface: rgba(82, 88, 97, 0.9);
+  --chrome-border: rgba(248, 250, 252, 0.22);
+  --chrome-hover-soft: rgba(248, 250, 252, 0.1);
+  --chrome-hover: rgba(248, 250, 252, 0.16);
+  --paper-alt: #f2ede3;
+  --page-bg: radial-gradient(1200px 600px at 18% -12%, #efe9e0 0%, #f6f2ea 45%, #fdfcf9 100%);
+  --body-font: "Iowan Old Style", "Charter", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --heading-font: "Avenir Next", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+  --ui-font: "Avenir Next", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+}
+
+body.template-default .kicker,
+body.template-arxiv_preprint .kicker,
+body.template-acs_review .kicker {
+  letter-spacing: 0.26em;
+}
+
+body.template-default .article,
+body.template-arxiv_preprint .article,
+body.template-acs_review .article {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 34px 36px;
+}
+
+body.template-default .article h2,
+body.template-arxiv_preprint .article h2,
+body.template-acs_review .article h2 {
+  border-top: 2px solid var(--rule);
+  padding-top: 16px;
+}
+
+body.template-default .article table,
+body.template-arxiv_preprint .article table,
+body.template-acs_review .article table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+body.template-default .article th,
+body.template-default .article td,
+body.template-arxiv_preprint .article th,
+body.template-arxiv_preprint .article td,
+body.template-acs_review .article th,
+body.template-acs_review .article td {
+  border: 1px solid var(--rule);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+body.template-default .article th,
+body.template-arxiv_preprint .article th,
+body.template-acs_review .article th {
+  background: var(--paper-alt);
+}
+
+  </style>
+</head>
+<body class="theme-coral template-acs_review template-default layout-sidebar_toc">
+  <div class="backdrop">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+  <aside class="toc-sidebar" id="toc-sidebar"><div class="toc-title">Contents</div><nav class="toc-nav"><a class="toc-item" href="#abstract">Abstract</a><a class="toc-item" href="#introduction">Introduction</a><a class="toc-item" href="#current_landscape">Current Landscape</a><a class="toc-item toc-sub" href="#1.">1. 미디어 보도와 대중 인식</a><a class="toc-item toc-sub" href="#2.">2. 지속적인 학습</a><a class="toc-item toc-sub" href="#3.">3. 다중 에이전트 시스템</a><a class="toc-item toc-sub" href="#4.">4. 생성적 제어</a><a class="toc-item" href="#mechanistic_insights">Mechanistic Insights</a><a class="toc-item" href="#applications">Applications</a><a class="toc-item toc-sub" href="#1.-2">1. 교육</a><a class="toc-item toc-sub" href="#2.-2">2. 다중 모달 검색</a><a class="toc-item" href="#challenges">Challenges</a><a class="toc-item" href="#outlook">Outlook</a><a class="toc-item" href="#appendix">Appendix</a><a class="toc-item toc-sub" href="#1._1_2_3_4_5_6_7_8_9_10">1. 근거/아카이브 아티팩트 링크 목록 [1] [2] [3] [4] [5] [6] [7] [8] [9] [10]</a><a class="toc-item toc-sub" href="#2.-3">2. 방법·재현성 체크리스트</a><a class="toc-item toc-sub" href="#3.-2">3. 범위/한계 요약</a><a class="toc-item" href="#references">References</a><a class="toc-item" href="#miscellaneous">Miscellaneous</a></nav></aside>
+  <div class="page">
+    <header class="masthead">
+      <div class="masthead-top">
+        <div class="kicker">FEDERLICHT</div>
+        <a class="back-link" id="back-link" href="#">목록으로</a>
+      </div>
+      <div class="report-title">에이전틱 AI 연구 보고서</div>
+      <div class="report-deck">Research review and tech survey</div>
+    </header>
+    <main class="article">
+<h1>에이전틱 AI 연구 보고서</h1>
+<p>AI Governance Team assisted and prompted by "AI Governance Team" (AI Governance Office) — 2026-02-09 00:06</p>
+<h2 id="abstract">Abstract</h2>
+<p>이 보고서는 최근의 Agentic AI 연구를 종합하여 이 기술의 발전과 사회적 영향을 분석합니다. 다양한 연구 결과를 통해 인공지능(AI)의 미디어 보도, 지속적인 학습, 다중 에이전트 시스템, 생성적 제어 및 해석 가능성 문제를 다룹니다. 특히, 긍정적인 미디어 프레임이 대중의 인식에 미치는 영향을 강조하며, 새로운 기술적 접근 방식이 AI의 효율성과 신뢰성을 향상시키는 방법을 제시합니다. 또한, AI의 사회적, 문화적, 법적 도전 과제를 논의하고, 향후 연구 방향을 제안합니다.</p>
+<h2 id="introduction">Introduction</h2>
+<p>인공지능(AI)은 최근 몇 년간 급속한 발전을 이루었으며, 다양한 분야에서의 응용 가능성이 증가하고 있습니다. 그러나 이러한 기술의 발전은 동시에 사회적, 문화적, 법적 도전 과제를 동반하고 있습니다. 본 보고서는 최근의 연구를 통해 Agentic AI의 다양한 측면을 탐구하고, 이 기술이 사회에 미치는 영향을 분석합니다. 특히, AI의 해석 가능성과 지속적인 학습, 다중 에이전트 시스템의 효율성, 그리고 생성적 AI의 학문적 무결성 문제를 중점적으로 다룹니다.</p>
+<h2 id="current_landscape">Current Landscape</h2>
+<p>최근의 연구들은 Agentic AI의 여러 측면을 다루고 있으며, 다음과 같은 주요 주제를 포함합니다:</p>
+<h3 id="1.">1. 미디어 보도와 대중 인식</h3>
+<p>Lucy Obozintsev의 연구는 AI에 대한 뉴스 미디어 보도가 대중의 의견에 미치는 영향을 분석하였습니다. 긍정적인 프레임이 대중의 긍정적인 감정을 유도하는 데 효과적이라는 결과를 도출하였습니다.</p>
+<h3 id="2.">2. 지속적인 학습</h3>
+<p>Prakhar Kaushik 외의 연구는 대규모 사전 훈련된 모델을 새로운 작업에 효율적으로 적응시키기 위한 새로운 접근 방식을 제안합니다. 이 방법은 기존 LoRA 방법에 비해 매개변수와 메모리 사용을 크게 줄이는 성과를 보였습니다.</p>
+<h3 id="3.">3. 다중 에이전트 시스템</h3>
+<p>Yuxing Lu 외의 연구는 다중 에이전트 시스템에서의 통신 최적화를 위한 새로운 프레임워크를 제안합니다. 이 시스템은 각 에이전트의 자연어 쿼리를 기반으로 메시지를 라우팅하여 문제 해결 과정을 개선합니다.</p>
+<h3 id="4.">4. 생성적 제어</h3>
+<p>Sirui Xu의 연구는 물리 기반 상호작용을 위한 생성적 제어 기술을 제안하며, 다양한 작업을 수행하는 데 필요한 제어 메커니즘을 확장하는 방법을 다룹니다.</p>
+<h2 id="mechanistic_insights">Mechanistic Insights</h2>
+<p>Agentic AI의 발전은 여러 기계적 통찰력을 통해 이루어집니다. 예를 들어, 지속적인 학습을 위한 새로운 접근 방식은 단일 공유 저차원 서브스페이스를 학습하고 동적으로 업데이트하여 여러 작업과 모달리티에 걸쳐 원활한 적응을 가능하게 합니다. 이러한 메커니즘은 AI의 효율성을 높이고, 다양한 환경에서의 적용 가능성을 확장합니다.</p>
+<h2 id="applications">Applications</h2>
+<p>Agentic AI는 다양한 분야에서 응용되고 있으며, 특히 다음과 같은 분야에서 두드러진 성과를 보이고 있습니다:</p>
+<h3 id="1.-2">1. 교육</h3>
+<p>Generative AI는 학문적 무결성 문제를 해결하기 위한 체계적 검토를 제공하며, AI의 사용이 교육 환경에 미치는 영향을 분석합니다.</p>
+<h3 id="2.-2">2. 다중 모달 검색</h3>
+<p>Dongyang Chen의 연구는 다중 모달 검색을 위한 에이전트적 추론 기술을 제안하며, 정보 검색의 효율성을 높이는 데 기여하고 있습니다.</p>
+<h2 id="challenges">Challenges</h2>
+<p>Agentic AI의 발전에는 여러 도전 과제가 존재합니다. 특히, AI의 해석 가능성과 관련된 문화적, 법적 문제는 여전히 해결되지 않은 상태입니다. 또한, 지속적인 학습과 다중 에이전트 시스템의 효율성을 높이기 위한 기술적 한계가 존재합니다.</p>
+<h2 id="outlook">Outlook</h2>
+<p>향후 연구는 AI의 해석 가능성을 높이고, 사회적, 문화적, 법적 도전 과제를 해결하기 위한 방향으로 나아가야 합니다. 또한, 지속적인 학습과 다중 에이전트 시스템의 효율성을 높이기 위한 새로운 기술적 접근 방식이 필요합니다. 이러한 연구는 AI의 신뢰성을 높이고, 사회적 수용성을 증대시키는 데 기여할 것입니다.</p>
+<h2 id="appendix">Appendix</h2>
+<h3 id="1._1_2_3_4_5_6_7_8_9_10">1. 근거/아카이브 아티팩트 링크 목록 <a href="http://udspace.udel.edu/handle/19716/24048" target="_blank" rel="noopener">[1]</a> <a href="http://arxiv.org/abs/2602.06043v1" target="_blank" rel="noopener">[2]</a> <a href="http://arxiv.org/abs/2602.06039v1" target="_blank" rel="noopener">[3]</a> <a href="http://arxiv.org/abs/2602.06038v1" target="_blank" rel="noopener">[4]</a> <a href="http://arxiv.org/abs/2602.06035v1" target="_blank" rel="noopener">[5]</a> <a href="http://arxiv.org/abs/2602.06034v1" target="_blank" rel="noopener">[6]</a> <a href="http://arxiv.org/abs/2602.06041v1" target="_blank" rel="noopener">[7]</a> <a href="http://arxiv.org/abs/2602.06040v1" target="_blank" rel="noopener">[8]</a> <a href="https://doi.org/10.17951/sil.2025.34.2.441-479" target="_blank" rel="noopener">[9]</a> <a href="https://doi.org/10.3390/info16040296" target="_blank" rel="noopener">[10]</a></h3>
+<h3 id="2.-3">2. 방법·재현성 체크리스트</h3>
+<ul>
+<li>각 연구의 방법론을 검토하고, 재현 가능성을 평가합니다.</li>
+<li>데이터셋과 실험 조건을 명확히 기록합니다.</li>
+</ul>
+<h3 id="3.-2">3. 범위/한계 요약</h3>
+<ul>
+<li>본 보고서는 Agentic AI의 다양한 측면을 다루고 있으나, 특정 기술적 세부사항이나 사례 연구는 포함되지 않았습니다. 추가 연구가 필요합니다.</li>
+</ul>
+<h2 id="references">References</h2>
+<blockquote>
+<p>Citation policy: keep citations inline as <code>[n]</code>; source rights belong to original publishers/authors. Validate primary sources before high-stakes use.</p>
+</blockquote>
+<ol>
+<li><span id="ref-1"></span> Lucy Obozintsev (2025). From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence. Library, Museums and Press - UDSpace (University of Delaware) — <a href="http://udspace.udel.edu/handle/19716/24048" target="_blank" rel="noopener">link</a> <small>citations: 25</small></li>
+<li><span id="ref-2"></span> arxiv.org/abs/2602.06043v1 — <a href="http://arxiv.org/abs/2602.06043v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-3"></span> arxiv.org/abs/2602.06039v1 — <a href="http://arxiv.org/abs/2602.06039v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-4"></span> arxiv.org/abs/2602.06038v1 — <a href="http://arxiv.org/abs/2602.06038v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-5"></span> arxiv.org/abs/2602.06035v1 — <a href="http://arxiv.org/abs/2602.06035v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-6"></span> arxiv.org/abs/2602.06034v1 — <a href="http://arxiv.org/abs/2602.06034v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-7"></span> arxiv.org/abs/2602.06041v1 — <a href="http://arxiv.org/abs/2602.06041v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-8"></span> arxiv.org/abs/2602.06040v1 — <a href="http://arxiv.org/abs/2602.06040v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-9"></span> Karol Kasprowicz (2025). Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense. Studia Iuridica Lublinensia — <a href="https://doi.org/10.17951/sil.2025.34.2.441-479" target="_blank" rel="noopener">link</a> <small>citations: 0</small></li>
+<li><span id="ref-10"></span> Kyle Bittle, Omar El-Gayar (2025). Generative AI and Academic Integrity in Higher Education: A Systematic Review and Research Agenda. Information — <a href="https://doi.org/10.3390/info16040296" target="_blank" rel="noopener">link</a> <small>citations: 41</small></li>
+</ol>
+<h2 id="miscellaneous">Miscellaneous</h2>
+<div class="misc-block">
+<ul>
+<li>Generated at: 2026-02-09 00:06:24</li>
+<li>Duration: 00:02:42 (162.64s)</li>
+<li>Model: gpt-4o-mini</li>
+<li>Quality model: gpt-4o-mini</li>
+<li>Quality strategy: pairwise</li>
+<li>Quality iterations: 1</li>
+<li>Template: acs_review</li>
+<li>Language: Korean</li>
+<li>Tags: governance, team, 에이전틱, assisted, and</li>
+<li>Output format: html</li>
+<li>PDF compile: disabled</li>
+<li>Run overview: <a href="report_views/report_run_overview.md-40ef65a9.html" data-viewer="report_views/report_run_overview.md-40ef65a9.html" data-raw="report/run_overview.md" class="viewer-link">./report/run_overview.md</a></li>
+<li>Report overview: <a href="report_views/report_run_overview_tmp_report_validation.md-bbd80e16.html" data-viewer="report_views/report_run_overview_tmp_report_validation.md-bbd80e16.html" data-raw="report/run_overview_tmp_report_validation.md" class="viewer-link">./report/run_overview_tmp_report_validation.md</a></li>
+<li>Report workflow: <a href="report_views/report_notes_report_workflow.md-bd2306de.html" data-viewer="report_views/report_notes_report_workflow.md-bd2306de.html" data-raw="report_notes/report_workflow.md" class="viewer-link">./report_notes/report_workflow.md</a></li>
+<li>Archive index: <a href="report_views/archive_agenticAI_recent-index.md-246c844d.html" data-viewer="report_views/archive_agenticAI_recent-index.md-246c844d.html" data-raw="archive/agenticAI_recent-index.md" class="viewer-link">./archive/agenticAI_recent-index.md</a></li>
+<li>Instruction file: <a href="report_views/instruction_agenticAI_recent.txt-ab52a2bd.html" data-viewer="report_views/instruction_agenticAI_recent.txt-ab52a2bd.html" data-raw="instruction/agenticAI_recent.txt" class="viewer-link">./instruction/agenticAI_recent.txt</a></li>
+<li>Report prompt: <a href="report_views/instruction_report_prompt_tmp_report_validation.txt-3b965457.html" data-viewer="report_views/instruction_report_prompt_tmp_report_validation.txt-3b965457.html" data-raw="instruction/report_prompt_tmp_report_validation.txt" class="viewer-link">./instruction/report_prompt_tmp_report_validation.txt</a></li>
+</ul>
+</div>
+<div class="misc-block ai-disclosure">
+<p><strong>AI Transparency and Source Notice</strong></p>
+<ul>
+<li>AI 투명성 고지: 본 문서는 Federlicht 에이전트 파이프라인을 통해 생성되었으며, 최종 책임과 배포 판단은 사용자/조직에 있습니다.</li>
+<li>출처·저작권 고지: 외부 소스의 저작권/라이선스는 원 저작권자 정책을 따르며, 본문 인용은 분석 목적의 요약/재서술을 원칙으로 합니다.</li>
+<li>검증 고지: 고위험 의사결정(법률·의료·재무·규제)에는 원문 대조 및 추가 검증을 수행하세요.</li>
+<li>EU AI Act 정합성 참고: 본 산출물은 AI 보조 생성물임을 명시하며, 인간 검토를 전제로 사용해야 합니다.</li>
+</ul>
+</div>
+    </main>
+  </div>
+  <div id="viewer-overlay" class="viewer-overlay"></div>
+  <aside id="viewer-panel" class="viewer-panel" aria-hidden="true">
+    <div class="viewer-header">
+      <div class="viewer-title" id="viewer-title">Source preview</div>
+      <div class="viewer-actions">
+        <a id="viewer-raw" href="#" target="_blank" rel="noopener">Open raw</a>
+        <button class="viewer-close" id="viewer-close" aria-label="Close">x</button>
+      </div>
+    </div>
+    <iframe id="viewer-frame" class="viewer-frame" title="Source preview"></iframe>
+  </aside>
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const themeParam = params.get('theme');
+      const storedTheme = localStorage.getItem('federlicht.theme');
+      const theme = themeParam || storedTheme;
+      if (theme) {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('federlicht.theme', theme);
+      }
+      const backLink = document.getElementById('back-link');
+      if (backLink) {
+        const path = window.location.pathname.replace(/\\/g, '/');
+        const idx = path.lastIndexOf('/runs/');
+        if (idx !== -1) {
+          backLink.href = `${path.slice(0, idx)}/index.html`;
+          backLink.style.display = 'inline-flex';
+        }
+      }
+      const panel = document.getElementById('viewer-panel');
+      const overlay = document.getElementById('viewer-overlay');
+      const frame = document.getElementById('viewer-frame');
+      const rawLink = document.getElementById('viewer-raw');
+      const title = document.getElementById('viewer-title');
+      const closeBtn = document.getElementById('viewer-close');
+      function closeViewer() {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        frame.src = 'about:blank';
+      }
+      function openViewer(viewer, raw, label) {
+        frame.src = viewer;
+        rawLink.href = raw || viewer;
+        title.textContent = label || 'Source preview';
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+      }
+      document.querySelectorAll('.viewer-link').forEach((link) => {
+        link.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          const viewer = link.getAttribute('data-viewer') || link.href;
+          const raw = link.getAttribute('data-raw');
+          const label = link.textContent || 'Source preview';
+          if (viewer) openViewer(viewer, raw, label);
+        });
+      });
+      overlay.addEventListener('click', closeViewer);
+      closeBtn.addEventListener('click', closeViewer);
+      const tocLinks = Array.from(document.querySelectorAll('.toc-item'));
+      const tocSections = tocLinks
+        .map((link) => {
+          const id = (link.getAttribute('href') || '').replace('#', '');
+          if (!id) return null;
+          const section = document.getElementById(id);
+          if (!section) return null;
+          return { link, section };
+        })
+        .filter(Boolean);
+      if (tocSections.length) {
+        tocLinks.forEach((link) => {
+          link.addEventListener('click', (ev) => {
+            const href = link.getAttribute('href') || '';
+            if (!href.startsWith('#')) return;
+            const target = document.getElementById(href.slice(1));
+            if (!target) return;
+            ev.preventDefault();
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (history && history.replaceState) {
+              history.replaceState(null, '', href);
+            }
+          });
+        });
+        
+        const updateToc = () => {
+          const threshold = window.scrollY + 180;
+          let active = null;
+          for (const item of tocSections) {
+            if (item.section.offsetTop <= threshold) active = item;
+          }
+          tocLinks.forEach((node) => node.classList.remove('active'));
+          if (active) active.link.classList.add('active');
+        };
+        updateToc();
+        window.addEventListener('scroll', updateToc, { passive: true });
+      }
+    })();
+  </script>
+</body>
+</html>

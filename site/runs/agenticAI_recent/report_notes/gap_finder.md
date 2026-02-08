@@ -1,12 +1,13 @@
 Gaps Summary
 Claims missing evidence:
-- **보안 리스크**: Agentic AI는 다양한 보안 취약점을 노출시키며, prompt injection 공격이 빈번하게 발생하고 있다. 이는 기업의 데이터 보호 및 신뢰성에 심각한 위협이 된다.
-- **비용 및 지연**: Agentic AI의 도입은 초기 비용이 높고, 기술적 문제로 인해 프로젝트 지연이 발생할 수 있다. 이는 기업의 재무적 부담을 증가시킨다.
-- **데이터 거버넌스**: 데이터 관리 및 거버넌스의 복잡성이 증가하고 있으며, 이는 기업의 운영 효율성을 저하시킬 수 있다.
-- **멀티에이전트 상호작용**: 여러 에이전트 간의 상호작용에서 발생하는 문제는 시스템의 신뢰성을 저하시킬 수 있다.
-- **책임 및 감사**: AI 시스템의 결정 과정에 대한 책임 소재가 불분명하여, 법적 및 윤리적 문제가 발생할 수 있다.
-- **권한 및 도구 게이팅**: AI 시스템의 접근 권한을 엄격히 관리하고, 필요한 도구만을 사용하도록 제한해야 한다.
-- **평가 체계 구축**: AI 시스템의 성능을 정기적으로 평가하고, 문제 발생 시 신속하게 대응할 수 있는 체계를 마련해야 한다.
-- **로그 및 감사 체계 강화**: 모든 AI 시스템의 활동을 기록하고, 정기적으로 감사하여 보안 및 신뢰성을 확보해야 한다.
-- **상위 리스크**: 보안 취약점, 데이터 거버넌스 문제, 책임 소재 불명확성이 주요 리스크로 확인되었다.
-- **다음 검증할 것**: 향후 1~2주 내에 각 리스크에 대한 구체적인 검증 및 대응 방안을 마련해야 한다. 공개정보의 한계로 인해 일부 정보는 확인이 어려울 수 있다.
+- **소스 파일**
+- **OpenAlex**
+- From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence
+- 텍스트 파일: `archive/openalex/text/W2921187241.txt`
+- Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense
+- 텍스트 파일: `archive/openalex/text/W4415728083.txt`
+- **arXiv**
+- Shared LoRA Subspaces for almost Strict Continual Learning
+- 텍스트 파일: `archive/arxiv/text/2602.06043v1.txt`
+- DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic Matching
+- ... and 23 more

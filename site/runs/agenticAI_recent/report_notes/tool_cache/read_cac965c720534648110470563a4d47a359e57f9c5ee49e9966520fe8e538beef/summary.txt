@@ -1,0 +1,21 @@
+- **저자**: Karol Kasprowicz, Maria Curie-Skłodowska University (Lublin), Poland
+- **논문 제목**: Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense
+- **DOI**: 10.17951/sil.2025.34.2.441-479
+- **초록**: AI 정렬 문제를 인간 해석 프레임워크와 알고리즘 최적화 간의 문화 간 커뮤니케이션의 도전으로 분석. 효과적인 AI 정렬을 위해 다양한 사회의 문화적 의미 형성 관행과 법적 프레임워크 통합 필요.
+- **주요 도전 과제**:
+  - 알고리즘 결정의 해석 가능성 보장
+  - AI 시스템의 불확정성 관리
+  - 지식 추출 논란 해결
+- **제안**: 다양한 맥락에 적응하는 AI 시스템을 위한 프레임워크 제안, 기술적 안전 메커니즘과 문화적 프레임워크 통합 필요성 강조.
+- **키워드**: alignment, artificial intelligence, interpretability, regulations, sense-making, culture
+- **연락처**: Karol Kasprowicz, PhD, Assistant Professor, Maria Curie-Skłodowska University, Faculty of Law and Administration, Institute of Legal Sciences, Lublin, Poland.
+- **출처**: Studia Iuridica Lublinensia, 2025년 34권 2호, 페이지 441-479.
+- **파일명**: [chunk_001.txt]
+- 아시모프의 법칙은 인간과 지능 기계 간의 상호작용을 규율하는 원칙을 정립하려는 시도의 일환으로, 현대 AI 시스템의 복잡한 문제를 해결하지 못함.
+- AI 정렬 문제는 인간 해석 세계와 알고리즘 최적화 세계 간의 문화적 소통 문제로 설명됨.
+- AI의 유용성은 기술적 문제를 넘어 해석 가능성에 있으며, 이는 두 가지 지능 형태 간의 번역 문제를 나타냄.
+- 인간은 문화적 맥락, 감정적 공명, 체험을 기반으로 해석하는 반면, AI는 대규모 데이터셋의 통계적 패턴 인식을 통해 작동함.
+- 이러한 차이는 AI 시스템이 인간의 의도와 진정으로 일치하도록 보장하는 데 심각한 도전 과제가 됨.
+
+출처: [chunk_002.txt]  
+NEEDS_VERIFICATION: [chunk_001.txt]

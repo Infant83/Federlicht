@@ -1,0 +1,120 @@
+
+
+===== PAGE 1 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Xuejun Zhang
+Aditi Tiwari
+Zhenhailong Wang
+Heng Ji
+University of Illinois Urbana-Champaign
+xuejunz2@illinois.edu,
+hengji@illinois.edu
+Abstract
+Multi-image spatial reasoning remains challeng-
+ing for current multimodal large language models
+(MLLMs). While single-view perception is inher-
+ently 2D, reasoning over multiple views requires
+building a coherent scene understanding across
+viewpoints. In particular, we study perspective
+taking, where a model must build a coherent 3D
+understanding from multi-view observations and
+use it to reason from a new, language-specified
+viewpoint. We introduce CAMCUE, a pose-aware
+multi-image framework that uses camera pose as
+an explicit geometric anchor for cross-view fu-
+sion and novel-view reasoning. CAMCUE injects
+per-view pose into visual tokens, grounds natural-
+language viewpoint descriptions to a target cam-
+era pose, and synthesizes a pose-conditioned
+imagined target view to support answering. To
+support this setting, we curate CAMCUE-DATA
+with 27,668 training and 508 test instances pairing
+multi-view images and poses with diverse target-
+viewpoint descriptions and perspective-shift ques-
+tions. We also include human annotated view-
+point descriptions in the test split to evaluate gen-
+eralization to human language. CAMCUE im-
+proves overall accuracy by 9.06% and predicts
+target poses from natural-language viewpoint de-
+scriptions with over 90% rotation accuracy within
+20◦and translation accuracy within a 0.5 error
+threshold. This direct grounding avoids expensive
+test-time search-and-match, reducing inference
+time from 256.6s to 1.45s per example and en-
+abling fast, interactive use in real-world scenarios.
+Project page: https://xuejunzhang2002.
+github.io/camcue/
+1. Introduction
+Spatial intelligence moves beyond single-image perception
+and naive multi-image aggregation. Rather than treating
+each view as an independent 2D snapshot, an agent needs to
+connect views via their spatial relationships to form a coher-
+ent 3D understanding that supports reasoning beyond the
+observed images (Chen et al., 2024a; Gholami et al., 2025;
+Wang et al., 2025; Yin et al., 2025; Zhao et al., 2025; Lee
+et al., 2025; Yeh et al., 2025; Yang et al., 2025b). Humans
+do this naturally: when told “sit on the sofa behind the black
+table,” we can mentally relocate to that viewpoint and imag-
+ine what we would see, then answer questions from that
+perspective (Wang, 2012; Meilinger et al., 2011), which is
+illustrated by Figure 1. However, current multimodal large
+language models (MLLMs) still struggle with this kind of
+perspective taking. Even with multiple context images, they
+often fail to reliably ground a language-specified viewpoint
+and reason from the intended perspective (Lee et al., 2025;
+Yeh et al., 2025; Xu et al., 2025; Yin et al., 2025). This gap
+motivates our study of language-guided viewpoint ground-
+ing for multi-view spatial reasoning. We study perspective-
+shift reasoning where the target viewpoint is specified in
+natural language. Given multiple context images and a ques-
+tion, the model needs to ground the description to a target
+camera pose and answer from that perspective.
+A recent line of work tackles perspective-shift reasoning by
+augmenting MLLMs with generative world models that
+actively synthesize additional observations at inference
+time (Lee et al., 2025; Yang et al., 2025c). While promising,
+existing pipelines are often built around a single reference
+view and do not effectively integrate multiple contextual im-
+ages as a unified source of evidence (Lee et al., 2025; Yang
+et al., 2025c). In addition, most controllable generators are
+largely query-agnostic, which can produce imagined views
+that are irrelevant or even inconsistent with the downstream
+question (Yang et al., 2025c). Many of these methods rely
+on expensive test-time procedures such as iterative search
+or multiple candidate rollouts to obtain a useful imagined
+view, resulting in high latency and limited practicality. Fi-
+nally, off-the-shelf novel-view synthesis is typically pose-
+conditioned, whereas MLLMs do not reliably infer target
+camera poses from natural language description, leaving a
+mismatch between language-driven viewpoint specification
+and pose-controlled generation (Jin et al., 2024; Zhou et al.,
+2025).
+1
+arXiv:2602.06041v1  [cs.CV]  5 Feb 2026
+
+
+===== PAGE 2 =====
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+Query: If I sit on the sofa behind the 
+black table, is the plant visible next to 
+the TV?
+Mental Image
+CAMCUE: Pose-Aware Imagination
+Synthesized Target 
+View
+View 1
+View 2
+View 3
+Baseline:
+No viewpoint grounding
+Context and Query (Input)
+Model Output
+Answer: Yes, the plant will 
+be visible in your front-right.
+CAMCUE successfully reasons
+using the imagined view.
+Answer: No, The plant is not 
+visible.
+Base model struggles to reason 
+from a shifted perspective.
+Figu

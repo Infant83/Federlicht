@@ -384,3 +384,75 @@ def list_run_logs(root: Path, run_rel: str | None) -> list[dict[str, Any]]:
             }
         )
     return items
+
+
+def _help_history_path(root: Path, run_rel: str | None) -> tuple[Path, str]:
+    if run_rel:
+        run_dir = resolve_run_dir(root, run_rel)
+        notes_dir = run_dir / "report_notes"
+        notes_dir.mkdir(parents=True, exist_ok=True)
+        return notes_dir / "help_history.json", safe_rel(run_dir, root)
+    shared_dir = root / "site" / "federnett"
+    shared_dir.mkdir(parents=True, exist_ok=True)
+    return shared_dir / "help_history_global.json", ""
+
+
+def read_help_history(root: Path, run_rel: str | None) -> dict[str, Any]:
+    path, resolved_run = _help_history_path(root, run_rel)
+    items: list[dict[str, Any]] = []
+    if path.exists():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(payload, list):
+                for entry in payload:
+                    if not isinstance(entry, dict):
+                        continue
+                    role = str(entry.get("role") or "").strip().lower()
+                    if role not in {"user", "assistant"}:
+                        continue
+                    content = str(entry.get("content") or "").strip()
+                    if not content:
+                        continue
+                    ts = str(entry.get("ts") or "")
+                    items.append({"role": role, "content": content, "ts": ts})
+        except Exception:
+            items = []
+    return {
+        "run_rel": resolved_run or (run_rel or ""),
+        "path": safe_rel(path, root),
+        "items": items[-80:],
+    }
+
+
+def write_help_history(root: Path, run_rel: str | None, items: list[dict[str, Any]]) -> dict[str, Any]:
+    path, resolved_run = _help_history_path(root, run_rel)
+    cleaned: list[dict[str, Any]] = []
+    for entry in items[-80:]:
+        if not isinstance(entry, dict):
+            continue
+        role = str(entry.get("role") or "").strip().lower()
+        if role not in {"user", "assistant"}:
+            continue
+        content = str(entry.get("content") or "").strip()
+        if not content:
+            continue
+        ts = str(entry.get("ts") or "")
+        cleaned.append({"role": role, "content": content[:4000], "ts": ts})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cleaned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {
+        "run_rel": resolved_run or (run_rel or ""),
+        "path": safe_rel(path, root),
+        "count": len(cleaned),
+    }
+
+
+def clear_help_history(root: Path, run_rel: str | None) -> dict[str, Any]:
+    path, resolved_run = _help_history_path(root, run_rel)
+    if path.exists():
+        path.unlink()
+    return {
+        "run_rel": resolved_run or (run_rel or ""),
+        "path": safe_rel(path, root),
+        "cleared": True,
+    }

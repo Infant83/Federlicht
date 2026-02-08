@@ -1,0 +1,31 @@
+ntelligent 
+machines interact with humanity, but Asimov’s Laws represent perhaps the most 
+enduring attempt to codify principles governing such interactions.2 Nevertheless, 
+fictional guidelines, while elegant in their simplicity,3 fail to address the nuanced 
+challenges of modern AI systems that operate through statistical patterns rather 
+than deterministic rules.4
+Thus, the AI alignment problem is essentially a problem of cross-cultural com-
+munication between the world of human interpretation and the world of algorithmic 
+optimization. I presume that this framing reveals a key dimension of usefulness of 
+AI to human life – interpretability as more than a technical problem and sense-mak-
+ing of real uses of AI. It represents a challenge of translation between two distinct 
+forms of intelligence: human understanding built on cultural contexts, emotional 
+resonance, and embodied experience vs machine learning systems operating through 
+statistical pattern recognition across massive datasets. Interpretability challenges 
+emerge from technical opacity as well as from fundamental differences in how 
+humans and AI systems process information. While humans interpret through con-
+textual understanding, cultural frameworks, and embodied experience, AI systems 
+operate through statistical correlations that may lack causal understanding. This gap 
+creates profound challenges for ensuring AI systems genuinely align with human 
+intentions rather than merely optimizing for specified objectives that incompletely 
+capture human values.5
+1	
+ I. Asimov, Runaround, “Astounding Science Fiction” 1942, no. 3, pp. 94–103.
+2	  Cf. K. Mamak, Whether to Save a Robot or a Human: On the Ethical and Legal Limits of 
+Protections for Robots, “Frontiers in Robotics and AI” 2021, vol. 8.
+3	  For example, see J. Zajdel, Limes Inferior, Warszawa 1982; N. Bostrom, Deep Utopia: Life 
+and Meaning in a Solved World, 2024; S. Lem, Golem XIV, Kraków 1981.
+4	
+ Cf. M. de Sautoy, The Creativity Code: Art and Innovation in the Age of AI, Cambridge 2020.
+5	
+ A. Elliott, Making Sense of AI: Our Algorithmic World, Cambridge 202

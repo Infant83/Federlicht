@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2602.06043v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2602.06043v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><pre>
+
+===== PAGE 1 =====
+Shared LoRA Subspaces for almost Strict Continual Learning
+Prakhar Kaushik*†, Ankit Vaidya*, Shravan Chaudhari, Rama Chellappa, Alan Yuille
+Department of Computer Science
+Johns Hopkins University
+Baltimore, MD, USA
+{pkaushi1,schaud35,avaidya7,rchella4,ayuille1}@jhu.edu
+<a href="https://toshi2k2.github.io/share/">https://toshi2k2.github.io/share/</a>
+Abstract
+Adapting large pretrained models to new tasks efficiently
+and continually is crucial for real-world deployment but re-
+mains challenging due to catastrophic forgetting and the
+high cost of retraining. While parameter-efficient tuning
+methods like low rank adaptation (LoRA) reduce compu-
+tational demands, they lack mechanisms for strict contin-
+ual learning and knowledge integration, without relying on
+data replay, or multiple adapters.
+We propose Share, a
+novel approach to parameter efficient continual finetuning
+that learns and dynamically updates a single, shared low-
+rank subspace, enabling seamless adaptation across multi-
+ple tasks and modalities. Share constructs a foundational
+subspace that extracts core knowledge from past tasks and
+incrementally integrates new information by identifying es-
+sential subspace directions. Knowledge from each new task
+is incorporated into this evolving subspace, facilitating for-
+ward knowledge transfer, while minimizing catastrophic in-
+terference. This approach achieves up to 100× parameter
+reduction and 281× memory savings over traditional LoRA
+methods, maintaining performance comparable to jointly
+trained models. A single Share model can replace hundreds
+of task-specific LoRA adapters, supporting scalable, asyn-
+chronous continual learning.
+Experiments across image
+classification, natural language understanding, 3D pose es-
+timation, and text-to-image generation validate its effective-
+ness, making Share a practical and scalable solution for
+lifelong learning in large-scale AI systems.
+1. Introduction
+Adapting large pretrained models, like LLMs, VLMs and
+Diffusion models, for continual learning presents signif-
+*equal contribution
+†Corresponding author: prakhark2@gmail.com
+Figure 1. Evidence of a Shared Foundational Subspace in Con-
+tinual Learning. Linear CKA similarity analysis reveals a univer-
+sal weight subspace (orange) emerging during sequential learning.
+Three independent trajectories (red, green, blue), starting from dif-
+ferent GLUE task subsets, show monotonic convergence to this
+shared subspace, reaching near-perfect alignment (&gt; 0.95) by task
+T = 5. Shaded regions show standard deviation across exper-
+iments. These results demonstrate: (1) the existence of a com-
+mon foundational weight subspace that efficiently encodes cross-
+task knowledge, and (2) our method’s ability to discover it through
+continual adaptation without catastrophic forgetting. This conver-
+gence reveals how low-rank adapters naturally bias models toward
+shared weight structures that generalize across diverse tasks.
+icant challenges, notably catastrophic forgetting and the
+substantial resources required for retraining.
+Traditional
+fine-tuning methods often require retraining all model pa-
+rameters, leading to inefficiencies, especially as model
+sizes increase.
+As these models scale, they require
+more resources and memory, making them inaccessible
+to ordinary researchers and increasing environmental im-
+pact [23]. Parameter-efficient finetuning techniques, such
+as LoRA [10], address some of these issues by introducing
+trainable low-rank matrices into each layer of the model,
+arXiv:2602.06043v1  [cs.LG]  5 Feb 2026
+
+
+===== PAGE 2 =====
+Figure 2. Share. Our continual reparameterization where only principal coefficients ϵt are trained. a. Initialization We initialize the
+principal factors (α0, β0) of our Share model using available LoRA [10] adapters (A, B). b. Continual Adaptation Few top φ ≪k
+factors, shown as α0→1, β0→1, and temporary coefficients ϵ0→1 are fine-tuned when new data is incrementally received. Merging &amp; Fine-
+tuning The factors α0, β0 and temporary factors α0→1, β0→1 are merged using the initialization procedure, and α1, β1, ϵi
+α,β
+∀i ∈[0, 1]
+are analytically recalculated. ϵ1 can then be further fine-tuned to boost performance.
+effectively reducing the number of parameters that need ad-
+justment during finetuning. However, while LoRA reduces
+computational demands, it lacks mechanisms for continual
+learning and knowledge integration, often requiring sepa-
+rate adapters for each task, which can be inefficient and
+hinders cross-task knowledge sharing which improves ro-
+bustness and domain generalization [30, 31].
+Recent
+advancements
+have
+explored
+integrating
+parameter-efficient tuning with continual learning strate-
+gies.
+For instance, methods like O-LoRA [42] propose
+learning new tasks in orthogonal subspaces to mitigate
+forgetting. However, these approaches do not fully leverage
+shared knowledge across tasks, limiting forward (and
+backward) knowledge transfer, as they require training
+individual models, or experts, for new tasks.
+All such
+methods fall short of Strict Continual Learning [13],
+which requires models to learn continually, without data
+replay, additional models, or increase in model size, much
+like humans. Our work tries to remedy this.
+Recently, Universal Weight Subspace Hypothesis [15]
+has proven that neural network weights often converge to
+layerwise, shared subspace across tasks and datasets, which
+can be employed for efficient training, inference and model
+merging. Method like EigenLoRAx [16] have applied this
+concept for very efficient finetuning achieving equal or bet-
+ter performance to LoRA at fraction of the cost. However,
+[16] extract the shared subspace beforehand, and the ques-
+tion of continually improving or learning the shared ”uni-
+versal” subspace is left unanswered. In this work, we show,
+with theoretical analysis, that our simple method, Share, is
+capable of approximating the shared subspace in an almost
+strict continual setup.
+In this paper, we introduce Share, a novel approach to
+Parameter-Efficient Continual Finetuning (PaCT) that
+learns and dynamically updates a shared low-rank sub-
+space, enabling seamless adaptation across multiple tasks
+and modalities. Share constructs a foundational subspace
+that captures core knowledge from past tasks and incre-
+mentally integrates new information by identifying and ex-
+panding essential subspace directions.
+Each new task is
+projected into this evolving subspace, facilitating forward
+knowledge transfer, while older knowledge is analytically
+reprojected to minimize catastrophic interference. Interest-
+ingly, we also observe instances of backward knowledge
+transfer due to presence of this subspace. This approach
+achieves up to 100× parameter reduction and 281× memory
+savings over traditional LoRA methods, maintaining perfor-
+mance comparable to jointly trained models. A single Share
+model can replace hundreds of task-specific LoRA adapters,
+supporting scalable, asynchronous continual learning. Ex-
+periments across image classification, 3D object pose esti-
+mation, natural language understanding, and text-to-image
+generation validate its effectiveness, making Share a practi-
+cal and scalable solution for lifelong learning in large-scale
+AI systems.
+To our knowledge, Share is among the earliest works to
+present a viable solution for Parameter-Efficient Continual
+Finetuning (for almost strict continual learning) applicable
+to diverse and complex models.
+Our main contributions are as follows:
+• We introduce a replay-free, (almost strict) continual
+learning method for large pretrained models that lever-
+ages a shared, low-rank foundational subspace of adapters
+to achieve compute and memory-efficient learning.
+• Share enables continual learning from hybrid streams
+of both data and LoRA adapters, seamlessly merging in-
+
+
+===== PAGE 3 =====
+formation into a single model.
+• Share requires orders of magnitude fewer trainable pa-
+rameters (up to 100× reduction) for finetuningand of-
+fers up to 281× memory savings compared to traditional
+LoRA methods.
+• A single set of continually learned Share principal fac-
+tors can replace hundreds of LoRA adapters, facilitating
+scalable and efficient model deployment.
+• We demonstrate Share’s applicability across various
+models and modalities, including image classification,
+3D object pose estimation, natural language understand-
+ing, commonsense reasoning, math reasoning, and text-
+to-image generative models.
+These contributions position Share as a scalable and
+practical solution for efficient continual learning in large-
+scale AI systems, addressing critical needs in the deploy-
+ment of adaptable machine learning models.
+2. Related Work
+Efficient Replay Free Continual Learning
+While con-
+tinual learning addresses catastrophic forgetting [7], its
+application to large models remains challenging, particu-
+larly under strict constraints that prohibit data replay and
+parameter growth [13].
+Recent methods for large mod-
+els [22, 35, 37, 42, 48] require ever-growing adapter sets
+and primarily operate as mixture-of-experts systems, limit-
+ing their practical utility to specific domains, while also vi-
+olating the conditions of Strict Continual Learning [13],
+which requires no access to previous data, additional mod-
+els, or increase in model size. In contrast, Share enables true
+continual learning across diverse architectures and modali-
+ties without requiring data replay, and with negligible in-
+crease in number of model parameters, almost fulfilling the
+conditions of the strict setup.
+Model Merging
+While recent work has shown promise
+in merging task-specific models [16, 27, 32, 47], these
+approaches either focus on narrow domains, lack contin-
+ual learning capabilities, or require multiple model in-
+stances [52]. Share advances this field by enabling efficient,
+continuous merging of both incoming data and adapters
+while preserving knowledge across tasks.
+Low-Rank Adaptation
+LoRA [10] and its variants [18,
+24] have made model adaptation more efficient but lack
+mechanisms for continual knowledge integration. Current
+scaling solutions either focus on adapter switching [34]
+or batch optimization [45], often at the cost of perfor-
+mance [9, 33].
+Share uniquely addresses these limita-
+tions through its shared foundational subspace approach,
+enabling continuous knowledge accumulation while main-
+taining both efficiency and performance. Notably, Share
+can compress hundreds of adapters into a single set of fac-
+tors through an elegant data and gradient-free process.
+3. Method
+Problem Setting
+We study parameter-efficient continual
+finetuning, where a pretrained model h(W0, x) adapts to a
+sequence of tasks {τ1, τ2, . . . , τt} with minimal parameter
+overhead. At each timestep t, we receive either task-specific
+data St = {(xt
+i, yt
+i)}St
+i=1 or a LoRA adapter ∆Wt = BtAt,
+with no access to past tasks.
+The goal is to continually
+integrate new knowledge while minimizing trainable pa-
+rameters and memory usage, ensuring knowledge retention.
+Here, W0 remains fixed across tasks, while a newly obtained
+(or trained) ∆Wt for task τt is available only at time step t.
+This formulation allows efficient continual adaptation with-
+out catastrophic forgetting or excessive storage costs.
+To this end, our method, Share, maintains an evolving
+low-rank parameter subspace for each layer of the pre-
+trained model. For a new task, we reuse the basis vectors
+spanning the subspace and learn task-specific coefficients
+ϵt instead of storing separate adapters. We focus on a single
+layer to further explain the setup and theoretical analysis.
+3.1. Motivation
+Motivation
+Share is based on the hypothesis that for sim-
+ilar tasks and modalities,
+“LoRA adapters of a pretrained model share a common low-
+rank subspace.”.
+If we can identify the principal basis vectors of this sub-
+space [39], any new adapter can be expressed as a linear
+combination of these basis vectors, reducing the need for
+separate adaptation. We validate this in Appendix Fig. 4,
+where we initialize all LoRA adapters using Share, extract
+the top k principal basis vectors via SVD, and reconstruct
+the original adapters analytically. The reconstruction er-
+ror and performance evaluation confirm that a single set of
+Share principal basis vectors can approximate all adapters
+without significant performance loss.
+Identifying this subspace may initially require a lot of
+adapters, but in real-world scenarios, we often start with
+limited or even a single adapter and progressively integrate
+new ones. Share enables incremental discovery and refine-
+ment of this foundational subspace as more adapters and
+data become available, making it a scalable and adaptive
+solution for continual learning.
+3.2. Share: Continual Shared Subspace Adaptation
+Share maintains two sets of parameters:
+principal ba-
+sis vectors, which remain frozen during finetuning, and
+task-specific coefficients, which are learned. The learning
+process consists of three phases—initialization, continual
+adaptation, and merging &amp; fine-tuning—as illustrated in
+Fig. 2. During initialization, an incomplete low-rank sub-
+space of principal basis vectors is formed. In the continual
+adaptation phase, this subspace is refined as new data or
+LoRA adapters arrive. Finally, in the merging &amp; fine-tuning
+
+
+===== PAGE 4 =====
+phase, newly learned basis vectors are integrated with exist-
+ing ones, updating the principal basis vectors, and optimiz-
+ing task-specific coefficients.
+3.2.1. Step 1 - Initialization
+We initialize the foundational subspace (i.e., principal basis
+vectors) using t ≥1 LoRA adapters, where a larger t pro-
+vides a more representative subspace. Given a frozen pre-
+trained weight matrix W0 ∈Rn×d, LoRA introduces two
+low-rank trainable matrices, B ∈Rn×r and A ∈Rr×d,
+where r is the LoRA rank. The modified forward pass is
+h = W0x + ∆Wx = W0x + BAx. To compute the ba-
+sis vectors of previously seen t tasks, we reshape the LoRA
+matrices as stacked rank-r vectors:
+Bt = [B1, B2, . . . , Bt] ∈Rn×(tr).
+A similar stacked matrix At is calculated for A matrices
+from t tasks. We center the matrices Bt and At and per-
+form SVD on the mean-centered matrices Bt and At re-
+spectively. This gives us principal basis vectors, βt and αt,
+respectively. We repeat this for each layer. Then we select
+the top k basis vectors based on the highest eigenvalues that
+span our reusable shared subspace:
+βt
+[:k] ∈Rn×k, αt
+[:k] ∈Rd×k
+We keep these principal basis vectors frozen during finetun-
+ing, while training only the randomly initialized coefficients
+ϵα, ϵβ ∈Rk×p, where p (pseudo-rank) can be as small as 1.
+This initialization significantly reduces trainable param-
+eters compared to LoRA (e.g., 100× fewer parameters for
+one task in the GLUE [41] experiment, Sec. 4.1), yielding a
+relative savings of 1 −
+k×p
+(n+d)×r. The modified forward pass
+with an initialized Share model is:
+ht = W0x + (βtϵt
+β)(αtϵt
+α)⊤x
+∀x ∈St
+(1)
+Notably, this initialization is data- and gradient-free. If
+no LoRA adapters are available, Share can be initialized by
+training a LoRA adapter on initial data.
+3.2.2. Step 2 - Continual Adaptation
+After initialization, we receive either new task adapters
+∆Wt+1 or ar St+1. If only adapters arrive, we proceed di-
+rectly to merging. For the latter case, we perform efficient
+adaptation by adding new basis vectors while preserving the
+foundational subspace:
+Learning new basis vectors: To learn new basis vectors
+at time t + 1, we initialize φ &lt; k temporary basis vectors
+along with their coefficients as follows:
+βt→t+1 = βt
+[:φ] ∈Rn×φ
+αt→t+1 = αt
+[:φ] ∈Rd×φ
+ϵt→t+1
+β
+, ϵt→t+1
+α
+∼N(0, σ2) ∈Rφ×p
+The modified forward pass becomes:
+h = W0x + (βt→t+1ϵt→t+1
+β
+)(αt→t+1ϵt→t+1
+α
+)⊤x ∀x ∈St
+This temporary expansion requires only φ(n + d + 2p)
+parameters, significantly fewer than LoRA’s r(n + d) pa-
+rameters. Both temporary basis vectors and coefficients are
+optimized before merging.
+3.2.3. Step 3 - Merging and Finetuning
+After continual adaptation, we merge the temporary ba-
+sis vectors with t</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

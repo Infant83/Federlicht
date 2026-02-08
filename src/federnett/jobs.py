@@ -96,15 +96,18 @@ class JobRegistry:
         allow_parallel: bool = False,
         parallel_kinds: Optional[set[str]] = None,
     ) -> Job:
-        if not allow_parallel:
-            running = self.find_running(parallel_kinds)
-            if running:
-                raise RuntimeError(
-                    f"another job is already running ({running.kind}:{running.job_id})"
-                )
-        job_id = uuid.uuid4().hex[:12]
-        job = Job(job_id=job_id, kind=kind, command=command, cwd=cwd)
         with self._lock:
+            if not allow_parallel:
+                for running in self._jobs.values():
+                    if running.status != "running":
+                        continue
+                    if parallel_kinds and running.kind not in parallel_kinds:
+                        continue
+                    raise RuntimeError(
+                        f"another job is already running ({running.kind}:{running.job_id})"
+                    )
+            job_id = uuid.uuid4().hex[:12]
+            job = Job(job_id=job_id, kind=kind, command=command, cwd=cwd)
             self._jobs[job_id] = job
         self._launch(job)
         return job

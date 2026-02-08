@@ -1,0 +1,42 @@
+ibutes such as object appearance, style, or local
+context. Most current MLLM-based retrieval methods (Liu
+et al., 2025; Chen et al., 2024c; Lin et al., 2024a) compress
+visual inputs into fixed embeddings or textual descriptions,
+forcing the reasoning process to rely on language alone
+to infer visual differences. Consequently, the model of-
+ten produces speculative or hallucinated reasoning when
+the required evidence lies in the visual modality. Even
+recent reasoning-enhanced retrieval frameworks, such as
+Retrv-R1 (Zhu et al., 2025d) and MM-R5 (Xu et al., 2025b),
+improve textual reasoning depth but still rely on single-pass
+visual encoding, lacking the ability to actively verify visual
+hypotheses during reasoning.
+To overcome this gap, we propose V-Retrver, an evidence-
+driven retrieval framework that reformulates multimodal
+retrieval as an agentic reasoning process grounded in vi-
+sual inspection. Instead of treating visual representations as
+static inputs, V-Retrver enables an MLLM to selectively ac-
+quire visual evidence during reasoning by invoking external
+visual tools. Through a multimodal interleaved Chain-of-
+Thought process, the model alternates between hypothesis
+generation and targeted visual verification, allowing it to
+dynamically resolve visual ambiguities and progressively
+refine ranking decisions, as illustrated in Fig. 1.
+1
+arXiv:2602.06034v1  [cs.CV]  5 Feb 2026
+
+
+===== PAGE 2 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+White sofa with mottled pillows instead of a dark brown sofa with white pillows and books down
+Candidate 1
+Query
+Candidate 2
+<think>The objective is to identify a candidate that reflects 
+specific visual transformations from the query: replacing a 
+dark brown sofa with white pillows and books underneath with 
+a white sofa and mottled pillows.Initially, we can perform a 
+pre-screening to filter the candidates. Candidate 2 is an exact 
+match for the negative example described in the text—a dark 
+brown sofa with white pillows and books below—so it is the 
+least relevant . . . Candidate 3 is a simple sofa lacking 

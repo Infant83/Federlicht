@@ -1,32 +1,32 @@
 {
-  "revision": "2026-02-08T19:02:28.801266",
-  "generated_at": "2026-02-08T19:02:28.801266",
+  "revision": "2026-02-09T06:46:01.568438",
+  "generated_at": "2026-02-09T06:46:01.568438",
   "items": [
     {
       "id": "agenticAI_recent",
       "run": "agenticAI_recent",
-      "report_stem": "report_full_1",
-      "title": "경영진을 위한 AI 도입 리스크 보고서",
-      "author": "AI Governance Team / AI Governance Office",
-      "summary": "경영진을 위한 AI 도입 리스크 보고서 Federlicht assisted and prompted by \"AI Governance Team / AI Governance Office\" — 2026-02-08 19:02 Executive Summary 최근 \"Agentic AI\"의 도입은 기업의 의사결정에 중대한 영향을 미치고 있으며, 특히 보안, 신뢰성, 비용, 데이터 거버넌스 등 다양한 리…",
+      "report_stem": "report_full_2",
+      "title": "엔터프라이즈 AI 시그널 4축과 실행 시나리오",
+      "author": "AI Governance Team",
+      "summary": "엔터프라이즈 AI 시그널 4축과 실행 시나리오 AI Governance Team assisted and prompted by \"AI Governance Team\" (AI Governance Office) — 2026-02-09 06:45 Executive Summary 지난 3–6개월간 엔터프라이즈 AI 도입의 핵심 이슈는 보안과 안전성, 신뢰성, 데이터 거버넌스, 멀티에이전트 상호작용의…",
       "lang": "Korean",
-      "template": "acs_review",
+      "template": "custom_trend_scan",
       "format": "html",
-      "model": "gpt-4o-mini",
+      "model": "gpt-5-nano",
       "tags": [
-        "도입",
-        "링크",
-        "agentic",
-        "개월",
-        "의사결정에"
+        "데이터",
+        "신뢰성",
+        "보안",
+        "엔터프라이즈",
+        "시나리오"
       ],
-      "date": "2026-02-08",
-      "timestamp": "2026-02-08T19:02:28.547761",
-      "source_mtime": 1770544948,
-      "source_size": 35560,
+      "date": "2026-02-09",
+      "timestamp": "2026-02-09T06:46:01.164728",
+      "source_mtime": 1770587161,
+      "source_size": 66148,
       "paths": {
-        "report": "runs/agenticAI_recent/report_full_1.html",
-        "overview": "runs/agenticAI_recent/report/run_overview_report_full_1.md",
+        "report": "runs/agenticAI_recent/report_full_2.html",
+        "overview": "runs/agenticAI_recent/report/run_overview_report_full_2.md",
         "workflow": "runs/agenticAI_recent/report_notes/report_workflow.md",
         "run": "runs/agenticAI_recent"
       }

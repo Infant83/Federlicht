@@ -46,10 +46,23 @@
             <p>코드/문서 기반으로 사용법을 답변합니다.</p>
           </div>
           <div class="ask-panel-actions">
+            <button type="button" id="ask-reset" class="ghost">Reset</button>
             <button type="button" id="ask-close" class="ghost">접기</button>
           </div>
         </div>
-        <div class="ask-form-row">
+        <div class="ask-status" id="ask-status">Ready.</div>
+        <div class="ask-action-row" id="ask-action-row" aria-live="polite"></div>
+        <div class="ask-results">
+          <article class="ask-answer-wrap">
+            <h3>답변</h3>
+            <div id="ask-answer" class="ask-answer"></div>
+          </article>
+          <aside class="ask-sources-wrap">
+            <h3>근거 소스</h3>
+            <div id="ask-sources" class="ask-sources"></div>
+          </aside>
+        </div>
+        <div class="ask-form-row ask-form-dock">
           <label>
             <span>질문</span>
             <textarea
@@ -63,17 +76,6 @@
             <input id="ask-model" list="model-options" placeholder="$OPENAI_MODEL" />
           </label>
           <button type="button" id="ask-run" class="primary ask-run">질문 실행</button>
-        </div>
-        <div class="ask-status" id="ask-status">Ready.</div>
-        <div class="ask-results">
-          <article class="ask-answer-wrap">
-            <h3>답변</h3>
-            <div id="ask-answer" class="ask-answer"></div>
-          </article>
-          <aside class="ask-sources-wrap">
-            <h3>근거 소스</h3>
-            <div id="ask-sources" class="ask-sources"></div>
-          </aside>
         </div>
       </section>
 
@@ -582,6 +584,7 @@
                   <p id="job-status">No active job.</p>
                 </div>
                 <div class="log-actions">
+                  <button id="log-mode" class="ghost">MD 보기</button>
                   <button id="log-toggle" class="ghost">Hide Logs</button>
                   <button id="log-clear" class="ghost">Clear</button>
                   <button id="job-kill" class="danger" disabled>Stop</button>
@@ -590,6 +593,7 @@
 
               <div class="log-shell">
                 <pre id="log-output" aria-live="polite"></pre>
+                <div id="log-output-md" aria-live="polite"></div>
               </div>
             </section>
 
@@ -607,6 +611,14 @@
                   <p>Preview reports, markdown, PDFs, or edit text files.</p>
                 </div>
                 <div class="file-preview-head">
+                  <label class="file-preview-size">
+                    <span>View</span>
+                    <select id="file-preview-size">
+                      <option value="compact">Compact</option>
+                      <option value="fit" selected>Fit</option>
+                      <option value="expanded">Expanded</option>
+                    </select>
+                  </label>
                   <span id="file-preview-path">No file selected</span>
                   <span id="file-preview-status" class="file-preview-status"></span>
                 </div>
@@ -797,7 +809,7 @@
                 <input id="agent-id" class="ghost-input" placeholder="federhav" />
               </label>
               <label>
-                Name
+                Agent name
                 <input id="agent-name" class="ghost-input" placeholder="FederHav" />
               </label>
               <label>

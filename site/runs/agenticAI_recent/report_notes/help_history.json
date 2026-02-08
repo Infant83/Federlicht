@@ -1,0 +1,32 @@
+[
+  {
+    "role": "user",
+    "content": "feather 사용법",
+    "ts": "2026-02-08T20:25:44.525Z"
+  },
+  {
+    "role": "assistant",
+    "content": "LLM 응답을 사용할 수 없어 코드/문서 검색 결과 기반으로 요약합니다.\n\n- 질문: feather 사용법\n- 권장: 아래 근거 파일을 순서대로 열어 옵션과 실행 절차를 확인하세요.\n\n핵심 근거:\n- [S1] `src/feather/cli.py:1` import argparse\n- [S2] `README.md:57` - `python-docx` / `python-pptx` / `beautifulsoup4` for local file ingestion (docx/pptx/html).\n- [S3] `README.md:113` # Open-access papers via OpenAlex (optional):\n- [S4] `README.md:1` # Federlicht Platform\n- [S5] `README.md:281` stage: deploy\n- [S6] `site/federnett/app.js:3585` temperature: Number.parseFloat($(\"#federlicht-temperature\")?.value || \"\"),",
+    "ts": "2026-02-08T20:25:44.525Z"
+  },
+  {
+    "role": "user",
+    "content": "feather 사용법",
+    "ts": "2026-02-08T20:26:11.147Z"
+  },
+  {
+    "role": "assistant",
+    "content": "1) 핵심 답변  \nFedernett 플랫폼 내 feather는 문서, 웹, 유튜브 등 다양한 소스에서 증거를 수집하고 정리하는 에이전트형 도구입니다. UI에서 입력 파일(지침)을 지정하고 출력 경로를 설정한 뒤, 필요한 옵션을 선택해 실행할 수 있습니다.\n\n2) 실행 절차  \n- Federnett UI 접속  \n- feather 탭 선택  \n- 입력할 지침 파일(예: 문서, 폴더) 지정  \n- 출력할 결과 폴더 경로 설정  \n- 필요 시 OpenAlex 논문, 유튜브 자막, 에이전틱 검색 등 옵션 선택  \n- 실행 버튼 클릭하여 수집 및 정리 진행\n\n3) 옵션/체크 권장값  \n- 로컬 문서: docx, pptx, html 지원 (python-docx, python-pptx, beautifulsoup4 필요)  \n- OpenAlex 논문 수집 시 API 키 설정 필요  \n- 유튜브 검색 시 자막 포함 옵션 활용 가능  \n- 에이전틱 검색은 GPT-4 모델 등 LLM API 키 필요\n\n4) 주의사항  \n- API 키(예: TAVILY_API_KEY) 설정이 필요한 기능은 미설정 시 작동하지 않음  \n- 입력 지침 파일 경로와 출력 폴더 경로를 정확히 지정해야 함  \n- 옵션별로 추가 패키지 설치가 필요할 수 있음\n\n5) 근거  \n- 입력/출력 및 옵션 예시: README.md 113-192 [S3]  \n- 로컬 문서 지원 및 환경 변수: README.md 57-136 [S2]  \n- feather 관련 코드 및 함수: src/feather/cli.py [S1]",
+    "ts": "2026-02-08T20:26:11.147Z"
+  },
+  {
+    "role": "user",
+    "content": "preview 어떻게 새용해",
+    "ts": "2026-02-08T20:26:37.140Z"
+  },
+  {
+    "role": "assistant",
+    "content": "1) 핵심 답변  \nFedernett UI에서 preview 기능은 선택한 템플릿이나 파일 내용을 미리보기 형태로 보여주는 기능입니다. 편집기 내에서 내용을 수정하면 실시간으로 preview가 갱신되어 결과를 확인할 수 있습니다.\n\n2) 실행 절차  \n- Federnett UI에서 preview할 템플릿 또는 파일을 선택  \n- 편집기 영역에 내용이 로드됨  \n- 편집기에서 내용을 수정하면 preview 영역이 자동으로 업데이트됨  \n- preview 크기 조절이나 보기 모드(예: fit) 설정 가능  \n- preview 상태(예: modified)도 UI에서 확인 가능\n\n3) 옵션/체크 권장값  \n- preview 편집 가능 여부는 파일 타입 및 권한에 따라 다름  \n- 편집 중 변경 사항은 preview에 즉시 반영되므로 저장 전에도 결과 확인 가능  \n- preview 크기 조절 기능을 활용해 화면에 맞게 조정 권장\n\n4) 주의사항  \n- preview 기능은 템플릿 편집기와 연동되어 있으므로, 편집기 내용이 올바르게 로드되어야 정상 작동  \n- 일부 파일 형식은 preview 편집이 제한될 수 있음  \n- preview 상태가 \"modified\"로 표시되면 저장 전 변경 사항임을 인지할 것\n\n5) 근거  \n- preview 관련 이벤트 및 상태 관리: site/federnett/app.js 3865-3944 [S8]  \n- 템플릿 편집기와 preview 연동: site/federnett/app.js 2521-2600 [S7]  \n- API 경로 및 preview 요청 처리: src/federnett/app.py 169-248 [S3]",
+    "ts": "2026-02-08T20:26:37.140Z"
+  }
+]

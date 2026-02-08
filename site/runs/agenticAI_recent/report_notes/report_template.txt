@@ -1,32 +1,30 @@
-Template: acs_review
-Source: C:\Users\angpa\myProjects\FEATHER\src\federlicht\templates\acs_review.md
-Latex: acs_review.tex
+Template: custom_trend_scan
+Source: site\runs\agenticAI_recent\custom_templates\custom_trend_scan.md
+Latex: default.tex
 Layout: sidebar_toc
 Sections:
-- Abstract
-- Introduction
-- Current Landscape
-- Mechanistic Insights
-- Applications
-- Challenges
-- Outlook
+- Executive Summary
+- Signal Landscape
+- Trend Themes
+- Scenarios & Implications
+- Risks & Gaps
 - Appendix
 
 Guidance:
-Template description: ACS-style review article structure.
+Template description: Trend signal scan with implications and scenarios.
 
-Template tone: Scholarly, chemistry and materials focus.
+Template tone: Analytical, exploratory, forward-looking.
 
-Template audience: Materials science and chemistry researchers.
+Template audience: Strategy and research teams.
 
 Section guidance:
-- Abstract: 5-7 sentences; scope and key conclusions.
-- Current Landscape: categorize approaches and evidence.
-- Mechanistic Insights: explain underlying mechanisms.
-- Applications: highlight real-world use cases and gaps.
-- Challenges: unresolved issues and data limitations.
-- Outlook: expected advances and validation needs.
+- Executive Summary: 5-7 sentences; include 1-2 signal highlights.
+- Signal Landscape: group signals by source type; note strength.
+- Trend Themes: 3-5 themes with evidence and counter-signals. main body 부분임. 서술형으로 작성하여 충실한 보고서 작성이 되도록 함.
+- Scenarios & Implications: 2-3 scenarios with triggers and impacts.
+- Risks & Gaps: data gaps and false-positive risks.
 
 Template writing guidance:
-Use clear terminology and define acronyms.
-Separate consensus from speculative signals.
+Separate weak signals from established findings.
+Note uncertainty and confidence levels explicitly.
+서술형으로 작성.

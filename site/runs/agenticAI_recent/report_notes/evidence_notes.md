@@ -1,32 +1,53 @@
-### Executive Summary
-최근 "Agentic AI"의 도입과 운영은 경영진의 즉각적인 의사결정에 중대한 영향을 미치고 있다. 이 기술은 보안, 신뢰성, 비용, 데이터 거버넌스 등 다양한 측면에서 리스크를 동반하며, 특히 prompt injection과 같은 공격이 증가하고 있다. 이러한 문제는 기업의 매출 및 신뢰성에 직접적인 영향을 미치며, 즉시 대응하지 않을 경우 발생할 수 있는 비용은 상당하다. 따라서 경영진은 이러한 이슈를 신속히 인식하고 적절한 대응 전략을 마련해야 한다.
+다음은 최근의 Agentic AI 관련 자료에서 추출한 핵심 사실입니다. 각 자료의 주요 내용과 출처를 요약하였습니다.
 
-### Key Findings
-- **보안 리스크**: Agentic AI는 다양한 보안 취약점을 노출시키며, prompt injection 공격이 빈번하게 발생하고 있다. 이는 기업의 데이터 보호 및 신뢰성에 심각한 위협이 된다.
-- **비용 및 지연**: Agentic AI의 도입은 초기 비용이 높고, 기술적 문제로 인해 프로젝트 지연이 발생할 수 있다. 이는 기업의 재무적 부담을 증가시킨다.
-- **데이터 거버넌스**: 데이터 관리 및 거버넌스의 복잡성이 증가하고 있으며, 이는 기업의 운영 효율성을 저하시킬 수 있다.
-- **멀티에이전트 상호작용**: 여러 에이전트 간의 상호작용에서 발생하는 문제는 시스템의 신뢰성을 저하시킬 수 있다.
-- **책임 및 감사**: AI 시스템의 결정 과정에 대한 책임 소재가 불분명하여, 법적 및 윤리적 문제가 발생할 수 있다.
+### 1. From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence
+- **저자**: Lucy Obozintsev
+- **출처**: [UDSpace](http://udspace.udel.edu/handle/19716/24048)
+- **요약**: 이 연구는 인공지능(AI)에 대한 뉴스 미디어 보도의 본질과 이 기술에 대한 대중의 의견에 미치는 영향을 탐구합니다. 세 개의 주요 신문과 하나의 케이블 뉴스 네트워크에 대한 소규모 콘텐츠 분석 결과, "사회적 진보"와 "판도라의 상자/프랑켄슈타인의 괴물"이라는 프레임이 가장 흔하게 나타났으며, 긍정적인 방식으로 기술을 묘사하는 것이 대중의 긍정적인 감정을 유도하는 데 효과적이라는 것을 보여줍니다.
 
-### Decision Implications
-- **권한 및 도구 게이팅**: AI 시스템의 접근 권한을 엄격히 관리하고, 필요한 도구만을 사용하도록 제한해야 한다.
-- **평가 체계 구축**: AI 시스템의 성능을 정기적으로 평가하고, 문제 발생 시 신속하게 대응할 수 있는 체계를 마련해야 한다.
-- **로그 및 감사 체계 강화**: 모든 AI 시스템의 활동을 기록하고, 정기적으로 감사하여 보안 및 신뢰성을 확보해야 한다.
+### 2. Shared LoRA Subspaces for almost Strict Continual Learning
+- **저자**: Prakhar Kaushik, Ankit Vaidya, Shravan Chaudhari, Rama Chellappa, Alan Yuille
+- **출처**: [arXiv](http://arxiv.org/abs/2602.06043v1)
+- **요약**: 이 연구는 대규모 사전 훈련된 모델을 새로운 작업에 효율적으로 적응시키기 위한 새로운 접근 방식을 제안합니다. "Share"라는 방법은 단일 공유 저차원 서브스페이스를 학습하고 동적으로 업데이트하여 여러 작업과 모달리티에 걸쳐 원활한 적응을 가능하게 합니다. 이 방법은 기존 LoRA 방법에 비해 최대 100배의 매개변수 감소와 281배의 메모리 절약을 달성합니다.
 
-### Risks & Gaps
-- **상위 리스크**: 보안 취약점, 데이터 거버넌스 문제, 책임 소재 불명확성이 주요 리스크로 확인되었다.
-- **다음 검증할 것**: 향후 1~2주 내에 각 리스크에 대한 구체적인 검증 및 대응 방안을 마련해야 한다. 공개정보의 한계로 인해 일부 정보는 확인이 어려울 수 있다.
+### 3. DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic Matching
+- **저자**: Yuxing Lu, Yucheng Hu, Xukai Zhao, Jiuxin Cao
+- **출처**: [arXiv](http://arxiv.org/abs/2602.06039v1)
+- **요약**: DyTopo는 다중 에이전트 시스템에서 각 라운드의 목표에 따라 희소한 방향성 통신 그래프를 재구성하는 프레임워크입니다. 이 시스템은 각 에이전트가 제공하는 자연어 쿼리와 키 설명자를 기반으로 메시지를 라우팅하여, 문제 해결 과정에서의 의사소통을 최적화합니다.
 
-### Appendix
-| 범주                | 요약                                                                 | 사례·링크                                                                                       | 대응                                   |
-|-------------------|--------------------------------------------------------------------|------------------------------------------------------------------------------------------------|--------------------------------------|
-| 보안               | Agentic AI의 보안 취약점 및 prompt injection 공격의 증가                              | [V-Retrver](http://arxiv.org/abs/2602.06034v1)                                                | 보안 강화 및 취약점 분석 필요               |
-| 신뢰성             | AI 시스템의 신뢰성 저하 및 멀티에이전트 상호작용 문제 발생                               | [Shared LoRA Subspaces](http://arxiv.org/abs/2602.06043v1)                                   | 신뢰성 평가 체계 구축 필요                  |
-| 비용·지연         | 초기 도입 비용 증가 및 프로젝트 지연 가능성                                        | [SwimBird](http://arxiv.org/abs/2602.06040v1)                                                | 비용 관리 및 일정 조정 필요                  |
-| 데이터 거버넌스    | 데이터 관리의 복잡성 증가 및 운영 효율성 저하 가능성                                   | [Generative AI and Academic Integrity](https://doi.org/10.3390/info16040296)                   | 데이터 거버넌스 체계 강화 필요               |
-| 책임·감사         | AI 시스템의 결정 과정에 대한 책임 소재 불명확성                                     | [Alignment Problem](https://doi.org/10.17951/sil.2025.34.2.441-479)                          | 책임 소재 명확화 및 감사 체계 구축 필요     |
-| 멀티에이전트 상호작용 | 여러 에이전트 간의 상호작용에서 발생하는 문제                                       | [DyTopo](http://arxiv.org/abs/2602.06039v1)                                                  | 상호작용 프로세스 개선 필요                  |
-| 평가               | AI 시스템의 성능 평가 및 문제 발생 시 대응 체계 필요                                   | [People cannot distinguish GPT-4](https://doi.org/10.1145/3715275.3732108)                     | 성능 평가 체계 구축 필요                    |
-| 엔터프라이즈 도입 패턴 | AI 도입 시 발생하는 다양한 패턴 및 문제                                            | [V-Retrver](http://arxiv.org/abs/2602.06034v1)                                                | 도입 패턴 분석 및 최적화 필요                |
+### 4. CommCP: Efficient Multi-Agent Coordination via LLM-Based Communication with Conformal Prediction
+- **저자**: Xiaopan Zhang, Zejin Wang, Zhixu Li, Jianpeng Yao, Jiachen Li
+- **출처**: [arXiv](http://arxiv.org/abs/2602.06038v1)
+- **요약**: CommCP는 다중 에이전트 다중 작업 환경에서의 정보 수집 과정을 형식화하고, LLM 기반의 분산 통신 프레임워크를 제안합니다. 이 프레임워크는 생성된 메시지를 보정하여 통신의 신뢰성을 높이고, 실험 결과에서 작업 성공률과 탐색 효율성을 크게 향상시킵니다.
 
-이 보고서는 최근 3~6개월 내 "Agentic AI" 도입·운영에서 경영진이 즉시 의사결정에 활용할 수 있도록 핵심 이슈를 정리한 것입니다. 각 이슈에 대한 대응 전략을 마련하여 리스크를 최소화하고, 기업의 경쟁력을 강화하는 데 기여할 수 있습니다.
+### 5. InterPrior: Scaling Generative Control for Physics-Based Human-Object Interactions
+- **저자**: Sirui Xu
+- **출처**: [arXiv](http://arxiv.org/abs/2602.06035v1)
+- **요약**: InterPrior는 물리 기반 상호작용을 위한 생성적 제어 기술을 제안합니다. 이 연구는 다양한 작업을 수행하는 데 필요한 제어 메커니즘을 확장하는 방법을 다룹니다.
+
+### 6. V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+- **저자**: Dongyang Chen
+- **출처**: [arXiv](http://arxiv.org/abs/2602.06034v1)
+- **요약**: V-Retrver는 다중 모달 검색을 위한 에이전트적 추론 기술을 제안합니다. 이 방법은 다양한 모달리티에서의 정보 검색을 개선하기 위한 증거 기반 접근 방식을 사용합니다.
+
+### 7. Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning
+- **저자**: Xuejun Zhang, Aditi Tiwari, Zhenhailong Wang, Heng Ji
+- **출처**: [arXiv](http://arxiv.org/abs/2602.06041v1)
+- **요약**: 이 연구는 공간 추론을 위한 카메라 포즈 예측 기술을 다룹니다. CAMCUE 데이터셋을 사용하여 모델의 성능을 평가하고, 다양한 실험을 통해 결과를 제시합니다.
+
+### 8. SwimBird: Eliciting Switchable Reasoning Mode in Hybrid Autoregressive MLLMs
+- **저자**: Jintao Tong
+- **출처**: [arXiv](http://arxiv.org/abs/2602.06040v1)
+- **요약**: SwimBird는 하이브리드 모델에서 다양한 추론 모드를 지원하는 기술을 제안합니다. 이 연구는 MLLMs의 효율성을 높이기 위한 방법을 다룹니다.
+
+### 9. Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense
+- **저자**: Karol Kasprowicz
+- **출처**: [DOI](https://doi.org/10.17951/sil.2025.34.2.441-479)
+- **요약**: 이 연구는 AI의 해석 가능성과 문화적, 법적 도전 과제를 다룹니다. AI 기술의 발전이 사회에 미치는 영향을 분석하고, 규제와 해석 가능성의 중요성을 강조합니다.
+
+### 10. Generative AI and Academic Integrity in Higher Education: A Systematic Review and Research Agenda
+- **저자**: 미상
+- **출처**: [DOI](https://doi.org/10.3390/info16040296)
+- **요약**: 이 연구는 고등 교육에서의 생성적 AI와 학문적 무결성에 대한 체계적 검토를 제공합니다. AI의 사용이 교육 환경에 미치는 영향을 분석하고, 향후 연구 방향을 제시합니다.
+
+이 자료들은 Agentic AI의 다양한 측면을 다루고 있으며, 각 연구의 주요 내용과 기여를 통해 이 분야의 발전을 이해하는 데 도움이 됩니다.

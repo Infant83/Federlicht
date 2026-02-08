@@ -314,3 +314,102 @@ Key Findings
 : AI 시스템의 신뢰성 저하 및 멀티에
 ... [truncated]
 [2026-02-08 19:02:28] JOB END
+[2026-02-09 00:02:06] JOB START
+[2026-02-09 00:02:26] Scout Notes: ### 인벤토리 및 우선 읽기 목록
+
+#### 1. 인벤토리
+- **소스 파일**
+  - **OpenAlex**
+    - From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence
+      - [링크](http://udspace.udel.edu/handle/19716/24048) (2025)
+      - 텍스트 파일: `archive/openalex/text/W2921187241.txt`
+    - Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense
+      - [링크](https://doi.org/10.17951/sil.2025.34.2.441-479) (2025)
+      - 텍스트 파일: `archive/openalex/text/W4415728083.txt`
+  - **arXiv**
+    - Shared LoRA Subspaces for almost Strict Continual Learning
+      - [링크](http://arxiv.org/abs/2602.06043v1) (2026)
+      - 텍스트 파일: `archive/arxiv/text/2602.06043v1.txt`
+    - DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via
+... [truncated]
+[2026-02-09 00:03:40] JOB START
+[2026-02-09 00:03:59] Scout Notes: ### 인벤토리 및 우선 읽기 목록
+
+#### 1. 인벤토리
+다음은 최근의 Agentic AI 관련 자료 목록입니다. 각 자료는 주제와 관련된 중요성을 기준으로 정리되었습니다.
+
+1. **From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence**
+   - 출처: [UDSpace](http://udspace.udel.edu/handle/19716/24048)
+   - 파일: `archive/openalex/text/W2921187241.txt`
+   - 점수: 1.02, 연도: 2025, 인용 수: 25
+
+2. **Shared LoRA Subspaces for almost Strict Continual Learning**
+   - 출처: [arXiv](http://arxiv.org/abs/2602.06043v1)
+   - 파일: `archive/arxiv/text/2602.06043v1.txt`
+   - 점수: 0.97, 연도: 2026
+
+3. **DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic Matching**
+   - 출처: [arXiv](http://arxiv.org/abs/2602.06039v1)
+   - 파일: `archive/arxiv/text/2602.06039v1.txt`
+   - 점수: 0.97, 연도: 2026
+
+4. **CommCP: Efficient Multi-Agent Co
+... [truncated]
+[2026-02-09 00:05:03] Evidence Notes: 다음은 최근의 Agentic AI 관련 자료에서 추출한 핵심 사실입니다. 각 자료의 주요 내용과 출처를 요약하였습니다.
+
+### 1. From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence
+- **저자**: Lucy Obozintsev
+- **출처**: [UDSpace](http://udspace.udel.edu/handle/19716/24048)
+- **요약**: 이 연구는 인공지능(AI)에 대한 뉴스 미디어 보도의 본질과 이 기술에 대한 대중의 의견에 미치는 영향을 탐구합니다. 세 개의 주요 신문과 하나의 케이블 뉴스 네트워크에 대한 소규모 콘텐츠 분석 결과, "사회적 진보"와 "판도라의 상자/프랑켄슈타인의 괴물"이라는 프레임이 가장 흔하게 나타났으며, 긍정적인 방식으로 기술을 묘사하는 것이 대중의 긍정적인 감정을 유도하는 데 효과적이라는 것을 보여줍니다.
+
+### 2. Shared LoRA Subspaces for almost Strict Continual Learning
+- **저자**: Prakhar Kaushik, Ankit Vaidya, Shravan Chaudhari, Rama Chellappa, Alan Yuille
+- **출처**: [arXiv](http://arxiv.org/abs/2602.06043v1)
+- **요약**: 이 연구는 대규모 사전 훈련된 모델을 새로운 작업에 효율적으로 적응시키기 위한 새로운 접근 방식을 제안합니다. "Share"라는 방법은
+... [truncated]
+[2026-02-09 00:06:24] Report Preview: 에이전틱 AI 연구 보고서
+AI Governance Team assisted and prompted by "AI Governance Team" (AI Governance Office) — 2026-02-09 00:06
+Abstract
+이 보고서는 최근의 Agentic AI 연구를 종합하여 이 기술의 발전과 사회적 영향을 분석합니다. 다양한 연구 결과를 통해 인공지능(AI)의 미디어 보도, 지속적인 학습, 다중 에이전트 시스템, 생성적 제어 및 해석 가능성 문제를 다룹니다. 특히, 긍정적인 미디어 프레임이 대중의 인식에 미치는 영향을 강조하며, 새로운 기술적 접근 방식이 AI의 효율성과 신뢰성을 향상시키는 방법을 제시합니다. 또한, AI의 사회적, 문화적, 법적 도전 과제를 논의하고, 향후 연구 방향을 제안합니다.
+Introduction
+인공지능(AI)은 최근 몇 년간 급속한 발전을 이루었으며, 다양한 분야에서의 응용 가능성이 증가하고 있습니다. 그러나 이러한 기술의 발전은 동시에 사회적, 문화적, 법적 도전 과제를 동반하고 있습니다. 본 보고서는 최근의 연구를 통해 Agentic AI의 다양한 측면을 탐구하고, 이 기술이 사회에 미치는 영향을 분석합니다. 특히, AI의 해석 가능성과 지속적인 학습, 다중 에이전트 시스템의 효율성, 그리고 생성적 AI의 학문적 무결성 문제를 중점적으로 다룹니다.
+Current Landscape
+최근의 연구들은 Agentic AI의 여러 측면을 다루고 있으며, 다음과 같은 주요 주제를 포함합니다:
+1. 미디어 보도와 대중 인식
+Lucy Obozintsev의 연구는 AI에 대한 뉴
+... [truncated]
+[2026-02-09 00:06:24] JOB END
+[2026-02-09 06:16:30] JOB START
+[2026-02-09 06:19:17] Scout Notes: 다음은 이번 실행의 목적에 맞춘 구조화된 인벤토리와 우선 읽기 목록(최대 12개), 각 항목의 선정 이유와 간단한 읽기 포커스입니다. 원문 본문은 깊게 읽지 않고, 메타데이터/목차 중심으로 빠르게 커버리지를 파악하는 것을 우선합니다. JSONL 파일은 소스 인덱스로 취급하되 본문 인용은 피합니다. 구조상 루트 '/'는 run 폴더에 매핑됩니다.
+
+1) Source: archive/openalex/works.jsonl
+- 항목 1: "Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense" (W4415728083)
+- 유형: OpenAlex
+- 우선 순위 맵핑: 데이터 거버넌스, 해석가능성, 규제/책임 문제
+- 선정 이유: AI 정합성(alignment) 이슈를 문화/법적 맥락으로 확장해 다루는 대표 연구로, 규제 프레임과 해석가능성의 상관관계를 파악하는 데 필수적. 2025년 출판으로 최신 정책 논의와 기업 도입 맥락의 방향성을 제시하므로 핵심 이슈를 한눈에 파악 가능.
+- 읽기 포커스: 1차적으로 논문 초록/핵심 프레이밍을 확인하고, 해석가능성과 문화적 가치다양성의 조화 필요성에 주목. 정책적 시사점과 기업 적용의 실무적 시사점을 메모.
+
+2) Source: archive/openalex/works.jsonl
+- 항목 2: "Generative AI and Academic Integrity in Higher Education: A Systematic Re
+... [truncated]
+[2026-02-09 06:22:46] JOB FAILED: Failed to load document (PDFium: Data format error).
+[2026-02-09 06:41:11] JOB START
+[2026-02-09 06:41:15] Scout Notes [cache]: 다음은 이번 실행의 목적에 맞춘 구조화된 인벤토리와 우선 읽기 목록(최대 12개), 각 항목의 선정 이유와 간단한 읽기 포커스입니다. 원문 본문은 깊게 읽지 않고, 메타데이터/목차 중심으로 빠르게 커버리지를 파악하는 것을 우선합니다. JSONL 파일은 소스 인덱스로 취급하되 본문 인용은 피합니다. 구조상 루트 '/'는 run 폴더에 매핑됩니다.
+
+1) Source: archive/openalex/works.jsonl
+- 항목 1: "Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense" (W4415728083)
+- 유형: OpenAlex
+- 우선 순위 맵핑: 데이터 거버넌스, 해석가능성, 규제/책임 문제
+- 선정 이유: AI 정합성(alignment) 이슈를 문화/법적 맥락으로 확장해 다루는 대표 연구로, 규제 프레임과 해석가능성의 상관관계를 파악하는 데 필수적. 2025년 출판으로 최신 정책 논의와 기업 도입 맥락의 방향성을 제시하므로 핵심 이슈를 한눈에 파악 가능.
+- 읽기 포커스: 1차적으로 논문 초록/핵심 프레이밍을 확인하고, 해석가능성과 문화적 가치다양성의 조화 필요성에 주목. 정책적 시사점과 기업 적용의 실무적 시사점을 메모.
+
+2) Source: archive/openalex/works.jsonl
+- 항목 2: "Generative AI and Academic Integrity in Higher Education: A Systematic Re
+... [truncated]
+[2026-02-09 06:46:01] Report Preview: 엔터프라이즈 AI 시그널 4축과 실행 시나리오
+AI Governance Team assisted and prompted by "AI Governance Team" (AI Governance Office) — 2026-02-09 06:45
+Executive Summary
+지난 3–6개월간 엔터프라이즈 AI 도입의 핵심 이슈는 보안과 안전성, 신뢰성, 데이터 거버넌스, 멀티에이전트 상호작용의 관리, 책임성 및 감사 체계, 그리고 엔터프라이즈 도입 패턴의 변화로 요약됩니다. 특히 프롬프트 인젝션과 툴 오남용에 대한 보안 리스크가 두드러지며, AI 평가의 한계와 환각 문제는 실무 운영과 의사결정의 신뢰성 저하로 연결됩니다. 데이터 거버넌스의 중요성이 증가하고 규제 확산에 대응하는 기업의 거버넌스 체계 정비가 시급합니다. 다층적 멀티에이전트 시스템에서의 조정 실패와 책임 소재의 불명확성은 감사 및 규제 노출의 확대를 가져올 수 있습니다. 이 보고서는 핵심 시그널을 4개 트렌드 테마로 묶고, 2–3개의 시나리오를 통해 실행 시 필요한 조치와 에스컬레이션 경로를 제시합니다. 주목할 만한 시그널로는 보안 강화 필요성(프롬프트 인젝션/오남용 증가)과 신뢰성 평가의 난제, 데이터 거버넌스의 증대되는 요구를 들 수 있습니다. 주요 근거는 다수의 오픈액스(OpenAlex) 논문과 arXiv의 멀티에이전트 연구, 그리고 공공 담론/보안 이슈를 다룬 시각 자료입니다 [openalex:W4415728083], [openalex:W4409269614], [openalex:W4411541869], [openalex:W2921187241],
+... [truncated]
+[2026-02-09 06:46:01] JOB END
+[2026-02-09 06:51:47] JOB START

@@ -27,6 +27,9 @@ from .filesystem import (
     move_run_to_trash,
     summarize_run,
     list_run_logs,
+    read_help_history,
+    write_help_history,
+    clear_help_history,
     list_instruction_files as _list_instruction_files,
     read_text_file as _read_text_file,
     read_binary_file as _read_binary_file,
@@ -254,6 +257,15 @@ class FedernettHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(payload)
             return
+        if path == "/api/help/history":
+            run_rel = (qs.get("run") or [None])[0]
+            try:
+                payload = read_help_history(cfg.root, run_rel)
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, status=400)
+                return
+            self._send_json(payload)
+            return
         if path == "/api/run-instructions":
             run_rel = (qs.get("run") or [None])[0]
             try:
@@ -459,6 +471,8 @@ class FedernettHandler(BaseHTTPRequestHandler):
                     raise ValueError("question must be a non-empty string")
                 model = payload.get("model")
                 model_value = str(model).strip() if isinstance(model, str) else None
+                run_rel = payload.get("run")
+                run_value = str(run_rel).strip() if isinstance(run_rel, str) else None
                 history_raw = payload.get("history")
                 history_value = history_raw if isinstance(history_raw, list) else None
                 max_sources_raw = payload.get("max_sources")
@@ -472,7 +486,23 @@ class FedernettHandler(BaseHTTPRequestHandler):
                     model=model_value,
                     max_sources=max_sources,
                     history=history_value,
+                    run_rel=run_value,
                 )
+                self._send_json(result)
+                return
+            if path == "/api/help/history":
+                run_rel = payload.get("run")
+                run_value = str(run_rel).strip() if isinstance(run_rel, str) else None
+                items = payload.get("items")
+                if not isinstance(items, list):
+                    raise ValueError("items must be an array")
+                result = write_help_history(cfg.root, run_value, items)
+                self._send_json(result)
+                return
+            if path == "/api/help/history/clear":
+                run_rel = payload.get("run")
+                run_value = str(run_rel).strip() if isinstance(run_rel, str) else None
+                result = clear_help_history(cfg.root, run_value)
                 self._send_json(result)
                 return
             if path.startswith("/api/jobs/") and path.endswith("/kill"):
@@ -574,26 +604,47 @@ def _list_models() -> list[str]:
         return []
     if not base_url:
         base_url = "https://api.openai.com"
-    url = base_url.rstrip("/") + "/v1/models"
     try:
         import requests  # type: ignore
     except Exception:
         return []
-    try:
-        resp = requests.get(url, headers={"Authorization": f"Bearer {api_key}"}, timeout=6)
-    except Exception:
-        return []
-    if resp.status_code != 200:
-        return []
-    try:
-        payload = resp.json()
-    except Exception:
-        return []
-    data = payload.get("data") or []
-    models = []
-    for entry in data:
-        if isinstance(entry, dict) and entry.get("id"):
-            models.append(str(entry["id"]))
+    endpoints = [
+        ("GET", base_url.rstrip("/") + "/v1/models"),
+        ("GET", base_url.rstrip("/") + "/models"),
+        ("POST", base_url.rstrip("/") + "/models"),
+    ]
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    models: list[str] = []
+    for method, url in endpoints:
+        try:
+            if method == "POST":
+                resp = requests.post(url, headers=headers, json={}, timeout=6)
+            else:
+                resp = requests.get(url, headers=headers, timeout=6)
+        except Exception:
+            continue
+        if resp.status_code != 200:
+            continue
+        try:
+            payload = resp.json()
+        except Exception:
+            continue
+        data = payload.get("data")
+        if not isinstance(data, list):
+            # Some compatible servers return {"models":[...]}.
+            data = payload.get("models")
+        if not isinstance(data, list):
+            continue
+        for entry in data:
+            if isinstance(entry, dict) and entry.get("id"):
+                models.append(str(entry["id"]))
+            elif isinstance(entry, str):
+                models.append(entry)
+        if models:
+            break
     return sorted(set(models))
 
 

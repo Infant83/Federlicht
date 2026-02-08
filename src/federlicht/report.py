@@ -6112,6 +6112,7 @@ class SafeFilesystemBackend:
         self,
         root_dir: Path,
         max_read_chars: int = 6000,
+        max_total_chars: int = 20000,
         max_list_entries: int = 300,
         max_grep_matches: int = 200,
     ) -> None:
@@ -6125,11 +6126,14 @@ class SafeFilesystemBackend:
                 virtual_mode: bool = True,
                 max_file_size_mb: int = 10,
                 max_read_chars: int = 6000,
+                max_total_chars: int = 20000,
                 max_list_entries: int = 300,
                 max_grep_matches: int = 200,
             ) -> None:
                 super().__init__(root_dir=root_dir, virtual_mode=virtual_mode, max_file_size_mb=max_file_size_mb)
                 self._max_read_chars = max(1000, int(max_read_chars))
+                self._max_total_chars = max(4000, int(max_total_chars))
+                self._used_chars = 0
                 self._max_list_entries = max(50, int(max_list_entries))
                 self._max_grep_matches = max(20, int(max_grep_matches))
 
@@ -6158,13 +6162,34 @@ class SafeFilesystemBackend:
                                 return super()._resolve_path(mapped)
                 return super()._resolve_path(key)
 
+            def _apply_total_budget(self, text: str) -> str:
+                if not isinstance(text, str) or not text:
+                    return text
+                remaining = self._max_total_chars - self._used_chars
+                if remaining <= 0:
+                    return (
+                        "[error] filesystem tool read budget exhausted for this stage. "
+                        "Narrow scope or continue with listed/indexed sources."
+                    )
+                if len(text) > remaining:
+                    text = truncate_text_middle(text, remaining)
+                self._used_chars += len(text)
+                return text
+
             def read(self, file_path: str, offset: int = 0, limit: int = 2000) -> str:  # type: ignore[override]
                 # Keep default filesystem-tool reads bounded to avoid exploding model context.
                 bounded_limit = min(max(1, int(limit or 1)), 240)
-                content = super().read(file_path, offset=offset, limit=bounded_limit)
+                try:
+                    content = super().read(file_path, offset=offset, limit=bounded_limit)
+                except Exception as exc:
+                    # Do not hard-fail the whole stage when one malformed file (e.g., broken PDF) is read.
+                    return (
+                        f"[error] Failed to read '{file_path}': {exc}. "
+                        "Skip this file and continue with other sources."
+                    )
                 if isinstance(content, str) and len(content) > self._max_read_chars:
-                    return truncate_text_middle(content, self._max_read_chars)
-                return content
+                    content = truncate_text_middle(content, self._max_read_chars)
+                return self._apply_total_budget(content)
 
             def ls_info(self, path: str):  # type: ignore[override]
                 info = super().ls_info(path)
@@ -6198,6 +6223,7 @@ class SafeFilesystemBackend:
             root_dir=root_dir,
             virtual_mode=True,
             max_read_chars=max_read_chars,
+            max_total_chars=max_total_chars,
             max_list_entries=max_list_entries,
             max_grep_matches=max_grep_matches,
         )
@@ -7715,12 +7741,12 @@ def resolve_author_identity(
     cli_name = (author_cli or "").strip()
     cli_org = (organization_cli or "").strip()
     if cli_name:
-        return compose_author_label(cli_name, cli_org), cli_org
+        return cli_name, cli_org
 
     profile_name, profile_org = _resolve_profile_author(profile)
     if profile_name:
         effective_org = cli_org or profile_org
-        return compose_author_label(profile_name, effective_org), effective_org
+        return profile_name, effective_org
 
     if report_prompt:
         for line in report_prompt.splitlines():
@@ -7728,15 +7754,19 @@ def resolve_author_identity(
             if match:
                 name = match.group(1).strip()
                 if name:
-                    return compose_author_label(name, cli_org), cli_org
+                    return name, cli_org
 
-    fallback = compose_author_label(DEFAULT_AUTHOR, cli_org)
-    return fallback, cli_org
+    return DEFAULT_AUTHOR, cli_org
 
 
-def build_byline(author: str) -> str:
+def build_byline(agent_name: str, prompter: str, organization: Optional[str] = None) -> str:
     stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-    return f'Federlicht assisted and prompted by "{author}" — {stamp}'
+    agent = (agent_name or "Federlicht").strip()
+    person = (prompter or DEFAULT_AUTHOR).strip()
+    org = (organization or "").strip()
+    if org:
+        return f'{agent} assisted and prompted by "{person}" ({org}) — {stamp}'
+    return f'{agent} assisted and prompted by "{person}" — {stamp}'
 
 def set_federlicht_log_path(run_dir: Path) -> None:
     global FEDERLICHT_LOG_PATH
@@ -8100,7 +8130,13 @@ def run_pipeline(
         report_prompt,
         profile=ACTIVE_AGENT_PROFILE,
     )
-    byline = build_byline(author_name)
+    author_label = compose_author_label(author_name, author_organization)
+    agent_label = (
+        (ACTIVE_AGENT_PROFILE.name or "").strip()
+        if ACTIVE_AGENT_PROFILE and getattr(ACTIVE_AGENT_PROFILE, "name", None)
+        else "Federlicht"
+    )
+    byline = build_byline(agent_label, author_name, author_organization)
     backend = SafeFilesystemBackend(root_dir=run_dir)
     title = extract_prompt_title(report_prompt)
     if title:
@@ -8261,7 +8297,7 @@ def run_pipeline(
         "summary": report_summary,
         "output_format": output_format,
         "language": language,
-        "author": author_name,
+        "author": author_label,
         "organization": author_organization or None,
         "tags": tags_list,
         "free_format": args.free_format,

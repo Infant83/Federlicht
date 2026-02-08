@@ -1,0 +1,50 @@
+
+
+===== PAGE 1 =====
+SwimBird: Eliciting Switchable Reasoning Mode in
+Hybrid Autoregressive MLLMs
+Jintao Tong1,2
+Shilin Yan2†‡
+Hongwei Xue2
+Xiaojun Tang2
+Kunyu Shi2
+Guannan Zhang2
+Ruixuan Li1‡
+Yixiong Zou1‡
+1Huazhong University of Science and Technology
+2Accio Team, Alibaba Group
+† Project Leader
+‡ Corresponding Author
+Abstract
+Multimodal Large Language Models (MLLMs) have made remarkable progress in
+multimodal perception and reasoning by bridging vision and language. However, most existing
+MLLMs perform reasoning primarily with textual CoT, which limits their effectiveness on
+vision-intensive tasks. Recent approaches inject a fixed number of continuous hidden states as “visual
+thoughts” into the reasoning process and improve visual performance, but often at the cost of degraded
+text-based logical reasoning. We argue that the core limitation lies in a rigid, pre-defined reasoning
+pattern that cannot adaptively choose the most suitable thinking modality for different user queries. We
+introduce SwimBird, a reasoning-switchable MLLM that dynamically switches among three reasoning
+modes conditioned on the input: (1) text-only reasoning, (2) vision-only reasoning (continuous hidden
+states as visual thoughts), and (3) interleaved vision–text reasoning. To enable this capability, we
+adopt a hybrid autoregressive formulation that unifies next-token prediction for textual thoughts with
+next-embedding prediction for visual thoughts, and design a systematic reasoning-mode curation
+strategy to construct SwimBird-SFT-92K, a diverse supervised fine-tuning dataset covering all three
+reasoning patterns. By enabling flexible, query-adaptive mode selection, SwimBird preserves strong
+textual logic while substantially improving performance on vision-dense tasks. Experiments across
+diverse benchmarks covering textual reasoning and challenging visual understanding demonstrate
+that SwimBird achieves state-of-the-art results and robust gains over prior fixed-pattern multimodal
+reasoning methods.
+Project Page: https://accio-lab.github.io/SwimBird
+Github Repo: https://github.com/Accio-Lab/SwimBird
+HuggingFace: https://huggingface.co/datasets/Accio-Lab/SwimBird-SFT-92K
+1
+Introduction
+Building on the success of Chain-of-Thought (CoT) [32, 9] reasoning in LLMs, recent multimodal
+research has adopted step-by-step reasoning to decompose complex vision-and-language problems
+into intermediate steps that are easier to solve. With textual CoT, Multimodal Large Language Models
+(MLLMs) [44, 7, 16, 24] have significantly improved on tasks requiring symbolic manipulation,
+numerical calculation, and logical analysis.
+However, this success does not fully transfer to vision-dense tasks where the bottleneck lies in dense
+perception and spatial reasoning rather than logical structure [4]. Typical examples include maze
+solving, fine-grained visual search, and other problems where accurate intermediate visual states
+are essential. On such tasks, purely textual CoT [19] can be an ill-posed in

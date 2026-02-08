@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2602.06034v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2602.06034v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><pre>
+
+===== PAGE 1 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal
+Retrieval
+Dongyang Chen * 1 Chaoyang Wang * 2 Dezhao SU 3 Xi Xiao 1 Zeyu Zhang 4 Jing Xiong 5 Qing Li 6
+Yuzhang Shang 2 Shichao Kan 7
+Home: <a href="https://github.com/chendy25/V-Retrver">https://github.com/chendy25/V-Retrver</a>
+HF:<a href="https://huggingface.co/V-Retrver">https://huggingface.co/V-Retrver</a>
+Abstract
+Multimodal Large Language Models (MLLMs)
+have recently been applied to universal multi-
+modal retrieval, where Chain-of-Thought (CoT)
+reasoning improves candidate reranking. How-
+ever, existing approaches remain largely language-
+driven, relying on static visual encodings and
+lacking the ability to actively verify fine-grained
+visual evidence, which often leads to specula-
+tive reasoning in visually ambiguous cases. We
+propose V-Retrver, an evidence-driven retrieval
+framework that reformulates multimodal retrieval
+as an agentic reasoning process grounded in visual
+inspection. V-Retrver enables an MLLM to selec-
+tively acquire visual evidence during reasoning
+via external visual tools, performing a multimodal
+interleaved reasoning process that alternates be-
+tween hypothesis generation and targeted visual
+verification. To train such an evidence-gathering
+retrieval agent, we adopt a curriculum-based learn-
+ing strategy combining supervised reasoning acti-
+vation, rejection-based refinement, and reinforce-
+ment learning with an evidence-aligned objec-
+tive. Experiments across multiple multimodal
+retrieval benchmarks demonstrate consistent im-
+provements in retrieval accuracy (with 23.0% im-
+provements on average), perception-driven rea-
+soning reliability, and generalization.
+1. Introduction
+The rapid development of Multimodal Large Language Mod-
+els (MLLMs) has substantially advanced universal multi-
+*Equal contribution 1Tsinghua University 2University of Cen-
+tral Florida 3Fudan University 4The Australian National Uni-
+versity 5The University of Hong Kong 6Pengcheng Laboratory
+7Central South University. Correspondence to: Xi Xiao &lt;xi-
+aox@sz.tsinghua.edu.cn&gt;.
+Preprint. February 6, 2026.
+modal retrieval (Chen et al., 2024c; Lin et al., 2024a; Wang
+et al., 2024b; Zhu et al., 2025d; Sun et al.), enabling a
+single model to support diverse retrieval scenarios such as
+text-to-image, image-to-text, and interleaved multimodal
+queries. Recent works further demonstrate that incorpo-
+rating Chain-of-Thought (CoT) reasoning can improve re-
+trieval performance by enhancing interpretability and can-
+didate discrimination (Zhu et al., 2025d; Xu et al., 2025c;
+Narayan et al., 2025). However, despite these advances,
+existing CoT-based retrieval systems remain fundamentally
+language-driven, even when retrieval decisions critically
+depend on visual evidence.
+This limitation becomes particularly pronounced in visu-
+ally ambiguous retrieval scenarios, where candidate images
+share similar semantic content but differ in fine-grained
+visual attributes such as object appearance, style, or local
+context. Most current MLLM-based retrieval methods (Liu
+et al., 2025; Chen et al., 2024c; Lin et al., 2024a) compress
+visual inputs into fixed embeddings or textual descriptions,
+forcing the reasoning process to rely on language alone
+to infer visual differences. Consequently, the model of-
+ten produces speculative or hallucinated reasoning when
+the required evidence lies in the visual modality. Even
+recent reasoning-enhanced retrieval frameworks, such as
+Retrv-R1 (Zhu et al., 2025d) and MM-R5 (Xu et al., 2025b),
+improve textual reasoning depth but still rely on single-pass
+visual encoding, lacking the ability to actively verify visual
+hypotheses during reasoning.
+To overcome this gap, we propose V-Retrver, an evidence-
+driven retrieval framework that reformulates multimodal
+retrieval as an agentic reasoning process grounded in vi-
+sual inspection. Instead of treating visual representations as
+static inputs, V-Retrver enables an MLLM to selectively ac-
+quire visual evidence during reasoning by invoking external
+visual tools. Through a multimodal interleaved Chain-of-
+Thought process, the model alternates between hypothesis
+generation and targeted visual verification, allowing it to
+dynamically resolve visual ambiguities and progressively
+refine ranking decisions, as illustrated in Fig. 1.
+1
+arXiv:2602.06034v1  [cs.CV]  5 Feb 2026
+
+
+===== PAGE 2 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+White sofa with mottled pillows instead of a dark brown sofa with white pillows and books down
+Candidate 1
+Query
+Candidate 2
+&lt;think&gt;The objective is to identify a candidate that reflects 
+specific visual transformations from the query: replacing a 
+dark brown sofa with white pillows and books underneath with 
+a white sofa and mottled pillows.Initially, we can perform a 
+pre-screening to filter the candidates. Candidate 2 is an exact 
+match for the negative example described in the text—a dark 
+brown sofa with white pillows and books below—so it is the 
+least relevant . . . Candidate 3 is a simple sofa lacking the 
+mottled texture and the storage theme , making it less 
+suitable. =Candidate 4 shows a traditional white sofa with 
+colorful mottled pillows and a book lying on the floor. 
+Candidate 4 stands out as a strong match due to its clear 
+presentation of a white sofa and prominent mottled pillows 
+that align well with the textual request. While Candidate 1 
+also fits the . . . Candidate 4&#x27;s aesthetic emphasis on the 
+white fabric and vibrant pillow patterns makes it a highly 
+relevant choice for this specific transformation.Following 
+these two, Candidate 3 remains more relevant than the 
+remaining options , followed by the bed-like arrangement of 
+Candidate 5 , and finally Candidate 2 as the explicit counter-
+example.&lt;/think&gt;
+&lt;answer&gt;[4, 1, 3, 5, 2]&lt;/answer&gt;
+Text-based Chain of thought
+Candidate 4
+Candidate 3
+Candidate 5
+&lt;think&gt;Based on your requirements, I will analyze the query and candidate images to provide a ranked 
+list . . . I will use the selection tool to compare them more closely. &lt;/think&gt;
+&lt;tool_call&gt;
+{&quot;name&quot;: &quot;select_images&quot;, &quot;arguments&quot;: {&quot;target_images&quot;: [1, 4]}}
+&lt;/tool_call&gt;
+&lt;think&gt;From the comparison: Features a modern white sofa with distinct mottled/zebra-patterned 
+pillows . . . I will perform a crop on the shelving area.&lt;/think&gt;
+&lt;tool_call&gt;
+{&quot;name&quot;: &quot;crop_image&quot;, &quot;arguments&quot;: {&quot;bbox_2d&quot;: [290, 80, 380, 200], &quot;target_image&quot;: 1}}
+&lt;/tool_call&gt;
+&lt;think&gt;Candidate 4: Meets the color and pillow criteria but lacks the integrated storage design . . . 
+Based on this analysis, the final ranking is as follows:&lt;/think&gt;
+&lt;answer&gt;[1, 4, 3, 5, 2]&lt;/answer&gt;
+Multimodal Interleaved Chain of thought
+Candidate 1
+Candidate 4
+Candidate 1
+Zoom in
+Figure 1. Comparison between text-based CoT (left) and multimodal interleaved CoT (right) for multimodal retrieval. Text-based
+CoT relies on language-driven inference over static visual representations, often failing to resolve fine-grained differences. In contrast,
+V-Retrver performs multimodal interleaved CoT reasoning by invoking visual tools to inspect candidate images, enabling grounded
+reasoning and more reliable ranking decisions.
+Training such an evidence-gathering retrieval agent requires
+not only strong reasoning ability but also effective alignment
+between retrieval performance and visual tool usage. We
+therefore adopt a curriculum-based training strategy con-
+sisting of three stages. First, a cold-start supervised stage
+initializes the model with basic reasoning capabilities and
+operation formatting using synthesized high-quality CoT
+data. Second, rejection sampling fine-tuning consolidates
+high-quality reasoning trajectories and improves structural
+compliance. Finally, we introduce Evidence-Aligned Pol-
+icy Optimization (EAPO), instantiated via Group Relative
+Policy Optimization (GRPO) (Guo et al., 2025), which re-
+inforces correct ranking decisions while encouraging infor-
+mative visual verification and discouraging redundant tool
+usage.
+Extensive experiments on the universal multimodal retrieval
+benchmark M-BEIR, as well as multiple out-of-domain
+datasets, demonstrate that V-Retrver consistently outper-
+forms strong baselines across diverse retrieval settings. The
+results show that V-Retrver achieves higher retrieval ac-
+curacy, more reliable perception-grounded reasoning, and
+stronger generalization ability, validating the effectiveness
+of interleaved visual reasoning for multimodal retrieval. In
+summary, our contributions are three-fold:
+• We propose V-Retrver, an evidence-driven agentic re-
+trieval framework that enables MLLMs to actively ac-
+quire visual evidence during multimodal reasoning.
+• We introduce a curriculum-based training strategy with
+an evidence-aligned reinforcement learning objective
+that jointly improves reasoning quality, ranking accu-
+racy, and efficient visual tool usage.
+• Extensive experiments across multiple benchmarks
+demonstrate that V-Retrver consistently outperforms
+existing methods and generalizes well to diverse multi-
+modal retrieval scenarios.
+2. Related Work
+Multi-modal Large Language Models.
+In recent years,
+the rapid advancement of multimodal large language mod-
+els (MLLMs) has driven the deep integration of visual
+perception and language reasoning, leading to the emer-
+gence of a series of high-performing open-source models,
+notably the LLaVA (Liu et al., 2024; Guo et al., 2024; Zhang
+et al., 2025c; Lin et al., 2023a; Li et al., 2023a), Qwen-VL
+(Bai et al., 2023; Wang et al., 2024a; Yang et al., 2024),
+and InternVL (Chen et al., 2024b; Gao et al., 2024; Lu
+et al., 2025) series. In parallel, large-scale models such as
+Flamingo (Alayrac et al., 2022), mPLUG-Owl (Ye et al.,
+2
+
+
+===== PAGE 3 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+2023; 2024b;a), and GPT-4V (Yang et al., 2023) pursue a
+more holistic vision-language modeling paradigm, incorpo-
+rating advanced mechanisms including mixture-of-experts
+architectures (Shu et al., 2024; Li et al., 2025b; Shen et al.,
+2024) and image generation components (Xie et al., 2024;
+Xu et al., 2025a). However, these models generally lack rea-
+soning capabilities such as Chain-of-Thought and test-time
+scalability (Muennighoff et al., 2025; Zhang et al., 2025b;
+Chen et al., 2024a), and to a large extent still decouple visual
+perception from text reasoning processes.
+Multimodal Retrieval.
+Recent advances in deep learn-
+ing (Zhu et al., 2021; 2024; 2025a;c;b; Ji et al., 2024) have
+substantially propelled progress across a broad spectrum of
+retrieval tasks, including text–image cross-modal retrieval
+(Pham et al., 2024; Fu et al., 2024; Zhang et al., 2020;
+Chun et al., 2021; Kim et al., 2023b;a), composed image
+retrieval (Baldrati et al., 2022; Saito et al., 2023; Gu et al.,
+2024; Suo et al., 2024; Baldrati et al., 2023), multimodal
+document retrieval (Chen et al., 2023; Hu et al., 2023; Liu
+et al., 2023), and instruction-based image retrieval (Wu et al.,
+2021; Zhang et al., 2024a; Asai et al., 2023). Among these
+approaches, vision–language models (VLMs), particularly
+CLIP (Radford et al., 2021), have demonstrated strong ef-
+fectiveness and scalability in multimodal retrieval scenarios
+(Baldrati et al., 2022; Wei et al., 2024b; Sain et al., 2023; Pei
+et al., 2023; Jin et al., 2024). For instance, Kim et al. (Kim
+et al., 2023a) improve CLIP via prompt tuning, enabling en-
+hanced generalization across diverse retrieval settings. More
+recently, multimodal large language models (MLLMs) have
+been introduced to further advance retrieval performance
+(Liu et al., 2025; Jiang et al., 2024; Lin et al., 2024a; Zhou
+et al., 2024). Some approaches (Zhou et al., 2024; Lan et al.,
+2025; Lin et al., 2024a; Zhang et al., 2024b; Jian et al., 2025;
+Gu et al., 2025) utilize embeddings extracted from MLLMs
+to perform similarity-based retrieval. Others approaches,
+such as LamRA (Liu et al., 2025; Li et al., 2025a), employ
+MLLMs as reranking agents to refine candidate lists and
+select the most relevant results. Retrv-R1(Zhu et al., 2025d)
+equips the model with text reasoning capabilities for mul-
+timodal retrieval tasks through reinforcement learning. In
+contrast to prior work, we introduce V-Retrver, an evidence-
+driven retrieval framework, which can adaptively adjust its
+visual exploration strategy during reasoning by invoking vi-
+sual tools, enabling a more flexible and effective reasoning
+process and thereby achieving significant improvements in
+retrieval performance.
+3. Method
+3.1. Problem Formulation
+We study the problem of universal multimodal retrieval.
+Given a query q of arbitrary modality (text, image, or in-
+terleaved multimodal input) and a candidate pool Ω=
+{cn}N
+n=1, the objective is to identify the most relevant candi-
+date ˆc ∈Ω. Conventional multimodal retrieval approaches
+typically formulate this problem as static similarity match-
+ing or language-only reranking over fixed visual representa-
+tions. Such formulations implicitly assume that all necessary
+visual evidence has been fully encoded into embeddings or
+textual descriptions prior to reasoning. However, this as-
+sumption breaks down in fine-grained or visually ambiguous
+retrieval scenarios, where subtle local details determine rel-
+evance and cannot be reliably inferred from compressed
+representations alone.
+To address this limitation, we reformulate multimodal re-
+trieval as an evidence-grounded reasoning problem. Under
+this formulation, retrieval is no longer a single-pass infer-
+ence process, but an iterative decision-making procedure in
+which the model is required to actively acquire and verify
+visual evidence during ranking. Specifically, the retrieval
+process consists of three tightly coupled steps: (i) generat-
+ing hypotheses about candidate relevance based on available
+information, (ii) selectively inspecting visual evidence to
+resolve uncertainty, and (iii) refining the ranking decision
+based on verified observations. This perspective naturally
+gives rise to an agentic reranking paradigm, where a re-
+trieval model is endowed with the ability to reason, inspect,
+and revise its decisions, rather than passively scoring candi-
+dates using fixed representations.
+3.2. Overview of V-Retrver
+Building on the above formulation, we propose V-Retrver,
+an evidence-driven reasoning framework for universal mul-
+timodal retrieval, As illustrated in Fig. 2. V-Retrver follows
+a coarse-to-fine retrieval pipeline that decouples efficient
+candidate proposal from computationally intensive evidence-
+based reasoning. In the first stage, an embedding model ϕ
+encodes the query q and each candidate cn into a shared
+representation space, retrieving the top-K candidates based
+on similarity. We adopt the same method as LamRA (Liu
+et al., 2025) for constructing the embedding model ϕ. This
+stage serves as an efficient candidate proposal mechanism
+and substantially reduces the search space:
+C = {ck}K
+k=1,
+K ≪N.
+In the second stage, V-Retrver employs a reasoning agent
+θ to perform fine-grained reranking over the reduced candi-
+date set C. Crucially, θ is not a conventional reranker that
+operates over static features. Instead, it is designed as an
+agentic evidence-gathering model that can iteratively rea-
+son, invoke visual inspection tools, and revise its ranking
+decisions based on newly acquired visual observations. The
+final prediction is produced as:
+ˆc = θ(q, C).
+3
+
+
+===== PAGE 4 =====
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval
+Filtering
+SFT Data
+Update Policy
+·  Format Reward
+· Ranking Reward
+·  Tool-use Reward
+Evidence Aligned 
+Policy Optimization
+Tool Invocation
+Filtering
+High Quality Data
+Stage 1: Cold-start
+Stage 3: EAPO
+Stage 2: Reject Fine-tuning
+Tool Invocation
+Tool Invocation
+Cold Start
+Reject Fine-Tuning
+Embedding
+Model
+Top-K
+Tool 
+Invocation
+Select-Image
+Zoom-In
+Rank
+V-retrver
+Figure 2. Overview of the V-Retrver framework. The left panel illustrates the inference pipeline, featuring a coarse-to-fine process with
+embedding-based retrieval and agentic rerankin</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

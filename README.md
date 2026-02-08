@@ -156,6 +156,7 @@ Key points:
 - All paths are resolved under `--root` (guardrail against path escape).
 - It scans run folders from `--run-roots` (default: `examples/runs,site/runs,runs`).
 - Logs stream live via SSE and jobs can be stopped from the UI.
+- Forward roadmap for account/profile/hub collaboration: `docs/federnett_roadmap.md`.
 
 ```bash
 # Start the UI server (defaults to ./site/federnett):

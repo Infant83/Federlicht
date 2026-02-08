@@ -1,12 +1,46 @@
 Claim | Evidence | Strength | Flags
 --- | --- | --- | ---
-**보안 리스크**: Agentic AI는 다양한 보안 취약점을 노출시키며, prompt injection 공격이 빈번하게 발생하고 있다. 이는 기업의 데이터 보호 및 신뢰성에 심각한 위협이 된다. | (none) | none | no_evidence
-**비용 및 지연**: Agentic AI의 도입은 초기 비용이 높고, 기술적 문제로 인해 프로젝트 지연이 발생할 수 있다. 이는 기업의 재무적 부담을 증가시킨다. | (none) | none | no_evidence
-**데이터 거버넌스**: 데이터 관리 및 거버넌스의 복잡성이 증가하고 있으며, 이는 기업의 운영 효율성을 저하시킬 수 있다. | (none) | none | no_evidence
-**멀티에이전트 상호작용**: 여러 에이전트 간의 상호작용에서 발생하는 문제는 시스템의 신뢰성을 저하시킬 수 있다. | (none) | none | no_evidence
-**책임 및 감사**: AI 시스템의 결정 과정에 대한 책임 소재가 불분명하여, 법적 및 윤리적 문제가 발생할 수 있다. | (none) | none | no_evidence
-**권한 및 도구 게이팅**: AI 시스템의 접근 권한을 엄격히 관리하고, 필요한 도구만을 사용하도록 제한해야 한다. | (none) | none | no_evidence
-**평가 체계 구축**: AI 시스템의 성능을 정기적으로 평가하고, 문제 발생 시 신속하게 대응할 수 있는 체계를 마련해야 한다. | (none) | none | no_evidence
-**로그 및 감사 체계 강화**: 모든 AI 시스템의 활동을 기록하고, 정기적으로 감사하여 보안 및 신뢰성을 확보해야 한다. | (none) | none | no_evidence
-**상위 리스크**: 보안 취약점, 데이터 거버넌스 문제, 책임 소재 불명확성이 주요 리스크로 확인되었다. | (none) | none | no_evidence
-**다음 검증할 것**: 향후 1~2주 내에 각 리스크에 대한 구체적인 검증 및 대응 방안을 마련해야 한다. 공개정보의 한계로 인해 일부 정보는 확인이 어려울 수 있다. | (none) | none | no_evidence
+**소스 파일** | (none) | none | no_evidence
+**OpenAlex** | (none) | none | no_evidence
+From Skynet to Siri: an exploration of the nature and effects of media coverage of artificial intelligence | (none) | none | no_evidence
+(http://udspace.udel.edu/handle/19716/24048) (2025) | 링크; http://udspace.udel.edu/handle/19716/24048 | low | -
+텍스트 파일: `archive/openalex/text/W2921187241.txt` | (none) | none | no_evidence
+Alignment Problem as Cultural and Legal Challenge: Artificial Intelligence, Interpretability, and Searching for Sense | (none) | none | no_evidence
+(https://doi.org/10.17951/sil.2025.34.2.441-479) (2025) | 링크; https://doi.org/10.17951/sil.2025.34.2.441-479 | high | -
+텍스트 파일: `archive/openalex/text/W4415728083.txt` | (none) | none | no_evidence
+**arXiv** | (none) | none | no_evidence
+Shared LoRA Subspaces for almost Strict Continual Learning | (none) | none | no_evidence
+(http://arxiv.org/abs/2602.06043v1) (2026) | 링크; http://arxiv.org/abs/2602.06043v1 | high | -
+텍스트 파일: `archive/arxiv/text/2602.06043v1.txt` | (none) | none | no_evidence
+DyTopo: Dynamic Topology Routing for Multi-Agent Reasoning via Semantic Matching | (none) | none | no_evidence
+(http://arxiv.org/abs/2602.06039v1) (2026) | 링크; http://arxiv.org/abs/2602.06039v1 | high | -
+텍스트 파일: `archive/arxiv/text/2602.06039v1.txt` | (none) | none | no_evidence
+CommCP: Efficient Multi-Agent Coordination via LLM-Based Communication with Conformal Prediction | (none) | none | no_evidence
+(http://arxiv.org/abs/2602.06038v1) (2026) | 링크; http://arxiv.org/abs/2602.06038v1 | high | -
+텍스트 파일: `archive/arxiv/text/2602.06038v1.txt` | (none) | none | no_evidence
+InterPrior: Scaling Generative Control for Physics-Based Human-Object Interactions | (none) | none | no_evidence
+(http://arxiv.org/abs/2602.06035v1) (2026) | 링크; http://arxiv.org/abs/2602.06035v1 | high | -
+텍스트 파일: `archive/arxiv/text/2602.06035v1.txt` | (none) | none | no_evidence
+V-Retrver: Evidence-Driven Agentic Reasoning for Universal Multimodal Retrieval | (none) | none | no_evidence
+(http://arxiv.org/abs/2602.06034v1) (2026) | 링크; http://arxiv.org/abs/2602.06034v1 | high | -
+텍스트 파일: `archive/arxiv/text/2602.06034v1.txt` | (none) | none | no_evidence
+Predicting Camera Pose from Perspective Descriptions for Spatial Reasoning | (none) | none | no_evidence
+(http://arxiv.org/abs/2602.06041v1) (2026) | 링크; http://arxiv.org/abs/2602.06041v1 | high | -
+텍스트 파일: `archive/arxiv/text/2602.06041v1.txt` | (none) | none | no_evidence
+SwimBird: Eliciting Switchable Reasoning Mode in Hybrid Autoregressive MLLMs | (none) | none | no_evidence
+(http://arxiv.org/abs/2602.06040v1) (2026) | 링크; http://arxiv.org/abs/2602.06040v1 | high | -
+텍스트 파일: `archive/arxiv/text/2602.06040v1.txt` | (none) | none | no_evidence
+**YouTube** | (none) | none | no_evidence
+RoadMap to learn Agentic AI | (none) | none | no_evidence
+(https://www.youtube.com/watch?v=a-1lZvvTNOs) (2025) | 링크; https://www.youtube.com/watch?v=a-1lZvvTNOs | low | -
+이유: AI 미디어 보도의 본질과 효과를 탐구하여 Agentic AI의 사회적 맥락을 이해하는 데 기여. | (none) | none | no_evidence
+이유: AI의 해석 가능성과 관련된 문화적 및 법적 문제를 다루어 Agentic AI의 윤리적 측면을 탐구. | (none) | none | no_evidence
+이유: 지속적인 학습을 위한 새로운 접근 방식을 제안하여 Agentic AI의 기술적 발전을 이해. | (none) | none | no_evidence
+이유: 다중 에이전트 시스템에서의 추론을 위한 동적 라우팅 기술을 탐구. | (none) | none | no_evidence
+이유: LLM을 활용한 다중 에이전트 조정의 효율성을 분석. | (none) | none | no_evidence
+이유: 물리 기반 상호작용에서의 생성적 제어 기술을 탐구. | (none) | none | no_evidence
+이유: 다중 모달 검색을 위한 에이전트적 추론 기술을 이해. | (none) | none | no_evidence
+이유: 공간적 추론을 위한 카메라 포즈 예측 기술을 분석. | (none) | none | no_evidence
+이유: 하이브리드 모델에서의 추론 모드 전환 기술을 탐구. | (none) | none | no_evidence
+이유: Agentic AI에 대한 교육적 접근 방식을 제안. | (none) | none | no_evidence
+YouTube 링크: (https://www.youtube.com/watch?v=a-1lZvvTNOs) | 링크; https://www.youtube.com/watch?v=a-1lZvvTNOs | low | -
