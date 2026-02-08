@@ -6,5 +6,5 @@
 - [arxiv] Towards Generalist Robot Policies: What Matters in Building Vision-Language-Action Models — http://arxiv.org/abs/2412.14058v3 (score=0.93; year=2024; text=./archive/arxiv/text/2412.14058v3.txt)
 - [arxiv] Octo: An Open-Source Generalist Robot Policy — http://arxiv.org/abs/2405.12213v2 (score=0.93; year=2024; text=./archive/arxiv/text/2405.12213v2.txt)
 - [arxiv] $π_0$: A Vision-Language-Action Flow Model for General Robot Control — http://arxiv.org/abs/2410.24164v4 (score=0.93; year=2024; text=./archive/arxiv/text/2410.24164v4.txt)
-- [arxiv] OpenVLA: An Open-Source Vision-Language-Action Model — http://arxiv.org/abs/2406.09246v3 (score=0.93; year=2024; text=./archive/arxiv/text/2406.09246v3.txt)
-- [arxiv] CogACT: A Foundational Vision-Language-Action Model for Synergizing Cognition and Action in Robotic Manipulation — http://arxiv.org/abs/2411.19650v1 (score=0.93; year=2024; text=./archive/arxiv/text/2411.19650v1.txt)
+- [arxiv] OpenVLA: An Open-Source Vision-Language-Action Model — http://arxiv.org/abs/2406.09246v3 (score=0.92; year=2024; text=./archive/arxiv/text/2406.09246v3.txt)
+- [arxiv] CogACT: A Foundational Vision-Language-Action Model for Synergizing Cognition and Action in Robotic Manipulation — http://arxiv.org/abs/2411.19650v1 (score=0.92; year=2024; text=./archive/arxiv/text/2411.19650v1.txt)

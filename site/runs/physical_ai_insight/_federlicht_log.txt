@@ -1,1 +1,52 @@
 [2026-02-06 06:47:51] JOB START
+[2026-02-06 06:55:14] Report Preview: VLA 일반주의 로봇 제품화 병목: 실시간성·배포비용
+Federlicht assisted and prompted by "Hyun-Jung Kim / AI Governance Team" — 2026-02-06 06:54
+표지
+보고서 제목
+Physical AI 기술 리뷰
+부제(키 메시지)
+VLA(vision-language-action) 기반 ‘일반주의 로봇’은 성능뿐 아니라
+실시간성(지연/처리량)
+·
+배포비용(메모리/연산)
+이 제품화의 핵심 병목으로 부상(해석)
+작성자/소속
+시니어 연구 작성자 / (소속 미기재)
+버전
+v1.0
+날짜
+2026-02-05
+Run ID
+physical_ai_insight
+경영진 요약
+핵심 발견(3–5)
+오픈소스 일반주의 로봇 정책/모델이 빠르게 ‘표준 레퍼런스’로 수렴
+: Octo는 Open X-Embodiment의
+800k 로봇 에피소드
+로 사전학습한 transformer 정책이며, 언어/목표이미지 지시 및
+소비자 GPU 수 시간 파인튜닝
+을 강조합니다(
+\[1\]
+;
+\[2\]
+). OpenVLA는
+7B
+VLA를
+970k 에피소드
+로 학습하고, RT-2-X(55B) 대비
+29개 과제에서 성공률 +16.5%p
+를 주장하며 체크포인트·파이프라인을
+fully open-source
+로 배포합니다(
+\[3\]
+;
+\[4\]
+).
+‘정확도’에서 ‘서빙(실시간)’으로 연구 중심축이 이동
+: RTC는 VLA의 고지연이 chunk 경계에서 멈칫/jerky movement를 유발한다고 지적하며, 재학습 없이 적용 가능한
+비동기 실행(real-time chunking)
+을 제안하고
+300ms 초과 
+... [truncated]
+[2026-02-06 06:55:14] JOB END
+[2026-02-07 15:55:17] JOB START

@@ -4,7 +4,9 @@ description: Quanta Magazine-style narrative explainer.
 tone: Narrative, conceptual, evidence-anchored.
 audience: Broad technical readership.
 css: quanta_magazine.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Lede
 section: Central Question
 section: The Story So Far
@@ -21,3 +23,5 @@ guide Open Questions: 3-5 questions; be explicit about uncertainty.
 writer_guidance: Use metaphors sparingly; avoid hype.
 writer_guidance: Keep warm, magazine tone without losing rigor.
 ---
+
+

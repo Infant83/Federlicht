@@ -6,16 +6,20 @@
 3. template_adjust: skipped (disabled)
 4. plan: disabled
 5. web: disabled
-6. evidence: disabled
+6. evidence: ran
 7. plan_check: disabled
-8. writer: skipped (state_only)
-9. quality: skipped (state_only)
+8. writer: ran
+9. quality: ran (iterations=1)
 
 ## Artifacts
+### scout
+- Scout notes: ./report_notes/scout_notes.md
+
 ### plan
 - Plan update: ./report_notes/report_plan.md
 
 ### evidence
+- Evidence notes: ./report_notes/evidence_notes.md
 - Source triage: ./report_notes/source_triage.md
 - Source index: ./report_notes/source_index.jsonl
 - Claim map: ./report_notes/claim_map.md

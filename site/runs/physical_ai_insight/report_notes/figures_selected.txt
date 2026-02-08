@@ -1,0 +1,3 @@
+# Add one candidate_id per line (e.g., fig-001)
+# Optional: add a custom caption after | (e.g., fig-001 | My caption)
+# Lines starting with '#' are ignored.

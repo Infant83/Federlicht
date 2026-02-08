@@ -2701,6 +2701,25 @@ function applyRunSettings(summary) {
     const visionInput = $("#federlicht-model-vision");
     if (visionInput) visionInput.value = meta.model_vision;
   }
+  if (meta.template_rigidity) {
+    const rigiditySelect = $("#federlicht-template-rigidity");
+    if (
+      rigiditySelect
+      && Array.from(rigiditySelect.options).some((o) => o.value === meta.template_rigidity)
+    ) {
+      rigiditySelect.value = meta.template_rigidity;
+    }
+  }
+  if (meta.temperature_level) {
+    const levelSelect = $("#federlicht-temperature-level");
+    if (levelSelect && Array.from(levelSelect.options).some((o) => o.value === meta.temperature_level)) {
+      levelSelect.value = meta.temperature_level;
+    }
+  }
+  if (meta.temperature !== undefined && meta.temperature !== null) {
+    const temperatureInput = $("#federlicht-temperature");
+    if (temperatureInput) temperatureInput.value = String(meta.temperature);
+  }
   if (meta.agent_profile) {
     const profileId =
       typeof meta.agent_profile === "string" ? meta.agent_profile : meta.agent_profile.id;
@@ -2877,6 +2896,9 @@ function buildFederlichtPayload() {
     model: $("#federlicht-model")?.value,
     check_model: $("#federlicht-check-model")?.value,
     model_vision: $("#federlicht-model-vision")?.value,
+    template_rigidity: $("#federlicht-template-rigidity")?.value,
+    temperature_level: $("#federlicht-temperature-level")?.value,
+    temperature: Number.parseFloat($("#federlicht-temperature")?.value || ""),
     stages: $("#federlicht-stages")?.value,
     skip_stages: $("#federlicht-skip-stages")?.value,
     quality_iterations: Number.parseInt(
@@ -2908,6 +2930,7 @@ function buildFederlichtPayload() {
     throw new Error("Output report path is required.");
   }
   if (!Number.isFinite(payload.quality_iterations)) delete payload.quality_iterations;
+  if (!Number.isFinite(payload.temperature)) delete payload.temperature;
   if (!Number.isFinite(payload.max_chars)) delete payload.max_chars;
   if (!Number.isFinite(payload.max_pdf_pages)) delete payload.max_pdf_pages;
   return pruneEmpty(payload);
@@ -2948,7 +2971,11 @@ function buildPromptPayloadFromFederlicht() {
     template: $("#template-select")?.value,
     depth: $("#federlicht-depth")?.value,
     model: $("#federlicht-model")?.value,
+    template_rigidity: $("#federlicht-template-rigidity")?.value,
+    temperature_level: $("#federlicht-temperature-level")?.value,
+    temperature: Number.parseFloat($("#federlicht-temperature")?.value || ""),
   };
+  if (!Number.isFinite(payload.temperature)) delete payload.temperature;
   return pruneEmpty(payload);
 }
 
@@ -3832,6 +3859,21 @@ function normalizeApplyTo(value) {
     .filter(Boolean);
 }
 
+function isSixDigitProfileId(value) {
+  return /^\d{6}$/.test(String(value || "").trim());
+}
+
+function generateSiteProfileId() {
+  const used = new Set((state.agentProfiles.list || []).map((item) => String(item.id || "").trim()));
+  for (let i = 0; i < 512; i += 1) {
+    const candidate = String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
+    if (!used.has(candidate)) {
+      return candidate;
+    }
+  }
+  return String(Date.now() % 1000000).padStart(6, "0");
+}
+
 function renderAgentList() {
   const listEl = $("#agent-list");
   if (!listEl) return;
@@ -3896,6 +3938,8 @@ function fillAgentForm(profile, memoryText, source, readOnly) {
   const memoryHook = profile?.memory_hook || {};
   $("#agent-id").value = profile?.id || "";
   $("#agent-name").value = profile?.name || "";
+  $("#agent-author-name").value = profile?.author_name || profile?.name || "";
+  $("#agent-organization").value = profile?.organization || "";
   $("#agent-tagline").value = profile?.tagline || "";
   $("#agent-apply-to").value = (profile?.apply_to || []).join(", ");
   $("#agent-system-prompt").value = profile?.system_prompt || "";
@@ -3933,11 +3977,14 @@ async function openAgentProfile(id, source) {
 }
 
 function newAgentProfile() {
+  const generatedId = generateSiteProfileId();
   state.agentProfiles.activeId = "";
   state.agentProfiles.activeSource = "site";
   state.agentProfiles.activeProfile = {
-    id: "",
+    id: generatedId,
     name: "",
+    author_name: "",
+    organization: "",
     tagline: "",
     apply_to: [],
     system_prompt: "",
@@ -3947,12 +3994,17 @@ function newAgentProfile() {
   state.agentProfiles.readOnly = false;
   fillAgentForm(state.agentProfiles.activeProfile, "", "site", false);
   renderAgentList();
-  setAgentStatus("New profile (site) ready.");
+  setAgentStatus(`New profile (site) ready. Assigned ID ${generatedId}.`);
 }
 
 function readAgentForm() {
-  const id = $("#agent-id").value.trim();
+  let id = $("#agent-id").value.trim();
+  if (!isSixDigitProfileId(id)) {
+    id = generateSiteProfileId();
+  }
   const name = $("#agent-name").value.trim();
+  const authorName = $("#agent-author-name").value.trim();
+  const organization = $("#agent-organization").value.trim();
   const tagline = $("#agent-tagline").value.trim();
   const applyTo = normalizeApplyTo($("#agent-apply-to").value);
   const systemPrompt = $("#agent-system-prompt").value;
@@ -3962,6 +4014,8 @@ function readAgentForm() {
   const profile = {
     id,
     name,
+    author_name: authorName || name,
+    organization: organization || "",
     tagline,
     apply_to: applyTo,
     system_prompt: systemPrompt,
@@ -3977,15 +4031,12 @@ function readAgentForm() {
 
 async function saveAgentProfile() {
   try {
-    const { profile, memoryText } = readAgentForm();
-    if (!profile.id) {
-      setAgentStatus("Profile ID is required.");
-      return;
-    }
-    if (state.agentProfiles.readOnly && profile.id === state.agentProfiles.activeId) {
+    if (state.agentProfiles.readOnly) {
       setAgentStatus("Built-in profiles are read-only. Clone and save with a new ID.");
       return;
     }
+    const { profile, memoryText } = readAgentForm();
+    $("#agent-id").value = profile.id;
     setAgentStatus("Saving profile...");
     await fetchJSON("/api/agent-profiles/save", {
       method: "POST",
@@ -4030,11 +4081,11 @@ async function deleteAgentProfile() {
 
 function cloneAgentProfile() {
   const { profile, memoryText } = readAgentForm();
-  const base = profile.id || "profile";
-  profile.id = `${base}_copy`;
+  profile.id = generateSiteProfileId();
   $("#agent-id").value = profile.id;
+  $("#agent-memory-text").value = memoryText || "";
   state.agentProfiles.readOnly = false;
-  setAgentStatus("Cloned. Update the ID and save.");
+  setAgentStatus(`Cloned. New profile ID ${profile.id}.`);
 }
 
 async function loadAgentProfiles(selectId, selectSource) {

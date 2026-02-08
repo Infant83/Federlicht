@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-02-06 06:55:13",
+  "started_at": "2026-02-06 06:47:52",
+  "duration_seconds": 440.73,
+  "duration_hms": "00:07:20",
+  "model": "gpt-5.2-2025-12-11",
+  "model_vision": null,
+  "quality_model": "gpt-5.2-2025-12-11",
+  "quality_iterations": 1,
+  "quality_strategy": "pairwise",
+  "template": "custom_mit_tech_review",
+  "title": "VLA 일반주의 로봇 제품화 병목: 실시간성·배포비용",
+  "summary": "VLA 일반주의 로봇 제품화 병목: 실시간성·배포비용 Federlicht assisted and prompted by \"Hyun-Jung Kim / AI Governance Team\" — 2026-02-06 06:54 표지 보고서 제목 Physical AI 기술 리뷰 부제(키 메시지) VLA(vision-language-action) 기반 ‘일반주의 로봇’은 성능뿐 아니라 실시간성(지연/처…",
+  "output_format": "html",
+  "language": "Korean",
+  "author": "Hyun-Jung Kim / AI Governance Team",
+  "tags": [
+    "physical",
+    "기술",
+    "데이터",
+    "arxiv",
+    "NVIDIA"
+  ],
+  "free_format": false,
+  "pdf_status": "disabled",
+  "agent_profile": {
+    "id": "default",
+    "name": "Default",
+    "tagline": "General purpose research writer",
+    "version": "",
+    "apply_to": [
+      "writer"
+    ]
+  },
+  "report_stem": "report_full",
+  "stage_workflow": [
+    "1. scout: ran",
+    "2. clarifier: skipped (disabled)",
+    "3. template_adjust: skipped (disabled)",
+    "4. plan: disabled",
+    "5. web: disabled",
+    "6. evidence: ran",
+    "7. plan_check: disabled",
+    "8. writer: ran",
+    "9. quality: disabled"
+  ],
+  "report_workflow_path": "./report_notes/report_workflow.md",
+  "run_overview_path": "./report/run_overview.md",
+  "report_overview_path": "./report/run_overview_report_full.md",
+  "archive_index_path": "./archive/physical_ai_insight-index.md",
+  "instruction_path": "./instruction/generated_prompt_physical_ai_insight.txt",
+  "report_prompt_path": "./instruction/report_prompt_report_full.txt",
+  "figures_preview_path": "./report_views/figures_preview.html",
+  "site_index_path": "C:\\Users\\angpa\\myProjects\\FEATHER\\site\\index.html"
+}

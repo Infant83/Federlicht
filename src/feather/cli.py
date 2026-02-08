@@ -58,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
             super().__init__(prog, width=width, max_help_position=32)
 
     ap = argparse.ArgumentParser(
-        description="Feather-light knowledge intake. Non-LLM web/arXiv collector driven by TXT instructions.",
+        description="Feather collector (Federlicht platform): non-LLM evidence intake for web/arXiv/local sources via TXT instructions.",
         formatter_class=CleanHelpFormatter,
         epilog=epilog,
     )

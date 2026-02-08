@@ -4,7 +4,9 @@ description: Annual Review-style yearly synthesis.
 tone: Systematic, integrative, balanced.
 audience: Researchers and strategists.
 css: annual_review.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Abstract
 section: Introduction
 section: Year in Review
@@ -21,3 +23,5 @@ guide Future Directions: likely next steps and required validations.
 writer_guidance: Focus on year-to-year change and evidence trajectory.
 writer_guidance: Avoid overfitting to single-source signals.
 ---
+
+

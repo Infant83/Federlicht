@@ -4,5 +4,8 @@
   },
   "federhav": {
     "file": "federhav.json"
+  },
+  "ai_governance_team": {
+    "file": "ai_governance_team.json"
   }
 }

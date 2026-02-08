@@ -81,6 +81,9 @@ def _build_federlicht_cmd(cfg: FedernettConfig, payload: dict[str, Any]) -> list
     depth = payload.get("depth")
     if depth:
         cmd.extend(["--depth", str(depth)])
+    template_rigidity = payload.get("template_rigidity")
+    if template_rigidity:
+        cmd.extend(["--template-rigidity", str(template_rigidity)])
     prompt = payload.get("prompt")
     if prompt:
         cmd.extend(["--prompt", str(prompt)])
@@ -103,6 +106,12 @@ def _build_federlicht_cmd(cfg: FedernettConfig, payload: dict[str, Any]) -> list
     model_vision = expand_env_reference(payload.get("model_vision"))
     if model_vision:
         cmd.extend(["--model-vision", str(model_vision)])
+    temperature_level = payload.get("temperature_level")
+    if temperature_level:
+        cmd.extend(["--temperature-level", str(temperature_level)])
+    temperature = payload.get("temperature")
+    if temperature is not None and str(temperature) != "":
+        cmd.extend(["--temperature", str(temperature)])
     quality_iterations = payload.get("quality_iterations")
     if quality_iterations is not None and str(quality_iterations) != "":
         cmd.extend(["--quality-iterations", str(quality_iterations)])
@@ -179,12 +188,21 @@ def _build_generate_prompt_cmd(cfg: FedernettConfig, payload: dict[str, Any]) ->
     depth = payload.get("depth")
     if depth:
         cmd.extend(["--depth", str(depth)])
+    template_rigidity = payload.get("template_rigidity")
+    if template_rigidity:
+        cmd.extend(["--template-rigidity", str(template_rigidity)])
     model = expand_env_reference(payload.get("model"))
     if model:
         cmd.extend(["--model", str(model)])
     check_model = expand_env_reference(payload.get("check_model"))
     if check_model:
         cmd.extend(["--check-model", str(check_model)])
+    temperature_level = payload.get("temperature_level")
+    if temperature_level:
+        cmd.extend(["--temperature-level", str(temperature_level)])
+    temperature = payload.get("temperature")
+    if temperature is not None and str(temperature) != "":
+        cmd.extend(["--temperature", str(temperature)])
     cmd.extend(extra_args(payload.get("extra_args")))
     return cmd
 

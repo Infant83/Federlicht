@@ -4,7 +4,9 @@ description: Nature Reviews-style technical overview.
 tone: Formal, comprehensive, evidence-weighted.
 audience: Researchers and R&D leaders.
 css: nature_reviews.css
+
 latex: nature_journal.tex
+layout: sidebar_toc
 section: Abstract
 section: Introduction
 section: Current Landscape
@@ -25,3 +27,5 @@ guide Outlook: near- and mid-term trajectories with decision questions.
 writer_guidance: Use precise citations and clarify uncertainty.
 writer_guidance: Separate consensus findings from speculative signals.
 ---
+
+

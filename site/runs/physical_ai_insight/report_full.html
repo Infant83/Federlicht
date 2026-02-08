@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>VLA 일반주의 로봇 제품화 병목: 실시간성·배포비용</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    :root {
+      --bg: #0b0f14;
+      --bg-2: #121821;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f5f7fb;
+      --site-muted: rgba(245, 247, 251, 0.65);
+      --accent: #4ee0b5;
+      --accent-2: #6bd3ff;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(78, 224, 181, 0.25);
+      --ink: #0b1220;
+      --muted: #425066;
+      --accent-strong: #2fb892;
+      --paper: rgba(255, 255, 255, 0.94);
+      --paper-strong: #ffffff;
+      --paper-alt: rgba(240, 245, 255, 0.6);
+      --rule: rgba(15, 23, 42, 0.12);
+      --shadow: 0 28px 70px rgba(15, 23, 42, 0.22);
+      --link: var(--accent-2);
+      --link-hover: var(--accent);
+      --page-bg: radial-gradient(1200px 600px at 12% -10%, var(--glow), transparent 60%),
+        radial-gradient(900px 540px at 92% 8%, rgba(107, 211, 255, 0.18), transparent 55%),
+        linear-gradient(180deg, #0b111d 0%, var(--bg-2) 45%, var(--bg) 100%);
+      --body-font: "Fraunces", "Charter", Georgia, serif;
+      --heading-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --ui-font: "Space Grotesk", "Segoe UI", sans-serif;
+      --mono-font: "JetBrains Mono", "Consolas", monospace;
+    }
+    :root[data-theme="sky"] {
+      --bg: #0b1220;
+      --bg-2: #0f1b2e;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #f4f7ff;
+      --site-muted: rgba(244, 247, 255, 0.62);
+      --accent: #64b5ff;
+      --accent-2: #8fd1ff;
+      --edge: rgba(255, 255, 255, 0.18);
+      --glow: rgba(100, 181, 255, 0.28);
+      --accent-strong: #3f8ed1;
+    }
+    :root[data-theme="crimson"] {
+      --bg: #120a0d;
+      --bg-2: #1c0f16;
+      --card: rgba(255, 255, 255, 0.06);
+      --site-ink: #fff5f7;
+      --site-muted: rgba(255, 245, 247, 0.62);
+      --accent: #ff6b81;
+      --accent-2: #ff9aa9;
+      --edge: rgba(255, 255, 255, 0.15);
+      --glow: rgba(255, 107, 129, 0.25);
+      --accent-strong: #e3546d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--site-ink);
+      background: var(--page-bg);
+      font-family: var(--body-font);
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+      overflow-x: hidden;
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.6;
+      mix-blend-mode: screen;
+      filter: blur(0px);
+      animation: float 16s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 122, 89, 0.55), transparent 60%);
+      top: -220px;
+      left: -160px;
+    }
+    .orb-2 {
+      width: 440px;
+      height: 440px;
+      background: radial-gradient(circle at 60% 40%, rgba(14, 165, 164, 0.5), transparent 62%);
+      top: 80px;
+      right: -120px;
+      animation-delay: -4s;
+    }
+    .orb-3 {
+      width: 340px;
+      height: 340px;
+      background: radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.35), transparent 70%);
+      bottom: -180px;
+      left: 22%;
+      animation-delay: -8s;
+    }
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1040px;
+      margin: 56px auto 96px;
+      padding: 0 28px;
+    }
+    .masthead {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 22px 22px;
+      border: 1px solid var(--masthead-border, rgba(226, 232, 240, 0.18));
+      border-radius: 18px;
+      background: var(--masthead-bg, rgba(10, 14, 20, 0.55));
+      backdrop-filter: blur(8px);
+      margin-bottom: 36px;
+      color: var(--masthead-text, #f8fafc);
+      animation: fadeIn 0.7s ease-out both;
+    }
+    .masthead-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .kicker {
+      font-family: var(--ui-font);
+      font-size: 0.82rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--masthead-kicker, rgba(255, 255, 255, 0.68));
+    }
+    .back-link {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--ui-font);
+      font-size: 0.78rem;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--masthead-link-border, rgba(255, 255, 255, 0.2));
+      color: var(--masthead-link, rgba(255, 255, 255, 0.78));
+      background: var(--masthead-link-bg, rgba(15, 23, 42, 0.35));
+      transition: all 0.2s ease;
+    }
+    .back-link:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .report-title {
+      font-family: var(--heading-font);
+      font-size: clamp(2.2rem, 3.6vw, 3.6rem);
+      margin: 0;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: var(--masthead-title, #f8fafc);
+    }
+    .report-deck {
+      color: var(--masthead-deck, rgba(226, 232, 240, 0.8));
+      font-size: 1.05rem;
+      max-width: 720px;
+    }
+    .article {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 22px;
+      padding: 40px 44px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      animation: rise 0.8s ease-out both;
+    }
+    .article > * { animation: rise 0.6s ease-out both; }
+    .article > *:nth-child(1) { animation-delay: 0.05s; }
+    .article > *:nth-child(2) { animation-delay: 0.1s; }
+    .article > *:nth-child(3) { animation-delay: 0.15s; }
+    .article > *:nth-child(4) { animation-delay: 0.2s; }
+    .article > *:nth-child(5) { animation-delay: 0.25s; }
+    .article h1, .article h2, .article h3, .article h4 {
+      font-family: var(--heading-font);
+      color: var(--ink);
+    }
+    .article h1 { font-size: 2rem; margin-top: 0; }
+    .article h2 {
+      font-size: 1.55rem;
+      margin-top: 2.6rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--rule);
+      position: relative;
+      padding-left: 18px;
+    }
+    .article h2::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 1.45rem;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent-strong);
+    }
+    .article h3 { font-size: 1.2rem; margin-top: 1.7rem; color: #1f2937; }
+    .article p { font-size: 1.05rem; }
+    .article ul, .article ol { padding-left: 1.4rem; }
+    .article blockquote {
+      margin: 1.4rem 0;
+      padding: 1rem 1.2rem;
+      border-left: 3px solid var(--accent);
+      background: rgba(15, 23, 42, 0.04);
+    }
+    .article a {
+      color: var(--link);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .article a:hover { color: var(--link-hover); border-bottom-color: var(--link-hover); }
+    .article code {
+      font-family: var(--mono-font);
+      font-size: 0.94rem;
+      background: rgba(148, 163, 184, 0.14);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .article pre {
+      background: rgba(148, 163, 184, 0.18);
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    .article table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; }
+    .article th, .article td { border: 1px solid var(--rule); padding: 10px 12px; }
+    .article th { background: rgba(148, 163, 184, 0.15); text-align: left; }
+    .article tr:nth-child(even) td { background: rgba(148, 163, 184, 0.08); }
+    .article hr { border: none; border-top: 1px solid var(--rule); margin: 2rem 0; }
+    .viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 20;
+    }
+    .viewer-overlay.open { opacity: 1; pointer-events: auto; }
+    .viewer-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: min(480px, 92vw);
+      background: #fff;
+      box-shadow: -20px 0 60px rgba(15, 23, 42, 0.25);
+      transform: translateX(105%);
+      transition: transform 0.25s ease;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+    }
+    .viewer-panel.open { transform: translateX(0); }
+    .viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .viewer-title { font-size: 0.95rem; color: var(--ink); flex: 1; }
+    .viewer-actions { display: flex; gap: 8px; align-items: center; }
+    .viewer-actions a {
+      font-size: 0.78rem;
+      text-decoration: none;
+      color: var(--link);
+    }
+    .viewer-close {
+      border: none;
+      background: #1f2937;
+      color: #fff;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .viewer-frame { flex: 1; border: none; width: 100%; border-radius: 0 0 16px 16px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(18px); } }
+    body.template-custom_mit_tech_review { --bg:#f7f8fb; --fg:#0f1222; --muted:#5b6073; --accent:#3858e9; --accent-ink:#1c2da8; --ink-weak:#34384a; --line:#e7e9f2; --card:#ffffff; --masthead-bg:#0e1226; --masthead-deck:#a7b0d6; font-family:-apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:var(--fg); background:var(--bg); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; line-height:1.65; } body.template-custom_mit_tech_review .page { max-width: 960px; margin: 0 auto; padding: 24px; } body.template-custom_mit_tech_review header.masthead { background: var(--masthead-bg); color: #eef1ff; border-radius: 16px; padding: 36px 28px; margin: 24px auto 28px; box-shadow: 0 10px 24px rgba(10,12,28,0.28); } body.template-custom_mit_tech_review header.masthead .kicker { text-transform: uppercase; letter-spacing: .12em; font-weight: 700; font-size: 12px; color: #c9d0f2; margin-bottom: 10px; } body.template-custom_mit_tech_review header.masthead .title { font-size: clamp(28px, 4.4vw, 48px); line-height: 1.15; font-weight: 800; margin: 0 0 10px; letter-spacing: -0.02em; } body.template-custom_mit_tech_review header.masthead .deck { font-size: clamp(15px, 2.2vw, 18px); color: var(--masthead-deck); margin-top: 6px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.18); max-width: 72ch; } body.template-custom_mit_tech_review header.masthead .meta { margin-top: 14px; font-size: 13px; color: #d6dbff; display:flex; gap:12px; flex-wrap:wrap; } body.template-custom_mit_tech_review article { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px; box-shadow: 0 4px 12px rgba(20,22,40,0.06); } @media (min-width: 980px) { body.template-custom_mit_tech_review article { padding: 36px 40px; } } body.template-custom_mit_tech_review article .section { margin: 10px 0 34px; } body.template-custom_mit_tech_review h1, body.template-custom_mit_tech_review h2, body.template-custom_mit_tech_review h3 { color: var(--fg); line-height:1.25; margin: 24px 0 12px; font-weight: 800; letter-spacing: -0.01em; } body.template-custom_mit_tech_review h1 { font-size: 28px; } body.template-custom_mit_tech_review h2 { font-size: 22px; border-left: 4px solid var(--accent); padding-left: 10px; } body.template-custom_mit_tech_review h3 { font-size: 18px; color: var(--ink-weak); } body.template-custom_mit_tech_review p { margin: 10px 0 14px; color: var(--fg); } body.template-custom_mit_tech_review .lede { font-size: 18px; color: var(--ink-weak); } body.template-custom_mit_tech_review a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(56,88,233,0.2); } body.template-custom_mit_tech_review a:hover { color: var(--accent-ink); border-bottom-color: rgba(56,88,233,0.4); } body.template-custom_mit_tech_review ul, body.template-custom_mit_tech_review ol { margin: 8px 0 16px 20px; } body.template-custom_mit_tech_review li { margin: 6px 0; } body.template-custom_mit_tech_review blockquote { margin: 16px 0; padding: 12px 16px; border-left: 4px solid var(--accent); background: #f3f5ff; color: #2a2f49; border-radius: 8px; } body.template-custom_mit_tech_review .callout { background:#fff7e6; border:1px solid #ffe1ad; border-radius:10px; padding:12px 14px; } body.template-custom_mit_tech_review .byline { color: var(--muted); font-size: 13px; } body.template-custom_mit_tech_review .tags { display:flex; gap:8px; flex-wrap:wrap; } body.template-custom_mit_tech_review .tag { font-size:12px; padding:4px 8px; border-radius:999px; background:#eef1ff; color:#2b3690; } body.template-custom_mit_tech_review .figure { margin: 16px 0; } body.template-custom_mit_tech_review .figure figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; } body.template-custom_mit_tech_review .meta-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:14px; } @media (min-width: 900px){ body.template-custom_mit_tech_review .meta-grid { grid-template-columns: repeat(4, minmax(0,1fr)); } } body.template-custom_mit_tech_review .pill { display:inline-block; font-size:12px; padding:4px 10px; background:#eef2ff; color:#2530a8; border-radius:999px; border:1px solid #dfe4ff; } body.template-custom_mit_tech_review table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 12px 0 18px; font-size: 14px; background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; } body.template-custom_mit_tech_review thead th { background: #f1f3ff; color:#232a5e; text-align: left; font-weight: 700; padding: 12px 12px; border-bottom: 1px solid var(--line); } body.template-custom_mit_tech_review tbody td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; } body.template-custom_mit_tech_review tbody tr:nth-child(2n) td { background: #fafbff; } body.template-custom_mit_tech_review tbody tr:hover td { background: #f6f8ff; } body.template-custom_mit_tech_review .table-wrap { width:100%; overflow:auto; } body.template-custom_mit_tech_review .metric { font-feature-settings: 'tnum' on, 'lnum' on; } body.template-custom_mit_tech_review .footnote { font-size: 12px; color: var(--muted); } body.template-custom_mit_tech_review hr { border: 0; height: 1px; background: var(--line); margin: 24px 0; } body.template-custom_mit_tech_review .note { background:#f0f5ff; border-left:4px solid var(--accent); padding:10px 12px; border-radius:8px; } @media print { body.template-custom_mit_tech_review { background:#fff; } body.template-custom_mit_tech_review header.masthead { box-shadow:none; border:1px solid #dfe3f2; -webkit-print-color-adjust:exact; print-color-adjust:exact; } body.template-custom_mit_tech_review article { box-shadow:none; border: none; padding: 0; } body.template-custom_mit_tech_review a { color:#000; border-bottom: 1px solid #000; } }
+
+  </style>
+</head>
+<body class="theme-coral template-custom_mit_tech_review">
+  <div class="backdrop">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+  <div class="page">
+    <header class="masthead">
+      <div class="masthead-top">
+        <div class="kicker">FEDERLICHT</div>
+        <a class="back-link" id="back-link" href="#">목록으로</a>
+      </div>
+      <div class="report-title">VLA 일반주의 로봇 제품화 병목: 실시간성·배포비용</div>
+      <div class="report-deck">Research review and tech survey</div>
+    </header>
+    <main class="article">
+<h1>VLA 일반주의 로봇 제품화 병목: 실시간성·배포비용</h1>
+<p>Federlicht assisted and prompted by "Hyun-Jung Kim / AI Governance Team" — 2026-02-06 06:54</p>
+<h2>표지</h2>
+<h3>보고서 제목</h3>
+<p>Physical AI 기술 리뷰</p>
+<h3>부제(키 메시지)</h3>
+<p>VLA(vision-language-action) 기반 ‘일반주의 로봇’은 성능뿐 아니라 <strong>실시간성(지연/처리량)</strong>·<strong>배포비용(메모리/연산)</strong>이 제품화의 핵심 병목으로 부상(해석)</p>
+<h3>작성자/소속</h3>
+<p>시니어 연구 작성자 / (소속 미기재)</p>
+<h3>버전</h3>
+<p>v1.0</p>
+<h3>날짜</h3>
+<p>2026-02-05</p>
+<h3>Run ID</h3>
+<p>physical_ai_insight</p>
+<hr />
+<h2>경영진 요약</h2>
+<h3>핵심 발견(3–5)</h3>
+<ul>
+<li><strong>오픈소스 일반주의 로봇 정책/모델이 빠르게 ‘표준 레퍼런스’로 수렴</strong>: Octo는 Open X-Embodiment의 <strong>800k 로봇 에피소드</strong>로 사전학습한 transformer 정책이며, 언어/목표이미지 지시 및 <strong>소비자 GPU 수 시간 파인튜닝</strong>을 강조합니다(<a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>; <a href="report_views/archive_arxiv_text_2405.12213v2.txt-f32cce37.html" data-viewer="report_views/archive_arxiv_text_2405.12213v2.txt-f32cce37.html" data-raw="archive/arxiv/text/2405.12213v2.txt" class="viewer-link">[2]</a>). OpenVLA는 <strong>7B</strong> VLA를 <strong>970k 에피소드</strong>로 학습하고, RT-2-X(55B) 대비 <strong>29개 과제에서 성공률 +16.5%p</strong>를 주장하며 체크포인트·파이프라인을 <strong>fully open-source</strong>로 배포합니다(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>; <a href="report_views/archive_arxiv_text_2406.09246v3.txt-a15bb041.html" data-viewer="report_views/archive_arxiv_text_2406.09246v3.txt-a15bb041.html" data-raw="archive/arxiv/text/2406.09246v3.txt" class="viewer-link">[4]</a>).</li>
+<li><strong>‘정확도’에서 ‘서빙(실시간)’으로 연구 중심축이 이동</strong>: RTC는 VLA의 고지연이 chunk 경계에서 멈칫/jerky movement를 유발한다고 지적하며, 재학습 없이 적용 가능한 <strong>비동기 실행(real-time chunking)</strong>을 제안하고 <strong>300ms 초과 지연</strong>에서도 정밀 과제 성공을 보고합니다(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>; <a href="report_views/archive_arxiv_text_2506.07339v2.txt-c097dce6.html" data-viewer="report_views/archive_arxiv_text_2506.07339v2.txt-c097dce6.html" data-raw="archive/arxiv/text/2506.07339v2.txt" class="viewer-link">[6]</a>). PD‑VLA는 action chunking이 추론을 느리게 만든다는 문제의식에서 출발해 <strong>training-free 병렬 디코딩</strong>으로 <strong>실행 주파수 2.52×(7-DoF)</strong>를 보고합니다(<a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>; <a href="report_views/archive_arxiv_text_2503.02310v1.txt-04247983.html" data-viewer="report_views/archive_arxiv_text_2503.02310v1.txt-04247983.html" data-raw="archive/arxiv/text/2503.02310v1.txt" class="viewer-link">[8]</a>).</li>
+<li><strong>메모리/전력 제약을 정면 돌파하는 ‘초저비트 VLA’가 등장</strong>: BitVLA는 모든 파라미터를 ternary $\{-1,0,1\}$로 두는 <strong>“first 1-bit VLA”</strong>를 표방하고, LIBERO에서 4-bit PTQ(OpenVLA-OFT)와 유사 성능이면서 <strong>메모리 29.8%</strong> 사용을 보고, 코드/가중치 공개를 명시합니다(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>; <a href="report_views/archive_arxiv_text_2506.07530v1.txt-2aab5553.html" data-viewer="report_views/archive_arxiv_text_2506.07530v1.txt-2aab5553.html" data-raw="archive/arxiv/text/2506.07530v1.txt" class="viewer-link">[10]</a>).</li>
+<li><strong>휴머노이드/양팔 조작은 ‘듀얼 시스템’과 ‘데이터 혼합’(실로봇+비디오+합성)로 확장</strong>: GR00T N1은 VLA와 <strong>dual-system architecture</strong>(System 2: VLM, System 1: diffusion transformer로 실시간 motor actions) 및 <strong>실로봇 궤적+인간 비디오+합성 데이터</strong> 혼합 학습을 기술하고, Fourier GR-1 휴머노이드에서 언어 조건 양손 조작을 서술합니다(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>; <a href="report_views/archive_arxiv_text_2503.14734v2.txt-07eaa8b8.html" data-viewer="report_views/archive_arxiv_text_2503.14734v2.txt-07eaa8b8.html" data-raw="archive/arxiv/text/2503.14734v2.txt" class="viewer-link">[12]</a>). (해석) 이는 제조/물류 등 현장 적용에서 ‘행동 생성의 실시간 루프’와 ‘안전한 상위 추론’ 분리를 촉진할 가능성이 큽니다.</li>
+<li><strong>공개정보 한계</strong>: 본 리뷰는 <strong>arXiv 논문 10편</strong>과 NVIDIA Glossary 웹 덤프 1개에 한정되어, 시장규모/규제 동향/장기 현장 KPI 등은 외삽하지 않았습니다(제안). 또한 NVIDIA Glossary의 Physical AI 정의 문장(직접 인용)은 현재 덤프 구간에서 확인이 불완전하여 본문에서는 ‘정의의 핵심 개념’만 보수적으로 요약합니다(<a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">[13]</a>).</li>
+</ul>
+<h3>사업/연구적 함의</h3>
+<ul>
+<li>(해석) <strong>성공률 경쟁만으로는 제품화를 설명할 수 없고</strong>, 지연(예: 300ms+), 실행 주파수(예: 2.52×), 메모리(예: 29.8%) 같은 <strong>서빙 지표가 로봇 SKU/원가/TCO를 직접 결정</strong>하는 국면입니다(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>; <a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>; <a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).</li>
+<li>(해석) 오픈소스(OpenVLA/Octo/BitVLA)가 확산되며, <strong>데이터(에피소드 규모/다양성)</strong>와 <strong>배포 파이프라인(양자화/가속/실시간 실행)</strong>이 차별화 축이 됩니다(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>; <a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>; <a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).</li>
+</ul>
+<h3>즉시 액션(3–5)</h3>
+<ul>
+<li>(제안) <strong>‘실시간성’ 우선 파일럿</strong>: 현장 지연 조건(원격추론/저전력 엣지)을 가정해 RTC 적용 전·후의 throughput/성공률/안정성을 사내 태스크로 측정합니다(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>).</li>
+<li>(제안) <strong>오픈소스 VLA 기준선 구축</strong>: OpenVLA 체크포인트 + 소비자 GPU 파인튜닝(LoRA 등) + 양자화 서빙을 “내부 표준 스택”으로 문서화합니다(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>).</li>
+<li>(제안) <strong>추론 가속 트랙 병행</strong>: chunk 기반 정책에는 PD‑VLA 같은 training-free 가속을 적용해, 제어 주기 요구(Hz) 충족 가능성을 조기에 검증합니다(<a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>).</li>
+<li>(제안) <strong>메모리 제약 제품군(저가형/배터리형)엔 초저비트 옵션 탐색</strong>: BitVLA류 압축을 “성공률 유지”가 아니라 “성공률-메모리-전력” 3자 최적화로 평가합니다(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).</li>
+<li>(제안) <strong>휴머노이드/양팔은 듀얼-시스템 안전 아키텍처 검토</strong>: 상위 VLM 추론과 하위 실시간 액션 생성 분리 설계를 GR00T N1을 참조해 설계 검토 항목으로 채택합니다(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>).</li>
+</ul>
+<hr />
+<h2>Physical AI 개요</h2>
+<h3>용어 정의</h3>
+<p>Physical AI는 (일반적 정의로) AI가 <strong>물리 세계에서의 지각–이해–행동</strong>의 폐루프를 통해 자율적으로 과업을 수행하도록 하는 접근을 의미합니다(해석). NVIDIA는 Physical AI를 자율 시스템이 물리 세계에서 지각·이해·행동하도록 하는 개념으로 설명하는 Glossary 페이지를 제공합니다(<a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">[13]</a>).<br />
+※ 단, 해당 페이지의 <strong>정확한 정의 문장(영문 원문) 직접 인용</strong>은 현재 제공된 덤프 구간에서 확인이 불완전하여, 본 보고서는 직인용 대신 보수적 요약만 사용합니다(<a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">[13]</a>).</p>
+<h3>기술 스택(요약)</h3>
+<ul>
+<li><strong>센서/관측</strong>: RGB(고정/손목 카메라), proprioception 등 다양한 관측 토큰을 수용하는 일반주의 정책 설계가 강조됩니다(해석). Octo는 다양한 관측/액션 공간을 토큰화해 transformer에 입력하는 방향을 제시합니다(<a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>).</li>
+<li><strong>모델(정책)</strong>: VLA(vision-language-action) 계열이 주류로, VLM/LLM 백본 위에 로봇 행동 생성을 결합합니다. OpenVLA는 Llama 2 + 비전 인코더(DINOv2, SigLIP 특징 융합)를 기반으로 VLA를 구성합니다(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>).</li>
+<li><strong>액션 표현/제어</strong>: action chunking, diffusion/flow 기반 정책, 비동기 실행(RTC), 병렬 디코딩(PD‑VLA) 등 <strong>시간축 제어 안정성과 지연 내성</strong>이 핵심 이슈로 부상합니다(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>; <a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>).</li>
+<li><strong>배포 최적화</strong>: 양자화/저비트(1-bit VLA)로 메모리·전력 제약을 완화하려는 시도가 가속됩니다(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).</li>
+<li><strong>휴머노이드 시스템</strong>: 고자유도·양팔 조작에서 듀얼 시스템(고수준 추론 vs 실시간 행동 생성)과 데이터 혼합(실로봇+비디오+합성)이 강조됩니다(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>).</li>
+</ul>
+<h3>대표 응용 영역</h3>
+<p>물류 피킹/패킹, 제조 조립/검사, 서비스 로봇(테이블 정리 등), 휴머노이드 범용 작업(해석). 본 번들에서는 조작(manipulation) 중심 논문이 다수입니다(<a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>; <a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>).</p>
+<h3>현재 한계(1–2문장)</h3>
+<p>(해석) 실제 제품화에서는 성공률뿐 아니라 <strong>지연·실행 주파수·메모리·원격추론 오버헤드</strong>가 병목이며, 이를 완화하기 위한 “추론 시간 알고리즘(RTC/PD‑VLA)”과 “저비트 모델(BitVLA)”이 동시에 전개되고 있습니다(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>; <a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>; <a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).</p>
+<hr />
+<h2>리뷰 범위와 방법</h2>
+<h3>범위(포함 소스)</h3>
+<ul>
+<li><strong>arXiv 논문 10편</strong>: Octo, OpenVLA, $π_{0}$, CogACT, RoboVLMs, Gemini Robotics, GR00T N1, PD‑VLA, RTC, BitVLA(각 arXiv ID는 다이제스트에 병기).</li>
+<li><strong>웹 소스 1개</strong>: NVIDIA Glossary “What is Physical AI?” 덤프(<a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">[13]</a>).</li>
+</ul>
+<h3>제외/제약(공개정보 한계)</h3>
+<ul>
+<li>(사실) 이번 런은 스카우트 노트 기준 arXiv 10편+웹 1개 중심이며, Tavily Search/OpenAlex/YouTube/manifest 인덱스 부재로 추가 외부 교차검증 범위가 제한됩니다(해석). 또한 Glossary 정의 문장의 직접 인용이 덤프에서 불완전합니다(<a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">[13]</a>).</li>
+</ul>
+<h3>평가 프레임(각 논문 공통)</h3>
+<ul>
+<li><strong>신규성</strong>: 새로운 아키텍처/추론 알고리즘/압축 기여 여부</li>
+<li><strong>실증 강도</strong>: 시뮬/실로봇/다중 로봇/휴머노이드, 과제 수·설정 다양성</li>
+<li><strong>재현성</strong>: 코드/가중치/데이터·레시피 공개 여부(논문 내 명시 기준)</li>
+<li><strong>산업 적합성</strong>: 지연·주파수·메모리·배포 난이도, 안전 고려 언급 여부</li>
+</ul>
+<hr />
+<h2>논문 다이제스트</h2>
+<blockquote>
+<p>형식: 메타데이터 → 기여 → 방법/데이터 → 주요 결과 → 강점/한계 → 산업 함의·리스크 → 재현성 메모<br />
+(각 250–400자 내 요약을 목표로 하되, 근거 문구/수치 포함을 우선했습니다.)</p>
+</blockquote>
+<h3>Octo (arXiv:2405.12213v2)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>Octo: An Open-Source Generalist Robot Policy</em>, Octo Model Team, arXiv:2405.12213v2(<a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>).</li>
+<li><strong>요약</strong>: Open X-Embodiment의 <strong>800k 에피소드</strong>로 사전학습한 <strong>transformer 기반 오픈소스 조작 정책</strong>. 언어 명령/목표 이미지로 지시하며, 새 관측·액션 공간에 <strong>소비자 GPU 수 시간</strong> 파인튜닝을 제시. 9개 로봇 플랫폼 실험과 설계 ablation을 포함. 강점은 멀티로봇·유연 인터페이스, 한계는 현장 안전/지연 지표가 본문 요약만으로는 불명확(해석).(<a href="report_views/archive_arxiv_text_2405.12213v2.txt-f32cce37.html" data-viewer="report_views/archive_arxiv_text_2405.12213v2.txt-f32cce37.html" data-raw="archive/arxiv/text/2405.12213v2.txt" class="viewer-link">[2]</a>)</li>
+</ul>
+<h3>OpenVLA (arXiv:2406.09246v3)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>OpenVLA: An Open-Source Vision-Language-Action Model</em>, arXiv:2406.09246v3(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>).</li>
+<li><strong>요약</strong>: <strong>7B</strong> 오픈소스 VLA를 <strong>Open X-Embodiment 970k 에피소드</strong>로 학습. RT-2-X(55B) 대비 <strong>29개 과제에서 성공률 +16.5%p</strong>, 파라미터 <strong>7× 적음</strong>을 주장. 체크포인트·PyTorch 파이프라인 <strong>fully open-source</strong>, HuggingFace 다운로드/파인튜닝 가능. 소비자 GPU LoRA 파인튜닝과 양자화 서빙도 언급. 한계는 실제 현장 조건의 지연/안전 검증 범위가 자료만으로 제한(해석).(<a href="report_views/archive_arxiv_text_2406.09246v3.txt-a15bb041.html" data-viewer="report_views/archive_arxiv_text_2406.09246v3.txt-a15bb041.html" data-raw="archive/arxiv/text/2406.09246v3.txt" class="viewer-link">[4]</a>)</li>
+</ul>
+<h3>$π_{0}$ (arXiv:2410.24164v4)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>$π_{0}$: A Vision-Language-Action Flow Model for General Robot Control</em>, arXiv:2410.24164v4(<a href="http://arxiv.org/abs/2410.24164v4" target="_blank" rel="noopener">[14]</a>).</li>
+<li><strong>요약</strong>: 사전학습 VLM 위에 <strong>action expert</strong>를 추가하고 <strong>flow matching</strong>으로 연속 액션을 생성해 정밀 조작을 목표. 프롬프트 직접 수행 또는 고품질 데이터 파인튜닝으로 <strong>멀티스테이지 작업</strong>(빨래 개기/박스 조립 등)을 제시. 강점은 연속 제어/정밀성 지향, 한계는 배포 지연·실시간 루프 관점 수치가 본 번들 요약에선 부족(해석).(<a href="http://arxiv.org/abs/2410.24164v4" target="_blank" rel="noopener">[14]</a>; <a href="report_views/archive_arxiv_text_2410.24164v4.txt-f1f8762d.html" data-viewer="report_views/archive_arxiv_text_2410.24164v4.txt-f1f8762d.html" data-raw="archive/arxiv/text/2410.24164v4.txt" class="viewer-link">[15]</a>)</li>
+</ul>
+<h3>CogACT (arXiv:2411.19650v1)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>CogACT: A Foundational Vision-Language-Action Model for Synergizing Cognition and Action in Robotic Manipulation</em>, arXiv:2411.19650v1(<a href="http://arxiv.org/abs/2411.19650v1" target="_blank" rel="noopener">[16]</a>).</li>
+<li><strong>요약</strong>: VLM→VLA 전환에서 단순 action quantization에 대한 문제의식을 제기하고 <strong>componentized VLA architecture</strong>를 제안. OpenVLA/RT-2-X/Octo/RT-1 계열과의 성공률 비교를 시뮬+실세계 다로봇에서 수행한다고 밝힘. 강점은 ‘인지-행동’ 결합 아키텍처 방향성, 한계는 본 번들에서 구체 수치/오픈소스 범위 인용이 제한(해석).(<a href="http://arxiv.org/abs/2411.19650v1" target="_blank" rel="noopener">[16]</a>; <a href="report_views/archive_arxiv_text_2411.19650v1.txt-49d8b747.html" data-viewer="report_views/archive_arxiv_text_2411.19650v1.txt-49d8b747.html" data-raw="archive/arxiv/text/2411.19650v1.txt" class="viewer-link">[17]</a>)</li>
+</ul>
+<h3>RoboVLMs (arXiv:2412.14058v3)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>Towards Generalist Robot Policies: What Matters in Building Vision-Language-Action Models</em>, arXiv:2412.14058v3(<a href="http://arxiv.org/abs/2412.14058v3" target="_blank" rel="noopener">[18]</a>).</li>
+<li><strong>요약</strong>: VLA 설계 선택지(백본, 정책 아키텍처, cross-embodiment 데이터 투입 시점 등)를 체계화하고 <strong>8개+ VLM 백본, 4개 정책 아키텍처, 600+ 실험</strong>을 수행했다고 명시. RoboVLMs 프레임워크로 코드·모델·데이터셋·툴킷 및 학습/평가 레시피 공개를 강조. 강점은 ‘무엇이 중요한가’에 대한 실험적 지도, 한계는 산업형 KPI(지연/TCO)까지 직접 연결은 추가 작업 필요(해석).(<a href="http://arxiv.org/abs/2412.14058v3" target="_blank" rel="noopener">[18]</a>; <a href="report_views/archive_arxiv_text_2412.14058v3.txt-d1716158.html" data-viewer="report_views/archive_arxiv_text_2412.14058v3.txt-d1716158.html" data-raw="archive/arxiv/text/2412.14058v3.txt" class="viewer-link">[19]</a>)</li>
+</ul>
+<h3>Gemini Robotics (arXiv:2503.20020v1)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>Gemini Robotics: Bringing AI into the Physical World</em>, arXiv:2503.20020v1(<a href="http://arxiv.org/abs/2503.20020v1" target="_blank" rel="noopener">[20]</a>).</li>
+<li><strong>요약</strong>: Gemini 2.0 기반 로보틱스 모델 패밀리로 <strong>Gemini Robotics(VLA)</strong>와 <strong>Gemini Robotics-ER(Embodied Reasoning)</strong>를 소개. 파인튜닝으로 종이접기/카드게임 등 장기 과제, <strong>100개 데모</strong>로 단기 과제 학습, 양팔·고자유도 휴머노이드 등 새 embodiment 적응을 주장하며 <strong>safety considerations</strong>를 논의한다고 명시. 강점은 추론(ER)과 제어의 결합, 한계는 오픈소스/재현성 범위가 본 요약에서 제한(해석).(<a href="http://arxiv.org/abs/2503.20020v1" target="_blank" rel="noopener">[20]</a>; <a href="report_views/archive_arxiv_text_2503.20020v1.txt-4443a392.html" data-viewer="report_views/archive_arxiv_text_2503.20020v1.txt-4443a392.html" data-raw="archive/arxiv/text/2503.20020v1.txt" class="viewer-link">[21]</a>)</li>
+</ul>
+<h3>GR00T N1 (arXiv:2503.14734v2)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>GR00T N1: An Open Foundation Model for Generalist Humanoid Robots</em>, arXiv:2503.14734v2(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>).</li>
+<li><strong>요약</strong>: 휴머노이드용 오픈 파운데이션 모델을 표방. <strong>VLA + dual-system architecture</strong>로 System 2(vision-language)와 System 1(diffusion transformer 기반 실시간 motor actions)을 결합하고 end-to-end 공동학습을 명시. <strong>실로봇 궤적+인간 비디오+합성 데이터</strong> 혼합 학습 및 Fourier GR-1 휴머노이드 배치(언어 조건 양손 조작)를 서술. 강점은 휴머노이드 확장성, 한계는 현장 안전 인증/규제 적합성은 별도 검증 필요(해석).(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>; <a href="report_views/archive_arxiv_text_2503.14734v2.txt-07eaa8b8.html" data-viewer="report_views/archive_arxiv_text_2503.14734v2.txt-07eaa8b8.html" data-raw="archive/arxiv/text/2503.14734v2.txt" class="viewer-link">[12]</a>)</li>
+</ul>
+<h3>PD‑VLA (arXiv:2503.02310v1)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>Accelerating Vision-Language-Action Model Integrated with Action Chunking via Parallel Decoding</em>, arXiv:2503.02310v1(<a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>).</li>
+<li><strong>요약</strong>: action chunking이 chunk 크기 $m$ 증가 시 7-DoF 조작에서 <strong>$7m$ 차원</strong> 시퀀스로 추론 부담이 커진다고 지적. <strong>병렬 디코딩</strong>으로 AR 디코딩을 고정점 반복으로 재구성해 <strong>아키텍처 변경 없이(training-free) 가속</strong>을 주장. 시뮬에서 기본 VLA 대비 <strong>실행 주파수 2.52×</strong>(7-DoF) 보고, 실세계 실험으로 적용 가능성도 언급. 강점은 배포 친화 가속, 한계는 모델 품질/안전 영향의 과제별 정밀 분해가 추가로 필요(해석).(<a href="report_views/archive_arxiv_text_2503.02310v1.txt-04247983.html" data-viewer="report_views/archive_arxiv_text_2503.02310v1.txt-04247983.html" data-raw="archive/arxiv/text/2503.02310v1.txt" class="viewer-link">[8]</a>)</li>
+</ul>
+<h3>RTC (arXiv:2506.07339v2)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>Real-Time Execution of Action Chunking Flow Policies</em>, arXiv:2506.07339v2(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>).</li>
+<li><strong>요약</strong>: 고지연 VLA가 chunk 경계에서 <strong>pauses/jerky movements</strong>를 유발한다고 보고, 재학습 없이 적용 가능한 추론 알고리즘 <strong>RTC</strong> 제안. 현재 chunk 실행과 다음 chunk 생성을 <strong>비동기</strong>로 겹치고, 실행 보장 액션은 “freeze”, 나머지는 “inpainting”. <strong>300ms 초과 지연</strong>에서도 정밀 과제(성냥 켜기 등) 성공률/처리량 개선을 주장하며, Kinetix 시뮬 12개 동적 과제 및 실세계 양팔 6개 과제로 평가. 강점은 실시간성 직접 겨냥, 한계는 적용 대상이 diffusion/flow 기반에 초점(해석).(<a href="report_views/archive_arxiv_text_2506.07339v2.txt-c097dce6.html" data-viewer="report_views/archive_arxiv_text_2506.07339v2.txt-c097dce6.html" data-raw="archive/arxiv/text/2506.07339v2.txt" class="viewer-link">[6]</a>)</li>
+</ul>
+<h3>BitVLA (arXiv:2506.07530v1)</h3>
+<ul>
+<li><strong>메타데이터</strong>: <em>BitVLA: 1-bit Vision-Language-Action Models for Robotics Manipulation</em>, arXiv:2506.07530v1(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).</li>
+<li><strong>요약</strong>: 모든 파라미터가 ternary $\{-1,0,1\}$인 <strong>“first 1-bit VLA”</strong>를 제안. 비전 인코더는 distillation-aware 학습으로 <strong>1.58-bit weights</strong>까지 메모리 절감을 시도. LIBERO에서 4-bit PTQ(OpenVLA-OFT)와 유사 성능이면서 <strong>메모리 29.8%</strong>만 사용했다고 보고하며, <strong>코드/가중치 공개(GitHub)</strong>를 명시. 강점은 엣지 배포 가능성, 한계는 대규모 로봇 사전학습 부재 조건에서의 일반화 범위가 추가 검증 필요(해석).(<a href="report_views/archive_arxiv_text_2506.07530v1.txt-2aab5553.html" data-viewer="report_views/archive_arxiv_text_2506.07530v1.txt-2aab5553.html" data-raw="archive/arxiv/text/2506.07530v1.txt" class="viewer-link">[10]</a>)</li>
+</ul>
+<hr />
+<h2>비교 분석 및 동향</h2>
+<h3>축별 비교 매트릭스(요약 표)</h3>
+<p><strong>표 1. Physical AI(로봇 조작 중심) 연구의 ‘성능–실시간–배포’ 축 비교</strong><br />
+<em>So-what</em>: 동일한 VLA 계열이라도 <strong>병목이 ‘학습’인지 ‘추론 지연’인지 ‘메모리’인지</strong>에 따라 투자/제품 전략이 갈립니다(해석).</p>
+<table>
+<thead>
+<tr>
+<th>논문</th>
+<th>과제/도메인</th>
+<th>모달리티</th>
+<th>액션/시간 표현</th>
+<th>학습/적용 포인트</th>
+<th>실증 수준(요약)</th>
+<th>서빙(지연/주파수)</th>
+<th>압축/효율</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Octo</td>
+<td>조작 generalist</td>
+<td>vision+task(언어/목표이미지)+proprio 등(유연)</td>
+<td>토큰 기반 정책</td>
+<td>800k OXE 사전학습, 빠른 파인튜닝</td>
+<td>9 플랫폼 실험 언급</td>
+<td>소비자 GPU “수 시간” 파인튜닝(<a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>)</td>
+<td>-</td>
+</tr>
+<tr>
+<td>OpenVLA</td>
+<td>조작 generalist</td>
+<td>vision+language+action</td>
+<td>VLA(언어→액션 생성)</td>
+<td>7B, 970k OXE 학습, LoRA/양자화 서빙</td>
+<td>29 tasks, 다중 embodiment</td>
+<td>성공률 +16.5%p vs RT-2-X, 양자화 서빙 언급(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>)</td>
+<td>양자화 서빙 “without a hit” 언급(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>)</td>
+</tr>
+<tr>
+<td>$π_{0}$</td>
+<td>범용 제어</td>
+<td>VLM + action expert</td>
+<td>flow matching 연속 액션</td>
+<td>프롬프트/파인튜닝</td>
+<td>멀티스테이지 작업 예시</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>CogACT</td>
+<td>조작</td>
+<td>VLA</td>
+<td>componentized architecture</td>
+<td>quantization 중심 접근 비판</td>
+<td>시뮬+실세계 비교 언급</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>RoboVLMs</td>
+<td>VLA 설계론</td>
+<td>VLA 전반</td>
+<td>-</td>
+<td>600+ 실험으로 설계 가이드</td>
+<td>광범위 실험</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Gemini Robotics</td>
+<td>범용 로보틱스</td>
+<td>VLA + ER(추론)</td>
+<td>-</td>
+<td>100 demos 학습 주장, safety 고려</td>
+<td>휴머노이드 포함 주장</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>GR00T N1</td>
+<td>휴머노이드</td>
+<td>vision+language+action</td>
+<td>System1(diffusion action) + System2(VLM)</td>
+<td>실로봇+비디오+합성 혼합</td>
+<td>Fourier GR-1 배치 서술</td>
+<td>실시간 motor actions 생성(System1)(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>)</td>
+<td>-</td>
+</tr>
+<tr>
+<td>PD‑VLA</td>
+<td>chunk 정책 가속</td>
+<td>VLA+chunking</td>
+<td>병렬 디코딩</td>
+<td>training-free 가속</td>
+<td>시뮬+실세계 언급</td>
+<td>실행 주파수 2.52×(7-DoF)(<a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>)</td>
+<td>-</td>
+</tr>
+<tr>
+<td>RTC</td>
+<td>실시간 chunk 실행</td>
+<td>diffusion/flow 기반 VLA</td>
+<td>비동기 chunk + inpainting</td>
+<td>재학습 없이 적용</td>
+<td>Kinetix 12 + 실세계 양팔 6</td>
+<td>300ms+ 지연에서도 성능, 20% faster 사례(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>)</td>
+<td>-</td>
+</tr>
+<tr>
+<td>BitVLA</td>
+<td>엣지 배포</td>
+<td>VLA</td>
+<td>-</td>
+<td>1-bit(ternary)</td>
+<td>LIBERO 평가</td>
+<td>-</td>
+<td>메모리 29.8%, 비전 인코더 1.58-bit(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>)</td>
+</tr>
+</tbody>
+</table>
+<h3>주요 동향(종합)</h3>
+<ul>
+<li><strong>데이터 규모는 ‘수십만~백만 에피소드’가 사실상 출발선</strong>: Octo(800k), OpenVLA(970k)가 대규모 OXE 기반을 전면에 둡니다(<a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>; <a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>). (해석) 데이터 접근성이 제품/연구 격차를 좌우할 가능성이 큽니다.</li>
+<li><strong>추론 시간 혁신이 “모델 교체”가 아니라 “알고리즘 덧대기”로 진행</strong>: PD‑VLA, RTC는 재학습/아키텍처 변경 없이 배포 단계에서 적용 가능한 가속/비동기 실행을 핵심 가치로 둡니다(<a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>; <a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>).  </li>
+<li><strong>초저비트는 ‘로봇 엣지’의 현실 제약(메모리/전력)을 정면 타격</strong>: BitVLA는 성능 경쟁보다 배포 가능성을 지표(메모리 29.8%)로 제시합니다(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).</li>
+<li><strong>휴머노이드는 시스템 아키텍처(듀얼 시스템)와 데이터 혼합이 핵심 설계 변수</strong>: GR00T N1이 이를 명시적으로 구조화합니다(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>).</li>
+</ul>
+<hr />
+<h2>미래 전망과 로드맵</h2>
+<h3>0–12개월: “실시간 파일럿 + 오픈소스 기준선” 단계</h3>
+<ul>
+<li><strong>기대 성과</strong>: 오픈소스 VLA(OpenVLA) 또는 정책(Octo)을 내부 태스크에 이식하고, 지연 조건에서 RTC/PD‑VLA로 성능 저하를 완화(전망). OpenVLA의 오픈 파이프라인과 다로봇 성능 주장, Octo의 빠른 파인튜닝 주장이 기반입니다(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>; <a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>).</li>
+<li><strong>필요 브레이크스루</strong>: 지연/주파수 KPI를 제품 요구로 역산해, 추론 파이프라인(비동기/병렬/양자화)의 “표준 구성”을 정립(제안). PD‑VLA의 2.52×, RTC의 300ms+ 지연 내성 논지가 근거입니다(<a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>; <a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>).</li>
+<li><strong>성공 지표(KPI)</strong>: (제안) 과제 성공률 + 평균/최악 지연(ms) + 제어 주파수(Hz) + 에피소드당 실패 형태(멈칫/불연속) + 메모리 사용량.</li>
+</ul>
+<h3>12–36개월: “엣지 배포/양팔·휴머노이드 확장” 단계</h3>
+<ul>
+<li><strong>기대 성과</strong>: BitVLA류 저비트로 SKU를 분화(저가형/배터리형)하고, 양팔·휴머노이드에 듀얼 시스템을 적용해 안정성과 실시간성 동시 개선(전망). BitVLA의 메모리 29.8%, GR00T N1의 dual-system 및 데이터 혼합이 실마리입니다(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>; <a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>).</li>
+<li><strong>필요 브레이크스루</strong>: (제안) 저비트에서의 안전/강건성 평가 프로토콜(실패 시나리오, 분포이탈) 정착, 그리고 현장 로그 기반 재학습/검증 루프 구축.</li>
+<li><strong>성공 지표(KPI)</strong>: (제안) 임무당 에너지(Wh), 엣지 디바이스 상 실시간 제어 유지율, 유지보수/재학습 주기, 휴머노이드 조작의 반복정밀도.</li>
+</ul>
+<h3>36개월+: “표준화·규제·책임 프레임 내 상용 확산” 단계</h3>
+<ul>
+<li><strong>기대 성과</strong>: VLA가 ‘로봇 OS 위의 범용 정책 계층’으로 자리잡고, 실시간·저비트·안전 요구가 표준 사양으로 정착(전망).</li>
+<li><strong>선결 과제(기술/데이터/인력/규제)</strong>:</li>
+<li>기술: 지연에 강한 제어(비동기/병렬)와 고정밀 작업의 양립(RTC/PD‑VLA 방향의 일반화)(전망).(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>; <a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>)</li>
+<li>데이터: cross-embodiment 데이터 혼합 및 레시피 재현성(RoboVLMs의 실험적 가이드 활용)(전망).(<a href="http://arxiv.org/abs/2412.14058v3" target="_blank" rel="noopener">[18]</a>)</li>
+<li>인력: 로보틱스+ML+시스템(서빙/가속)+안전 엔지니어링의 결합(제안).</li>
+<li>규제: 본 번들에 직접 근거가 없어 구체 규제는 단정하지 않으며, “안전/책임 요구가 강화될 것” 수준으로만 보수적 전망(전망).</li>
+</ul>
+<hr />
+<h2>산업적 비판과 리스크</h2>
+<h3>안전·책임</h3>
+<ul>
+<li>(해석) RTC가 “지연이 커피를 쏟는 위험”처럼 물리적 위해로 직결될 수 있음을 서술하듯, 로봇은 지연/불연속이 안전 리스크로 전환됩니다(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>).  </li>
+<li><strong>완화(제안)</strong>: (1) 지연 주입(latency injection) 테스트를 인증 전 단계에 포함, (2) 비동기 실행 도입 시 ‘freeze/inpainting’ 같은 기법의 실패 모드 점검, (3) 안전정지/속도제한 하드가드레일 우선 설계.</li>
+</ul>
+<h3>재현성·오픈소스 의존</h3>
+<ul>
+<li>OpenVLA는 체크포인트/학습 파이프라인을 fully open-source로 명시해 재현성 기반을 제공합니다(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>). BitVLA도 코드/가중치 공개를 명시합니다(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).  </li>
+<li>(해석) 반면 Gemini Robotics 등은 본 번들 인용만으로는 공개 범위를 확정하기 어려워, 벤더 종속/검증 공백이 생길 수 있습니다(<a href="http://arxiv.org/abs/2503.20020v1" target="_blank" rel="noopener">[20]</a>).</li>
+</ul>
+<h3>IP/데이터 거버넌스</h3>
+<ul>
+<li>(해석) OXE 같은 대규모 로봇 데이터와 인간 비디오/합성 데이터 혼합(GR00T N1)은 성능에 유리하나, 데이터 권리/라이선스/개인정보(비디오) 이슈가 제품화에서 병목이 될 수 있습니다(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>).  </li>
+<li><strong>완화(제안)</strong>: 데이터 계보(lineage)·라이선스 태깅, 학습 데이터 감사(audit) 로그, 고객 환경 데이터는 분리 학습/보관 정책 채택.</li>
+</ul>
+<h3>공급망·TCO(총소유비용)</h3>
+<ul>
+<li>BitVLA가 제시하는 메모리 절감(29.8%)은 엣지 하드웨어 비용과 전력 예산에 직접 영향을 줄 가능성이 큽니다(해석).(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>)  </li>
+<li>(해석) 다만 저비트는 하드웨어/컴파일러/커널 최적화 성숙도에 따라 실효가 달라질 수 있어, “논문 수치=제품 수치”로 직결시키는 것은 위험합니다(잔여 불확실성).</li>
+</ul>
+<h3>잔여 불확실성(명시)</h3>
+<ul>
+<li>(사실) NVIDIA Glossary 정의 문구의 직접 인용, 그리고 일부 논문의 정량 성능/오픈소스 범위는 본 번들 요약만으로는 충분히 확정하기 어렵습니다(<a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">[13]</a>).  </li>
+<li>(해석) 따라서 본 보고서의 일부 비교는 ‘방향성’ 중심이며, 제품 의사결정에는 추가 실험/검증이 필요합니다.</li>
+</ul>
+<hr />
+<h2>권고 사항</h2>
+<h3>우선순위 1) 실시간성 KPI를 제품 요구로 ‘선언’하고, RTC/PD‑VLA를 기본 옵션화</h3>
+<ul>
+<li><strong>Why now(근거)</strong>: RTC는 300ms+ 지연에서도 성공률/처리량 개선을 주장하고, PD‑VLA는 실행 주파수 2.52×를 보고해, 실시간 병목이 연구의 최전선임을 보여줍니다(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>; <a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>).  </li>
+<li><strong>선행조건(제안)</strong>: 사내 태스크에서 지연 주입 실험, chunk 정책 여부에 따른 적용 대상 분류.</li>
+</ul>
+<h3>우선순위 2) OpenVLA를 ‘오픈 기준선’으로 채택하고 파인튜닝/서빙 레시피 내재화</h3>
+<ul>
+<li><strong>근거</strong>: 7B, 970k 에피소드 학습, fully open-source 배포 및 HuggingFace 파인튜닝 가능을 명시합니다(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>).  </li>
+<li><strong>선행조건(제안)</strong>: 데이터 스키마 통일, 로봇별 액션/관측 어댑터 표준화.</li>
+</ul>
+<h3>우선순위 3) 엣지/저전력 라인업을 목표로 BitVLA류 초저비트 PoC 수행</h3>
+<ul>
+<li><strong>근거</strong>: BitVLA는 1-bit VLA와 메모리 29.8%를 보고하고 코드/가중치 공개를 명시합니다(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).  </li>
+<li><strong>선행조건(제안)</strong>: 목표 디바이스 메모리/전력 예산 정의, 저비트에서의 안전·강건성 테스트 설계.</li>
+</ul>
+<h3>우선순위 4) 휴머노이드/양팔 과제는 GR00T N1식 듀얼 시스템을 레퍼런스 아키텍처로 검토</h3>
+<ul>
+<li><strong>근거</strong>: GR00T N1은 dual-system과 데이터 혼합, 휴머노이드 배치를 명시합니다(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>).  </li>
+<li><strong>선행조건(제안)</strong>: 상위 추론(설명가능성/검증) vs 하위 제어(실시간) 경계 정의, 안전 인터락 설계.</li>
+</ul>
+<h3>우선순위 5) ‘설계 선택’은 RoboVLMs 프레임워크로 내부 실험 계획을 체계화</h3>
+<ul>
+<li><strong>근거</strong>: 600+ 실험과 레시피/툴킷 공개를 명시합니다(<a href="http://arxiv.org/abs/2412.14058v3" target="_blank" rel="noopener">[18]</a>).  </li>
+<li><strong>선행조건(제안)</strong>: 실험 추적(MLflow 등)과 재현성 체크리스트(데이터/시드/환경) 도입.</li>
+</ul>
+<hr />
+<h2>부록</h2>
+<h3>A. 용어집(최소)</h3>
+<ul>
+<li><strong>Physical AI</strong>: (보수적 요약) 물리 세계에서 지각–이해–행동을 수행하는 자율 시스템/AI 접근(해석). NVIDIA Glossary에 관련 정의 페이지가 존재하나, 본 번들 덤프에서 직접 인용 문장 확인이 불완전합니다(<a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">[13]</a>).</li>
+<li><strong>VLA (Vision-Language-Action)</strong>: 시각·언어 입력을 받아 로봇 제어 액션을 생성하는 모델 계열(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>).</li>
+<li><strong>Action chunking</strong>: 한 번의 추론에서 여러 스텝의 액션 시퀀스를 생성/실행하는 방식으로, 지연/연속성 문제와 맞물립니다(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>).</li>
+<li><strong>RTC (Real-time chunking)</strong>: chunk 정책을 비동기로 실행하며 freeze/inpainting으로 지연 내성을 높이는 추론 시간 알고리즘(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>).</li>
+<li><strong>PD‑VLA</strong>: action chunking 통합 VLA의 AR 디코딩을 병렬 fixed-point 반복으로 가속하는 training-free 프레임워크(<a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>).</li>
+<li><strong>1-bit/ternary 모델</strong>: 파라미터 값을 ternary $\{-1,0,1\}$로 제한해 메모리/효율을 개선하는 접근(BitVLA)(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>).</li>
+</ul>
+<h3>B. 참고 문헌(이번 번들 한정, URL/ID)</h3>
+<ul>
+<li>Octo — arXiv:2405.12213v2(<a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">[1]</a>)</li>
+<li>OpenVLA — arXiv:2406.09246v3(<a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">[3]</a>)</li>
+<li>$π_{0}$ — arXiv:2410.24164v4(<a href="http://arxiv.org/abs/2410.24164v4" target="_blank" rel="noopener">[14]</a>)</li>
+<li>CogACT — arXiv:2411.19650v1(<a href="http://arxiv.org/abs/2411.19650v1" target="_blank" rel="noopener">[16]</a>)</li>
+<li>RoboVLMs — arXiv:2412.14058v3(<a href="http://arxiv.org/abs/2412.14058v3" target="_blank" rel="noopener">[18]</a>)</li>
+<li>Gemini Robotics — arXiv:2503.20020v1(<a href="http://arxiv.org/abs/2503.20020v1" target="_blank" rel="noopener">[20]</a>)</li>
+<li>GR00T N1 — arXiv:2503.14734v2(<a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">[11]</a>)</li>
+<li>PD‑VLA — arXiv:2503.02310v1(<a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">[7]</a>)</li>
+<li>RTC — arXiv:2506.07339v2(<a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">[5]</a>)</li>
+<li>BitVLA — arXiv:2506.07530v1(<a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">[9]</a>)</li>
+<li>NVIDIA Glossary — “What is Physical AI?”(<a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">[13]</a>)</li>
+</ul>
+<h3>C. 평가 시트(요약 템플릿)</h3>
+<ul>
+<li><strong>신규성</strong>: (아키텍처/추론/압축) 중 어디에 기여가 있는가?</li>
+<li><strong>실증</strong>: 시뮬/실로봇/다로봇/휴머노이드 중 무엇을 포함하는가?</li>
+<li><strong>서빙</strong>: 지연(ms), 주파수(Hz), 메모리(GB) 수치가 제시되는가?</li>
+<li><strong>재현성</strong>: 코드/가중치/학습 레시피 공개가 명시되는가?</li>
+<li><strong>산업 리스크</strong>: 안전 고려, 데이터 거버넌스, TCO 영향이 논의되는가?</li>
+</ul>
+<h2>Figures</h2>
+<p class="figure-callout">Figures referenced: <a href="#fig-1">Figure 1</a>: Source PDF: 2405.12213v2.pdf; <a href="#fig-2">Figure 2</a>: Source PDF: 2405.12213v2.pdf; <a href="#fig-3">Figure 3</a>: Source PDF: 2405.12213v2.pdf; <a href="#fig-4">Figure 4</a>: Source PDF: 2405.12213v2.pdf; <a href="#fig-5">Figure 5</a>: Source PDF: 2406.09246v3.pdf; <a href="#fig-6">Figure 6</a>: Source PDF: 2406.09246v3.pdf; <a href="#fig-7">Figure 7</a>: Source PDF: 2406.09246v3.pdf; <a href="#fig-8">Figure 8</a>: Source PDF: 2406.09246v3.pdf; <a href="#fig-9">Figure 9</a>: Source PDF: 2506.07339v2.pdf; <a href="#fig-10">Figure 10</a>: Source PDF: 2506.07339v2.pdf; <a href="#fig-11">Figure 11</a>: Source PDF: 2506.07339v2.pdf; <a href="#fig-12">Figure 12</a>: Source PDF: 2506.07339v2.pdf; <a href="#fig-13">Figure 13</a>: Source PDF: 2503.02310v1.pdf; <a href="#fig-14">Figure 14</a>: Source PDF: 2503.02310v1.pdf; <a href="#fig-15">Figure 15</a>: Source PDF: 2503.02310v1.pdf; <a href="#fig-16">Figure 16</a>: Source PDF: 2503.02310v1.pdf; <a href="#fig-17">Figure 17</a>: Source PDF: 2506.07530v1.pdf; <a href="#fig-18">Figure 18</a>: Source PDF: 2506.07530v1.pdf; <a href="#fig-19">Figure 19</a>: Source PDF: 2506.07530v1.pdf; <a href="#fig-20">Figure 20</a>: Source PDF: 2506.07530v1.pdf; <a href="#fig-21">Figure 21</a>: Source PDF: 2503.14734v2.pdf; <a href="#fig-22">Figure 22</a>: Source PDF: 2503.14734v2.pdf; <a href="#fig-23">Figure 23</a>: Source PDF: 2503.14734v2.pdf; <a href="#fig-24">Figure 24</a>: Source PDF: 2503.14734v2.pdf; <a href="#fig-25">Figure 25</a>: Source PDF: 2410.24164v4.pdf; <a href="#fig-26">Figure 26</a>: Source PDF: 2410.24164v4.pdf; <a href="#fig-27">Figure 27</a>: Source PDF: 2410.24164v4.pdf; <a href="#fig-28">Figure 28</a>: Source PDF: 2410.24164v4.pdf; <a href="#fig-29">Figure 29</a>: Source PDF: 2411.19650v1.pdf; <a href="#fig-30">Figure 30</a>: Source PDF: 2411.19650v1.pdf; <a href="#fig-31">Figure 31</a>: Source PDF: 2411.19650v1.pdf; <a href="#fig-32">Figure 32</a>: Source PDF: 2411.19650v1.pdf; <a href="#fig-33">Figure 33</a>: Source PDF: 2412.14058v3.pdf; <a href="#fig-34">Figure 34</a>: Source PDF: 2412.14058v3.pdf; <a href="#fig-35">Figure 35</a>: Source PDF: 2412.14058v3.pdf; <a href="#fig-36">Figure 36</a>: Source PDF: 2412.14058v3.pdf; <a href="#fig-37">Figure 37</a>: Source PDF: 2503.20020v1.pdf; <a href="#fig-38">Figure 38</a>: Source PDF: 2503.20020v1.pdf; <a href="#fig-39">Figure 39</a>: Source PDF: 2503.20020v1.pdf; <a href="#fig-40">Figure 40</a>: Source PDF: 2503.20020v1.pdf</p>
+
+<figure class="report-figure" id="fig-1">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2405.12213v2.pdf-b760de6d.png" alt="Figure from ./archive/arxiv/pdf/2405.12213v2.pdf (page 1)" />
+  <figcaption>Figure 1: <a href="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-viewer="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-raw="archive/arxiv/pdf/2405.12213v2.pdf" class="viewer-link">./archive/arxiv/pdf/2405.12213v2.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-2">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2405.12213v2.pdf-a1aec97a.jpeg" alt="Figure from ./archive/arxiv/pdf/2405.12213v2.pdf (page 6)" />
+  <figcaption>Figure 2: <a href="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-viewer="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-raw="archive/arxiv/pdf/2405.12213v2.pdf" class="viewer-link">./archive/arxiv/pdf/2405.12213v2.pdf</a> (page 6)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-3">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2405.12213v2.pdf-c91dfcf1.png" alt="Figure from ./archive/arxiv/pdf/2405.12213v2.pdf (page 6)" />
+  <figcaption>Figure 3: <a href="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-viewer="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-raw="archive/arxiv/pdf/2405.12213v2.pdf" class="viewer-link">./archive/arxiv/pdf/2405.12213v2.pdf</a> (page 6)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-4">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2405.12213v2.pdf-f3dbd16e.jpeg" alt="Figure from ./archive/arxiv/pdf/2405.12213v2.pdf (page 6)" />
+  <figcaption>Figure 4: <a href="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-viewer="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-raw="archive/arxiv/pdf/2405.12213v2.pdf" class="viewer-link">./archive/arxiv/pdf/2405.12213v2.pdf</a> (page 6)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-5">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2406.09246v3.pdf-252582e6.png" alt="Figure from ./archive/arxiv/pdf/2406.09246v3.pdf (page 7)" />
+  <figcaption>Figure 5: <a href="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-viewer="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-raw="archive/arxiv/pdf/2406.09246v3.pdf" class="viewer-link">./archive/arxiv/pdf/2406.09246v3.pdf</a> (page 7)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-6">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2406.09246v3.pdf-0c092e34.png" alt="Figure from ./archive/arxiv/pdf/2406.09246v3.pdf (page 7)" />
+  <figcaption>Figure 6: <a href="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-viewer="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-raw="archive/arxiv/pdf/2406.09246v3.pdf" class="viewer-link">./archive/arxiv/pdf/2406.09246v3.pdf</a> (page 7)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-7">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2406.09246v3.pdf-0e79ffe9.jpeg" alt="Figure from ./archive/arxiv/pdf/2406.09246v3.pdf (page 9)" />
+  <figcaption>Figure 7: <a href="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-viewer="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-raw="archive/arxiv/pdf/2406.09246v3.pdf" class="viewer-link">./archive/arxiv/pdf/2406.09246v3.pdf</a> (page 9)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-8">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2406.09246v3.pdf-81b3e6e2.jpeg" alt="Figure from ./archive/arxiv/pdf/2406.09246v3.pdf (page 27)" />
+  <figcaption>Figure 8: <a href="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-viewer="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-raw="archive/arxiv/pdf/2406.09246v3.pdf" class="viewer-link">./archive/arxiv/pdf/2406.09246v3.pdf</a> (page 27)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-9">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2506.07339v2.pdf-2cd6affe.jpeg" alt="Figure from ./archive/arxiv/pdf/2506.07339v2.pdf (page 1)" />
+  <figcaption>Figure 9: <a href="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-viewer="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-raw="archive/arxiv/pdf/2506.07339v2.pdf" class="viewer-link">./archive/arxiv/pdf/2506.07339v2.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-10">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2506.07339v2.pdf-2a22b153.jpeg" alt="Figure from ./archive/arxiv/pdf/2506.07339v2.pdf (page 1)" />
+  <figcaption>Figure 10: <a href="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-viewer="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-raw="archive/arxiv/pdf/2506.07339v2.pdf" class="viewer-link">./archive/arxiv/pdf/2506.07339v2.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-11">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2506.07339v2.pdf-ee0f78c0.jpeg" alt="Figure from ./archive/arxiv/pdf/2506.07339v2.pdf (page 1)" />
+  <figcaption>Figure 11: <a href="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-viewer="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-raw="archive/arxiv/pdf/2506.07339v2.pdf" class="viewer-link">./archive/arxiv/pdf/2506.07339v2.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-12">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2506.07339v2.pdf-7029a526.jpeg" alt="Figure from ./archive/arxiv/pdf/2506.07339v2.pdf (page 1)" />
+  <figcaption>Figure 12: <a href="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-viewer="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-raw="archive/arxiv/pdf/2506.07339v2.pdf" class="viewer-link">./archive/arxiv/pdf/2506.07339v2.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-13">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.02310v1.pdf-4b4bdf18.png" alt="Figure from ./archive/arxiv/pdf/2503.02310v1.pdf (page 1)" />
+  <figcaption>Figure 13: <a href="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-viewer="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-raw="archive/arxiv/pdf/2503.02310v1.pdf" class="viewer-link">./archive/arxiv/pdf/2503.02310v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-14">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.02310v1.pdf-0eb4e285.png" alt="Figure from ./archive/arxiv/pdf/2503.02310v1.pdf (page 3)" />
+  <figcaption>Figure 14: <a href="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-viewer="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-raw="archive/arxiv/pdf/2503.02310v1.pdf" class="viewer-link">./archive/arxiv/pdf/2503.02310v1.pdf</a> (page 3)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-15">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.02310v1.pdf-808adcd2.png" alt="Figure from ./archive/arxiv/pdf/2503.02310v1.pdf (page 6)" />
+  <figcaption>Figure 15: <a href="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-viewer="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-raw="archive/arxiv/pdf/2503.02310v1.pdf" class="viewer-link">./archive/arxiv/pdf/2503.02310v1.pdf</a> (page 6)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-16">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.02310v1.pdf-a93ed3ba.png" alt="Figure from ./archive/arxiv/pdf/2503.02310v1.pdf (page 6)" />
+  <figcaption>Figure 16: <a href="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-viewer="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-raw="archive/arxiv/pdf/2503.02310v1.pdf" class="viewer-link">./archive/arxiv/pdf/2503.02310v1.pdf</a> (page 6)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-17">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2506.07530v1.pdf-d5cebb72.jpeg" alt="Figure from ./archive/arxiv/pdf/2506.07530v1.pdf (page 9)" />
+  <figcaption>Figure 17: <a href="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-viewer="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-raw="archive/arxiv/pdf/2506.07530v1.pdf" class="viewer-link">./archive/arxiv/pdf/2506.07530v1.pdf</a> (page 9)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-18">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2506.07530v1.pdf-b7b856b4.jpeg" alt="Figure from ./archive/arxiv/pdf/2506.07530v1.pdf (page 9)" />
+  <figcaption>Figure 18: <a href="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-viewer="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-raw="archive/arxiv/pdf/2506.07530v1.pdf" class="viewer-link">./archive/arxiv/pdf/2506.07530v1.pdf</a> (page 9)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-19">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2506.07530v1.pdf-efdfa2cb.jpeg" alt="Figure from ./archive/arxiv/pdf/2506.07530v1.pdf (page 17)" />
+  <figcaption>Figure 19: <a href="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-viewer="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-raw="archive/arxiv/pdf/2506.07530v1.pdf" class="viewer-link">./archive/arxiv/pdf/2506.07530v1.pdf</a> (page 17)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-20">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2506.07530v1.pdf-9f8edfb6.jpeg" alt="Figure from ./archive/arxiv/pdf/2506.07530v1.pdf (page 17)" />
+  <figcaption>Figure 20: <a href="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-viewer="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-raw="archive/arxiv/pdf/2506.07530v1.pdf" class="viewer-link">./archive/arxiv/pdf/2506.07530v1.pdf</a> (page 17)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-21">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.14734v2.pdf-5d61ded4.jpeg" alt="Figure from ./archive/arxiv/pdf/2503.14734v2.pdf (page 3)" />
+  <figcaption>Figure 21: <a href="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-viewer="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-raw="archive/arxiv/pdf/2503.14734v2.pdf" class="viewer-link">./archive/arxiv/pdf/2503.14734v2.pdf</a> (page 3)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-22">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.14734v2.pdf-ea0de31f.jpeg" alt="Figure from ./archive/arxiv/pdf/2503.14734v2.pdf (page 4)" />
+  <figcaption>Figure 22: <a href="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-viewer="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-raw="archive/arxiv/pdf/2503.14734v2.pdf" class="viewer-link">./archive/arxiv/pdf/2503.14734v2.pdf</a> (page 4)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-23">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.14734v2.pdf-21861564.jpeg" alt="Figure from ./archive/arxiv/pdf/2503.14734v2.pdf (page 10)" />
+  <figcaption>Figure 23: <a href="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-viewer="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-raw="archive/arxiv/pdf/2503.14734v2.pdf" class="viewer-link">./archive/arxiv/pdf/2503.14734v2.pdf</a> (page 10)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-24">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.14734v2.pdf-c4191c43.jpeg" alt="Figure from ./archive/arxiv/pdf/2503.14734v2.pdf (page 10)" />
+  <figcaption>Figure 24: <a href="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-viewer="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-raw="archive/arxiv/pdf/2503.14734v2.pdf" class="viewer-link">./archive/arxiv/pdf/2503.14734v2.pdf</a> (page 10)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-25">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2410.24164v4.pdf-599ed4cc.jpeg" alt="Figure from ./archive/arxiv/pdf/2410.24164v4.pdf (page 1)" />
+  <figcaption>Figure 25: <a href="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-viewer="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-raw="archive/arxiv/pdf/2410.24164v4.pdf" class="viewer-link">./archive/arxiv/pdf/2410.24164v4.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-26">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2410.24164v4.pdf-b0b6a957.png" alt="Figure from ./archive/arxiv/pdf/2410.24164v4.pdf (page 5)" />
+  <figcaption>Figure 26: <a href="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-viewer="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-raw="archive/arxiv/pdf/2410.24164v4.pdf" class="viewer-link">./archive/arxiv/pdf/2410.24164v4.pdf</a> (page 5)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-27">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2410.24164v4.pdf-86dcbe39.png" alt="Figure from ./archive/arxiv/pdf/2410.24164v4.pdf (page 9)" />
+  <figcaption>Figure 27: <a href="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-viewer="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-raw="archive/arxiv/pdf/2410.24164v4.pdf" class="viewer-link">./archive/arxiv/pdf/2410.24164v4.pdf</a> (page 9)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-28">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2410.24164v4.pdf-faa8e489.png" alt="Figure from ./archive/arxiv/pdf/2410.24164v4.pdf (page 11)" />
+  <figcaption>Figure 28: <a href="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-viewer="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-raw="archive/arxiv/pdf/2410.24164v4.pdf" class="viewer-link">./archive/arxiv/pdf/2410.24164v4.pdf</a> (page 11)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-29">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2411.19650v1.pdf-b2628dda.jpeg" alt="Figure from ./archive/arxiv/pdf/2411.19650v1.pdf (page 1)" />
+  <figcaption>Figure 29: <a href="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-viewer="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-raw="archive/arxiv/pdf/2411.19650v1.pdf" class="viewer-link">./archive/arxiv/pdf/2411.19650v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-30">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2411.19650v1.pdf-cd72aa46.png" alt="Figure from ./archive/arxiv/pdf/2411.19650v1.pdf (page 1)" />
+  <figcaption>Figure 30: <a href="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-viewer="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-raw="archive/arxiv/pdf/2411.19650v1.pdf" class="viewer-link">./archive/arxiv/pdf/2411.19650v1.pdf</a> (page 1)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-31">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2411.19650v1.pdf-6b0a5511.png" alt="Figure from ./archive/arxiv/pdf/2411.19650v1.pdf (page 14)" />
+  <figcaption>Figure 31: <a href="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-viewer="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-raw="archive/arxiv/pdf/2411.19650v1.pdf" class="viewer-link">./archive/arxiv/pdf/2411.19650v1.pdf</a> (page 14)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-32">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2411.19650v1.pdf-107b52f7.png" alt="Figure from ./archive/arxiv/pdf/2411.19650v1.pdf (page 14)" />
+  <figcaption>Figure 32: <a href="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-viewer="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-raw="archive/arxiv/pdf/2411.19650v1.pdf" class="viewer-link">./archive/arxiv/pdf/2411.19650v1.pdf</a> (page 14)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-33">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2412.14058v3.pdf-2581e61e.jpeg" alt="Figure from ./archive/arxiv/pdf/2412.14058v3.pdf (page 8)" />
+  <figcaption>Figure 33: <a href="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-viewer="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-raw="archive/arxiv/pdf/2412.14058v3.pdf" class="viewer-link">./archive/arxiv/pdf/2412.14058v3.pdf</a> (page 8)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-34">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2412.14058v3.pdf-cd78f3ed.jpeg" alt="Figure from ./archive/arxiv/pdf/2412.14058v3.pdf (page 8)" />
+  <figcaption>Figure 34: <a href="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-viewer="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-raw="archive/arxiv/pdf/2412.14058v3.pdf" class="viewer-link">./archive/arxiv/pdf/2412.14058v3.pdf</a> (page 8)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-35">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2412.14058v3.pdf-8cc4ce18.jpeg" alt="Figure from ./archive/arxiv/pdf/2412.14058v3.pdf (page 27)" />
+  <figcaption>Figure 35: <a href="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-viewer="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-raw="archive/arxiv/pdf/2412.14058v3.pdf" class="viewer-link">./archive/arxiv/pdf/2412.14058v3.pdf</a> (page 27)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-36">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2412.14058v3.pdf-0846009b.jpeg" alt="Figure from ./archive/arxiv/pdf/2412.14058v3.pdf (page 27)" />
+  <figcaption>Figure 36: <a href="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-viewer="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-raw="archive/arxiv/pdf/2412.14058v3.pdf" class="viewer-link">./archive/arxiv/pdf/2412.14058v3.pdf</a> (page 27)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-37">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.20020v1.pdf-0689d313.jpeg" alt="Figure from ./archive/arxiv/pdf/2503.20020v1.pdf (page 49)" />
+  <figcaption>Figure 37: <a href="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-viewer="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-raw="archive/arxiv/pdf/2503.20020v1.pdf" class="viewer-link">./archive/arxiv/pdf/2503.20020v1.pdf</a> (page 49)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-38">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.20020v1.pdf-f7e7c238.jpeg" alt="Figure from ./archive/arxiv/pdf/2503.20020v1.pdf (page 49)" />
+  <figcaption>Figure 38: <a href="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-viewer="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-raw="archive/arxiv/pdf/2503.20020v1.pdf" class="viewer-link">./archive/arxiv/pdf/2503.20020v1.pdf</a> (page 49)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-39">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.20020v1.pdf-f8a6ea1c.jpeg" alt="Figure from ./archive/arxiv/pdf/2503.20020v1.pdf (page 49)" />
+  <figcaption>Figure 39: <a href="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-viewer="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-raw="archive/arxiv/pdf/2503.20020v1.pdf" class="viewer-link">./archive/arxiv/pdf/2503.20020v1.pdf</a> (page 49)</figcaption>
+</figure>
+
+<figure class="report-figure" id="fig-40">
+  <img src="report_assets/figures/._archive_arxiv_pdf_2503.20020v1.pdf-6f6b47c8.jpeg" alt="Figure from ./archive/arxiv/pdf/2503.20020v1.pdf (page 58)" />
+  <figcaption>Figure 40: <a href="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-viewer="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-raw="archive/arxiv/pdf/2503.20020v1.pdf" class="viewer-link">./archive/arxiv/pdf/2503.20020v1.pdf</a> (page 58)</figcaption>
+</figure>
+
+<h2>Report Prompt</h2>
+<p>Language: Korean</p>
+<p>Template: custom_mit_tech_review
+Depth: normal</p>
+<p>목적/범위: arXiv에서 수집된 “Physical AI” 관련 10편 논문과 NVIDIA Glossary(웹 덤프) 1개를 근거로, 기술 경영진/연구·제품 이해관계자가 의사결정에 활용할 수 있는 기술 리뷰를 작성하라. 연구 트렌드(Generalist robot policy, VLA, flow/action chunking, 실시간 실행, 압축/양자화, 휴머노이드 시스템)와 산업 적용 시 리스크를 균형 있게 다룬다.</p>
+<p>핵심 포함 항목(필수 섹션별 최소 요구):
+- 표지: 제목(예: “Physical AI 기술 리뷰”), 부제(한 문장 키메시지), 작성자/소속, 버전, 날짜, Run ID(physical_ai_insight).
+- 경영진 요약: 핵심 발견 3–5개(근거 포함), 사업/연구 함의, 즉시 액션(파일럿/파트너십/투자) 제안, “공개정보 한계” 1개 항목.
+- Physical AI 개요: 첫 등장에 “Physical AI” 정의(NVIDIA “What is Physical AI?” 인용), 기술 스택과 대표 응용, 현재 한계 1–2문장.
+- 리뷰 범위와 방법: 소스가 arXiv 10편(+NVIDIA 웹)임을 명시, 포함/제외 기준과 평가 프레임(신규성/실증 강도/재현성/산업 적합성) 제시. (검색 쿼리·추가 인덱스는 이번 런에 부재 → 공개정보 한계로 표기)
+- 논문 다이제스트: Octo(2405.12213), OpenVLA(2406.09246), π0(2410.24164), CogACT(2411.19650), RoboVLMs(2412.14058), Gemini Robotics(2503.20020), GR00T N1(2503.14734), PD-VLA(2503.02310), RTC(2506.07339), BitVLA(2506.07530) 각각 250–400자. 메타데이터+기여+방법/데이터+결과(수치 있으면)+강점/한계+산업 함의/리스크+재현성(코드/데이터 공개 여부).
+- 비교 분석 및 동향: 과제/모달리티/액션 표현/학습 패러다임/실증 수준/서빙(지연·처리량)/압축 축으로 표 1개 이상.
+- 미래 전망과 로드맵: 0–12/12–36/36개월+로 성과·브레이크스루·KPI, 기술/데이터/인력/규제 과제 분리.
+- 산업적 비판과 리스크: 안전/책임/규제/IP/재현성/공급망/TCO를 현실적으로 평가, 완화 전략 vs 잔여 불확실성 구분.
+- 권고 사항: 우선순위(Why now/근거/선행조건)와 함께 5개 내외 액션.
+- 부록: 용어집, 참고문헌(arXiv ID/URL), 데이터·코드 링크(있을 때만), 평가 시트 요약.</p>
+<p>증거/인용 정책: 모든 핵심 주장에는 해당 논문(arXiv ID) 또는 NVIDIA Glossary를 괄호 인용으로 연결하라. 텍스트 추출본/웹 덤프에 없는 내용(인용수, 시장규모, 규제 동향, 경쟁사 내부 성능 등)은 추정하지 말고 “공개정보 한계”로 명시하라.</p>
+<p>언어/톤: 한국어로, 친절하고 부드럽지만 과장 없이 근거 중심. 불확실성은 범위/조건(실험 환경, 데이터 규모, 재현성)과 함께 서술하고, 표/그림에는 캡션과 “so-what” 1문장을 붙여라.</p>
+<p>Language: Korean</p>
+<p>Template: custom_mit_tech_review
+Depth: normal</p>
+<p>목적/범위: arXiv에서 수집된 “Physical AI” 관련 10편 논문과 NVIDIA Glossary(웹 덤프) 1개를 근거로, 기술 경영진/연구·제품 이해관계자가 의사결정에 활용할 수 있는 기술 리뷰를 작성하라. 연구 트렌드(Generalist robot policy, VLA, flow/action chunking, 실시간 실행, 압축/양자화, 휴머노이드 시스템)와 산업 적용 시 리스크를 균형 있게 다룬다.</p>
+<p>핵심 포함 항목(필수 섹션별 최소 요구):
+- 표지: 제목(예: “Physical AI 기술 리뷰”), 부제(한 문장 키메시지), 작성자/소속, 버전, 날짜, Run ID(physical_ai_insight).
+- 경영진 요약: 핵심 발견 3–5개(근거 포함), 사업/연구 함의, 즉시 액션(파일럿/파트너십/투자) 제안, “공개정보 한계” 1개 항목.
+- Physical AI 개요: 첫 등장에 “Physical AI” 정의(NVIDIA “What is Physical AI?” 인용), 기술 스택과 대표 응용, 현재 한계 1–2문장.
+- 리뷰 범위와 방법: 소스가 arXiv 10편(+NVIDIA 웹)임을 명시, 포함/제외 기준과 평가 프레임(신규성/실증 강도/재현성/산업 적합성) 제시. (검색 쿼리·추가 인덱스는 이번 런에 부재 → 공개정보 한계로 표기)
+- 논문 다이제스트: Octo(2405.12213), OpenVLA(2406.09246), π0(2410.24164), CogACT(2411.19650), RoboVLMs(2412.14058), Gemini Robotics(2503.20020), GR00T N1(2503.14734), PD-VLA(2503.02310), RTC(2506.07339), BitVLA(2506.07530) 각각 250–400자. 메타데이터+기여+방법/데이터+결과(수치 있으면)+강점/한계+산업 함의/리스크+재현성(코드/데이터 공개 여부).
+- 비교 분석 및 동향: 과제/모달리티/액션 표현/학습 패러다임/실증 수준/서빙(지연·처리량)/압축 축으로 표 1개 이상.
+- 미래 전망과 로드맵: 0–12/12–36/36개월+로 성과·브레이크스루·KPI, 기술/데이터/인력/규제 과제 분리.
+- 산업적 비판과 리스크: 안전/책임/규제/IP/재현성/공급망/TCO를 현실적으로 평가, 완화 전략 vs 잔여 불확실성 구분.
+- 권고 사항: 우선순위(Why now/근거/선행조건)와 함께 5개 내외 액션.
+- 부록: 용어집, 참고문헌(arXiv ID/URL), 데이터·코드 링크(있을 때만), 평가 시트 요약.</p>
+<p>증거/인용 정책: 모든 핵심 주장에는 해당 논문(arXiv ID) 또는 NVIDIA Glossary를 괄호 인용으로 연결하라. 텍스트 추출본/웹 덤프에 없는 내용(인용수, 시장규모, 규제 동향, 경쟁사 내부 성능 등)은 추정하지 말고 “공개정보 한계”로 명시하라.</p>
+<p>언어/톤: 한국어로, 친절하고 부드럽지만 과장 없이 근거 중심. 불확실성은 범위/조건(실험 환경, 데이터 규모, 재현성)과 함께 서술하고, 표/그림에는 캡션과 “so-what” 1문장을 붙여라.</p>
+<h2>References</h2>
+<ol>
+<li><span id="ref-1"></span> Octo Model Team et al. (2024). Octo: An Open-Source Generalist Robot Policy — <a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-2"></span> Octo Model Team et al. (2024). Octo: An Open-Source Generalist Robot Policy — <a href="http://arxiv.org/abs/2405.12213v2" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-viewer="report_views/archive_arxiv_pdf_2405.12213v2.pdf-4abcc920.html" data-raw="archive/arxiv/pdf/2405.12213v2.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-3"></span> Moo Jin Kim et al. (2024). OpenVLA: An Open-Source Vision-Language-Action Model — <a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-4"></span> Moo Jin Kim et al. (2024). OpenVLA: An Open-Source Vision-Language-Action Model — <a href="http://arxiv.org/abs/2406.09246v3" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-viewer="report_views/archive_arxiv_pdf_2406.09246v3.pdf-2bf26315.html" data-raw="archive/arxiv/pdf/2406.09246v3.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-5"></span> Kevin Black, Manuel Y. Galliker, Sergey Levine (2025). Real-Time Execution of Action Chunking Flow Policies — <a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-6"></span> Kevin Black, Manuel Y. Galliker, Sergey Levine (2025). Real-Time Execution of Action Chunking Flow Policies — <a href="http://arxiv.org/abs/2506.07339v2" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-viewer="report_views/archive_arxiv_pdf_2506.07339v2.pdf-55e2b8bf.html" data-raw="archive/arxiv/pdf/2506.07339v2.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-7"></span> Wenxuan Song et al. (2025). Accelerating Vision-Language-Action Model Integrated with Action Chunking via Parallel Decoding — <a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-8"></span> Wenxuan Song et al. (2025). Accelerating Vision-Language-Action Model Integrated with Action Chunking via Parallel Decoding — <a href="http://arxiv.org/abs/2503.02310v1" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-viewer="report_views/archive_arxiv_pdf_2503.02310v1.pdf-7073bb4b.html" data-raw="archive/arxiv/pdf/2503.02310v1.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-9"></span> Hongyu Wang, Chuyan Xiong, Ruiping Wang, Xilin Chen (2025). BitVLA: 1-bit Vision-Language-Action Models for Robotics Manipulation — <a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-10"></span> Hongyu Wang, Chuyan Xiong, Ruiping Wang, Xilin Chen (2025). BitVLA: 1-bit Vision-Language-Action Models for Robotics Manipulation — <a href="http://arxiv.org/abs/2506.07530v1" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-viewer="report_views/archive_arxiv_pdf_2506.07530v1.pdf-4db2dcac.html" data-raw="archive/arxiv/pdf/2506.07530v1.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-11"></span> NVIDIA et al. (2025). GR00T N1: An Open Foundation Model for Generalist Humanoid Robots — <a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-12"></span> NVIDIA et al. (2025). GR00T N1: An Open Foundation Model for Generalist Humanoid Robots — <a href="http://arxiv.org/abs/2503.14734v2" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-viewer="report_views/archive_arxiv_pdf_2503.14734v2.pdf-f3406ce2.html" data-raw="archive/arxiv/pdf/2503.14734v2.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-13"></span> 0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt — <a href="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-viewer="report_views/archive_tavily_extract_0001_https_www.nvidia.com_en-us_glossary_generative-physi-f9e526b1.html" data-raw="archive/tavily_extract/0001_https_www.nvidia.com_en-us_glossary_generative-physical-ai.txt" class="viewer-link">file</a></li>
+<li><span id="ref-14"></span> Kevin Black et al. (2024). $π_0$: A Vision-Language-Action Flow Model for General Robot Control — <a href="http://arxiv.org/abs/2410.24164v4" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-15"></span> Kevin Black et al. (2024). $π_0$: A Vision-Language-Action Flow Model for General Robot Control — <a href="http://arxiv.org/abs/2410.24164v4" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-viewer="report_views/archive_arxiv_pdf_2410.24164v4.pdf-2b6dc1c8.html" data-raw="archive/arxiv/pdf/2410.24164v4.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-16"></span> Qixiu Li et al. (2024). CogACT: A Foundational Vision-Language-Action Model for Synergizing Cognition and Action in Robotic Manipulation — <a href="http://arxiv.org/abs/2411.19650v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-17"></span> Qixiu Li et al. (2024). CogACT: A Foundational Vision-Language-Action Model for Synergizing Cognition and Action in Robotic Manipulation — <a href="http://arxiv.org/abs/2411.19650v1" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-viewer="report_views/archive_arxiv_pdf_2411.19650v1.pdf-9347eee7.html" data-raw="archive/arxiv/pdf/2411.19650v1.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-18"></span> Xinghang Li et al. (2024). Towards Generalist Robot Policies: What Matters in Building Vision-Language-Action Models — <a href="http://arxiv.org/abs/2412.14058v3" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-19"></span> Xinghang Li et al. (2024). Towards Generalist Robot Policies: What Matters in Building Vision-Language-Action Models — <a href="http://arxiv.org/abs/2412.14058v3" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-viewer="report_views/archive_arxiv_pdf_2412.14058v3.pdf-01c033e8.html" data-raw="archive/arxiv/pdf/2412.14058v3.pdf" class="viewer-link">file</a></li>
+<li><span id="ref-20"></span> Gemini Robotics Team et al. (2025). Gemini Robotics: Bringing AI into the Physical World — <a href="http://arxiv.org/abs/2503.20020v1" target="_blank" rel="noopener">link</a></li>
+<li><span id="ref-21"></span> Gemini Robotics Team et al. (2025). Gemini Robotics: Bringing AI into the Physical World — <a href="http://arxiv.org/abs/2503.20020v1" target="_blank" rel="noopener">link</a> — <a href="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-viewer="report_views/archive_arxiv_pdf_2503.20020v1.pdf-7a2af7e1.html" data-raw="archive/arxiv/pdf/2503.20020v1.pdf" class="viewer-link">file</a></li>
+</ol>
+<h2>Miscellaneous</h2>
+<div class="misc-block">
+<ul>
+<li>Generated at: 2026-02-06 06:55:13</li>
+<li>Duration: 00:07:20 (440.73s)</li>
+<li>Model: gpt-5.2-2025-12-11</li>
+<li>Quality model: gpt-5.2-2025-12-11</li>
+<li>Quality strategy: pairwise</li>
+<li>Quality iterations: 1</li>
+<li>Template: custom_mit_tech_review</li>
+<li>Language: Korean</li>
+<li>Tags: physical, 기술, 데이터, arxiv, NVIDIA</li>
+<li>Output format: html</li>
+<li>PDF compile: disabled</li>
+<li>Run overview: <a href="report_views/report_run_overview.md-40ef65a9.html" data-viewer="report_views/report_run_overview.md-40ef65a9.html" data-raw="report/run_overview.md" class="viewer-link">./report/run_overview.md</a></li>
+<li>Report overview: <a href="report_views/report_run_overview_report_full.md-d5c00cb8.html" data-viewer="report_views/report_run_overview_report_full.md-d5c00cb8.html" data-raw="report/run_overview_report_full.md" class="viewer-link">./report/run_overview_report_full.md</a></li>
+<li>Report workflow: <a href="report_views/report_notes_report_workflow.md-bd2306de.html" data-viewer="report_views/report_notes_report_workflow.md-bd2306de.html" data-raw="report_notes/report_workflow.md" class="viewer-link">./report_notes/report_workflow.md</a></li>
+<li>Archive index: <a href="report_views/archive_physical_ai_insight-index.md-40a0d8fe.html" data-viewer="report_views/archive_physical_ai_insight-index.md-40a0d8fe.html" data-raw="archive/physical_ai_insight-index.md" class="viewer-link">./archive/physical_ai_insight-index.md</a></li>
+<li>Instruction file: <a href="report_views/instruction_generated_prompt_physical_ai_insight.txt-411d1b5b.html" data-viewer="report_views/instruction_generated_prompt_physical_ai_insight.txt-411d1b5b.html" data-raw="instruction/generated_prompt_physical_ai_insight.txt" class="viewer-link">./instruction/generated_prompt_physical_ai_insight.txt</a></li>
+<li>Report prompt: <a href="report_views/instruction_report_prompt_report_full.txt-e0a852da.html" data-viewer="report_views/instruction_report_prompt_report_full.txt-e0a852da.html" data-raw="instruction/report_prompt_report_full.txt" class="viewer-link">./instruction/report_prompt_report_full.txt</a></li>
+<li>Figure candidates: <a href="./report_views/figures_preview.html">./report_views/figures_preview.html</a></li>
+</ul>
+</div>
+    </main>
+  </div>
+  <div id="viewer-overlay" class="viewer-overlay"></div>
+  <aside id="viewer-panel" class="viewer-panel" aria-hidden="true">
+    <div class="viewer-header">
+      <div class="viewer-title" id="viewer-title">Source preview</div>
+      <div class="viewer-actions">
+        <a id="viewer-raw" href="#" target="_blank" rel="noopener">Open raw</a>
+        <button class="viewer-close" id="viewer-close" aria-label="Close">x</button>
+      </div>
+    </div>
+    <iframe id="viewer-frame" class="viewer-frame" title="Source preview"></iframe>
+  </aside>
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const themeParam = params.get('theme');
+      const storedTheme = localStorage.getItem('federlicht.theme');
+      const theme = themeParam || storedTheme;
+      if (theme) {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('federlicht.theme', theme);
+      }
+      const backLink = document.getElementById('back-link');
+      if (backLink) {
+        const path = window.location.pathname.replace(/\\/g, '/');
+        const idx = path.lastIndexOf('/runs/');
+        if (idx !== -1) {
+          backLink.href = `${path.slice(0, idx)}/index.html`;
+          backLink.style.display = 'inline-flex';
+        }
+      }
+      const panel = document.getElementById('viewer-panel');
+      const overlay = document.getElementById('viewer-overlay');
+      const frame = document.getElementById('viewer-frame');
+      const rawLink = document.getElementById('viewer-raw');
+      const title = document.getElementById('viewer-title');
+      const closeBtn = document.getElementById('viewer-close');
+      function closeViewer() {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        frame.src = 'about:blank';
+      }
+      function openViewer(viewer, raw, label) {
+        frame.src = viewer;
+        rawLink.href = raw || viewer;
+        title.textContent = label || 'Source preview';
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+      }
+      document.querySelectorAll('.viewer-link').forEach((link) => {
+        link.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          const viewer = link.getAttribute('data-viewer') || link.href;
+          const raw = link.getAttribute('data-raw');
+          const label = link.textContent || 'Source preview';
+          if (viewer) openViewer(viewer, raw, label);
+        });
+      });
+      overlay.addEventListener('click', closeViewer);
+      closeBtn.addEventListener('click', closeViewer);
+    })();
+  </script>
+</body>
+</html>

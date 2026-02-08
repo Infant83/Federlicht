@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-02-06T06:47:07.776285",
+  "created_at": "2026-02-07T16:05:51.640793",
   "stages": {
     "scout": {
       "status": "ran",
@@ -22,7 +22,7 @@
       "detail": ""
     },
     "evidence": {
-      "status": "disabled",
+      "status": "ran",
       "detail": ""
     },
     "plan_check": {
@@ -30,12 +30,12 @@
       "detail": ""
     },
     "writer": {
-      "status": "skipped",
-      "detail": "state_only"
+      "status": "ran",
+      "detail": ""
     },
     "quality": {
-      "status": "skipped",
-      "detail": "state_only"
+      "status": "ran",
+      "detail": "iterations=1"
     }
   },
   "order": [

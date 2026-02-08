@@ -4,7 +4,9 @@ description: Short, decision-focused brief for executives.
 tone: Concise, high-signal, action-oriented.
 audience: Executive and product leadership.
 css: executive_brief.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Executive Summary
 section: Key Findings
 section: Decision Implications
@@ -17,3 +19,5 @@ guide Risks & Gaps: top 3 risks and what to validate next.
 writer_guidance: Keep jargon minimal; define essential terms inline.
 writer_guidance: Emphasize business impact and time horizons.
 ---
+
+

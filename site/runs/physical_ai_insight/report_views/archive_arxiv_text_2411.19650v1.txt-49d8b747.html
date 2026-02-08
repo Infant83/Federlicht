@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2411.19650v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2411.19650v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> CogACT: A Foundational Vision-Language-Action Model for Synergizing Cognition and Action in Robotic Manipulation</p><p><strong>Authors:</strong> Qixiu Li et al.</p><p><strong>Published:</strong> 2024-11-29T12:06:03+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2411.19650v1">http://arxiv.org/abs/2411.19650v1</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2411.19650v1.pdf">./archive/arxiv/pdf/2411.19650v1.pdf</a></p><p><strong>Summary:</strong><br />The advancement of large Vision-Language-Action (VLA) models has significantly improved robotic manipulation in terms of language-guided task execution and generalization to unseen scenarios. While existing VLAs adapted from pretrained large Vision-Language-Models (VLM) have demonstrated promising generalizability, their task performance is still unsatisfactory as indicated by the low tasks success rates in different environments. In this paper, we present a new advanced VLA architecture derived from VLM. Unlike previous works that directly repurpose VLM for action prediction by simple action quantization, we propose a omponentized VLA architecture that has a specialized action module conditioned on VLM output. We systematically study the design of the action module and demonstrates the strong performance enhancement with diffusion action transformers for action sequence modeling, as well as their favorable scaling behaviors. We also conduct comprehensive experiments and ablation studies to evaluate the efficacy of our models with varied designs. The evaluation on 5 robot embodiments in simulation and real work shows that our model not only significantly surpasses existing VLAs in task performance and but also exhibits remarkable adaptation to new robots and generalization to unseen objects and backgrounds. It exceeds the average success rates of OpenVLA which has similar model size (7B) with ours by over 35% in simulated evaluation and 55% in real robot experiments. It also outperforms the large RT-2-X model (55B) by 18% absolute success rates in simulation. Code and model <em>[truncated]</em></p></div><pre>
+
+===== PAGE 1 =====
+CogACT: A Foundational Vision-Language-Action Model for Synergizing
+Cognition and Action in Robotic Manipulation
+Qixiu Li1∗† Yaobo Liang2∗‡ Zeyu Wang1∗† Lin Luo2 Xi Chen2 Mozheng Liao3† Fangyun Wei2
+Yu Deng2 Sicheng Xu2 Yizhong Zhang2 Xiaofan Wang4† Bei Liu2 Jianlong Fu2 Jianmin Bao2
+Dong Chen2 Yuanchun Shi1 Jiaolong Yang2‡ Baining Guo2
+1Tsinghua University
+2Microsoft Research Asia
+3USTC
+4Institute of Microelectronics, CAS
+Average Success Rate (%)
+Log of Action Module Size (MB)
+Small
+Base
+Large
+Pick up the hammer 
+(unseen) and put it 
+in the basket.
+Stack the cups of 
+different colors 
+into a pile.
+Realman Robot
+Real-World Seen
+Realman Robot
+Real-World Unseen
+Franka Robot
+Real-World Seen
+Ours
+OpenVLA
+RT-2-X
+Octo
+RT-1-X
+RT-1
+WidowX Robot
+SIMPLER
+Google Robot
+SIMPLER (Visual Matching)
+Google Robot
+SIMPLER (Variant Aggregation)
+17.5
+1.1
+4.2
+51.3
+1.2
+11
+30.2
+42.4
+39.3
+34.3
+43.7
+52.4
+54.4
+46.3
+61.3
+74.8
+4.9
+12.1
+71.2
+8.0
+61.5
+5.8
+6.8
+61.4
+Realman Robot Real-World Evaluations 
+(a)
+(b)
+(c)
+Figure 1. (a) Success rate (%) comparison of our model against RT-1 [7], RT-1-X [48], RT-2-X [48], Octo [62], and OpenVLA [30] across
+simulated benchmarks (first thee charts) and real-world evaluations (last three charts), using various robots: Google robot, WidowX robot,
+Realman robot, and Franka robot. All models are trained on the expansive Open X-Embodiment dataset [48] (expect for RT-1 that trains
+only on the Google Robot subset) and finetuned on a small amount of data for real robot experiments. (b) Scaling behavior: averaged
+success rate on SIMPLER [33] with respect to action module size. (c) Examples of Realman Robot executing tasks involving sequentially
+stacking multiple cups and picking and placing unseen objects.
+Abstract
+The advancement of large Vision-Language-Action (VLA)
+models has significantly improved robotic manipulation in
+terms of language-guided task execution and generalization
+to unseen scenarios. While existing VLAs adapted from pre-
+trained large Vision-Language-Models (VLM) have demon-
+strated promising generalizability, their task performance
+is still unsatisfactory as indicated by the low tasks success
+rates in different environments. In this paper, we present
+a new advanced VLA architecture derived from VLM. Un-
+like previous works that directly repurpose VLM for ac-
+tion prediction by simple action quantization, we propose
+a componentized VLA architecture that has a specialized
+∗Equal Contributions
+†Interns at Microsoft Research
+‡Project Leads. Email: {yalia,jiaoyan}@microsoft.com
+action module conditioned on VLM output. We systemat-
+ically study the design of the action module and demon-
+strate the strong performance enhancement with diffusion
+action transformers for action sequence modeling, as well
+as their favorable scaling behaviors. We also conduct com-
+prehensive experiments and ablation studies to evaluate the
+efficacy of our models with varied designs. The evalua-
+tion on five robot embodiments in simulation and real work
+shows that our model not only significantly surpasses exist-
+ing VLAs in task performance but also exhibits remarkable
+adaptation to new robots and generalization to unseen ob-
+jects and backgrounds. It exceeds the average success rates
+of OpenVLA which has similar model size (7B) with ours
+by over 35% in simulated evaluation and 55% in real robot
+experiments. It also outperforms the large RT-2-X model
+(55B) by 18% absolute success rates in simulation. Code
+and models can be found on our project page.
+arXiv:2411.19650v1  [cs.RO]  29 Nov 2024
+
+
+===== PAGE 2 =====
+1. Introduction
+In recent years, there has been a surge of interest in robotic
+control models equipped with visual capabilities [7, 8, 15,
+30, 34, 45, 48, 58, 60, 62, 67, 69]. Among them, the de-
+velopment of large-scale Vision-Language-Action (VLA)
+models [8, 30, 32] are particularly promising, which em-
+powers robots to perform complex tasks guided by natural
+language instructions and potentially manage objects or en-
+vironments that deviate from the training distribution. Ad-
+ditionally, they exhibit rapid adaptability to new tasks and
+embodiments through finetuning.
+The notable generalization capability of large VLAs can
+be attributed to both their substantial model size and the po-
+tent Vision-Language-Models (VLM) [13, 28, 35] that serve
+as their foundation. These VLMs are typically pretrained on
+massive, Internet-scale image-text pairs, which play a cru-
+cial role in enhancing VLA generalization to novel objects
+and semantically diverse instructions [8].
+Existing large VLAs often adapt VLMs for action pre-
+diction in simple ways, leading to several issues that hin-
+der task performance. For instance, works like [8, 30] di-
+rectly quantize the continuous spectrum of robot actions
+into discrete bins in accordance to the next token predic-
+tion scheme of VLMs. However, such a simple quantiza-
+tion, unlike sophisticated tokenizers such as those designed
+for images [65, 72] and audio [19, 73], poses difficulties
+in action learning and limits action precision. [32] intro-
+duces additional action heads, such as LSTMs, to transform
+VLM output into actions. The shift to a regression-based
+learning scheme, however, overlooks the probabilistic and
+multimodal1 nature of actions.
+In this paper, we propose a new VLA model architec-
+ture derived from VLM. Instead of repurposing pretrained
+VLMs for action prediction, we use the cognitive informa-
+tion extracted by VLM to guide the action prediction process
+of a specialized action module. To handle the inherent char-
+acteristics of action signals – continuous, multimodal, tem-
+porally correlated, and requiring high precision – we em-
+ploy advanced diffusion-based transformers (DiT) [51] as
+our action modules, preconditioned on VLM output via the
+attention mechanism.
+The intuition behind our design is the decoupling of
+“cognition” and “action” capabilities.
+While the large
+VLMs amass broad visual and semantic knowledge learned
+from vast amounts of text and images, the cognitive capa-
+bility and the output language modality have fundamental
+gaps to dense robot actions. Rather than directly repurpos-
+ing the VLMs, we advocate the design of componentized
+VLAs with a dedicated action module.2 This action mod-
+1A robot can follow multiple possible trajectories to accomplish a task.
+2As an interesting analogy, our human brain has visual cortex [25],
+language-relevant cortex [21], and motor cortex [71] – the last being dedi-
+cated to the control of human body movements.
+ule is specialized for action signal modeling with cognition
+model output as preconditions. We synergize the cognition
+and action capabilities via end-to-end training or finetuning.
+Hence, our approach is named CogACT.
+We systematically study the different backbone architec-
+tures for the action module as well as their scalability on
+model size, and several notable insights have emerged. For
+example, it is found that sequential modeling with a dif-
+fusion transformer significantly outperforms single-step ac-
+tion prediction. More crucially, we identified a favorable
+scaling behavior of the action module with diffusion trans-
+formers: adding several hundred million parameters, which
+is relatively minor compared to a 7B VLM base, results in
+sizable performance enhancements. This finding suggests
+the advantages of a specialized action module and a more
+efficient approach for VLA model scaling.
+In addition to our study on action module design, we also
+introduce some accompanying algorithms of independent
+interest. An Adaptive Action Ensemble (AAE) algorithm is
+proposed to fuse the past action predictions in an adaptive
+manner, which brings notable performance improvement.
+We train our VLA models on the Open X-Embodiment
+dataset [48], and evaluate them on both simulation [33]
+and real-robot benchmarks. The comprehensive evaluation
+and comparisons show that our model performs remarkably
+well, surpassing existing VLAs by a wide margin.
+The contributions of this work are summarized below:
+• We introduce the integration of the action diffusion
+process into large-scale VLA models.
+• We propose a componentized VLA model architecture
+and study the design of large action modules3 as well
+as their scaling behaviors.
+• We propose an adaptive action ensemble algorithm
+which is simple yet effective for temporal fusion.
+• Our model achieves significantly better performance
+than previous VLAs, exhibiting quick adaptation to
+new robots and tasks and effective generation to un-
+seen objects and backgrounds, as shown in Figure 1.
+All our code and models are publicly released.
+2. Related Works
+Vision-Language-Action Models. The success of Large
+Language Models (LLMs) [2, 9, 63, 64] and Vision-
+Language Models (VLMs) [1, 14, 28, 37, 61] has inspired
+the development of Vision-Language-Action (VLA) mod-
+els, which extend the capabilities of VLMs by integrating
+action generation.
+For instance, RoboFlamingo [32] ex-
+tends OpenFlamingo [3] by incorporating a head network
+to predict actions and optimizing with MSE loss. RT-2 [8]
+3Our largest action DiT module is of 300M parameters. Although this
+may seem modest, especially in comparison with large LLMs/VLMs, it is
+considered large given the 7D vector space of robot actions we address.
+2
+
+
+===== PAGE 3 =====
+tokenizes 7D actions into discrete tokens and uses the VLM
+PaLI-X [13] to predict them autoregressively like language
+tokens. OpenVLA adopts a similar approach, tokenizing
+actions and training the Prismatic VLM [28] on the Open-
+X-Embodiment dataset [48]. While these models benefit
+from VLMs’ capabilities and demonstrate promising per-
+formance and impressive generalization, they lack the con-
+sideration that actions are inherently continuous and tem-
+poral, a modality distinct from language. A group of meth-
+ods [5, 11, 68] employ large-scale video generative pretrain-
+ing to enhance visual robot manipulation learning without
+leveraging pretrained VLMs, and promising results have
+been demonstrated.
+Large Action Models. There are some recent attempts con-
+current to ours that explored large action models for gener-
+alist robots. For example, [24] trained a diffusion trans-
+former with 221M parameters and [38] further scaled the
+action model size to 1B. Both works apply separate vision
+and language encoders that are pretrained and frozen to pro-
+cess language instructions and images, and they train the ac-
+tion model to integrate these inputs and predict actions with
+VLA data. Different from ours, these works cannot lever-
+age the generalization and instruction following capabil-
+ity of powerful VLMs pretrained on Internet-scale vision-
+language aligned data.
+Diffusion-Based Robot Policies. Recent studies [15, 50,
+53] have introduced diffusion models as an innovative ap-
+proach for modeling robotic actions. These diffusion poli-
+cies have demonstrated strong capabilities to capture the
+multi-mode nature of robotic action distributions and effec-
+tively model the various feasible trajectories that a robot can
+take to accomplish a given task [15]. Inspired by diffusion
+policies, Octo [62] supplements a transformer-based back-
+bone architecture with compact diffusion heads of 3M pa-
+rameters to adapt the action output across different robots.
+However, the small diffusion head falls short in capturing
+the precise action distributions and the overall approach
+does not benefit from strong vision-language models pre-
+trained on web-scale data.
+In contrast, our work stud-
+ies large, dedicated action modules (rather than “heads”)
+with the diffusion transformer architecture. Besides, un-
+like [15, 50, 53], we are interested in large VLAs derived
+from VLM foundation models with strong generalization
+capability.
+3. Method
+Problem Formulation.
+Our goal is to develop a VLA
+model that enables different robots to physically execute
+diverse tasks while receiving visual observations and lan-
+guage instructions. Formally, given the language instruction
+l and visual observation ot at time t, a model π predicts a
+temporal action sequence (at, at+1, ..., at+N) for execut-
+ing the desired task:
+π : (l, ot) →(at, at+1, ..., at+N).
+(1)
+While in general, at can describe various robot actions with
+different control modes and end-effectors, we consider the
+action space of a gripper with 7 degrees of freedom (DoF)
+in this work:
+at = [∆x, ∆y, ∆z, ∆ϕ, ∆θ, ∆ψ, g],
+(2)
+where ∆x, ∆y, ∆z are the relative translation offsets of the
+end effector, ∆ϕ, ∆θ, ∆ψ denote the rotation changes, and
+g ∈{0, 1} indicates the gripper’s open/close state.
+Overall architecture.
+To effectively handle complex vi-
+sual observations and language instructions and collabora-
+tively transform them into precise actions, we componen-
+tize the model π into three parts: a vision module, a lan-
+guage module, and an action module, as shown in Fig. 2.
+We describe each part in details below.
+3.1. Vision and Language Modules
+Our vision and language modules are adapted from an ex-
+isting VLM from [28] that has about 7B parameters in total,
+similar to [30]. We briefly describe them below for com-
+pleteness.
+Vision Module.
+The vision module processes raw images
+input into a set of perceptual tokens. It consists of power-
+ful vision transformers, DINOv2 [49] and SigLIP [74], pre-
+trained on Internet-scale image data, to capture rich visual
+features and a comprehensive semantic understanding of the
+observations. At each timestep t, the image observation ot
+is fed into the two models, producing two downsampled
+feature maps f DINO
+t
+and f Sig
+t
+, respectively. These feature
+maps are then concatenated along the channel dimension,
+passed through a linear projection layer, and serialized into
+a set of visual perceptual tokens, V = {v1, v2, ..., vNV}
+with a length NV (we use 256 by default).
+Language Module.
+The language module is responsible
+for integrating visual information and language instructions
+and conducting cognitive reasoning.
+Here, a LLAMA-
+2 model [64] is applied as the backbone.
+The language
+instruction l is converted into a set of linguistic tokens,
+T = {l1, l2, ..., lNT }, using LLAMA-2’s tokenizer. These
+tokens are then concatenated with the visual tokens V and
+an additional learnable cognition token c, and processed by
+the model using a causal attention mechanism. The result-
+ing output feature f c
+t , corresponding to the cognition token,
+encodes integrated information that determines the action to
+be executed for the current task. This serves as a condition
+for the subsequent action module to interpret and derive the
+desired actions.
+3
+
+
+===== PAGE 4 =====
+…
+𝒂𝒂𝒕𝒕+𝑵𝑵−𝟑𝟑
+𝒂𝒂𝒕𝒕+𝟏𝟏
+𝒂𝒂𝒕𝒕
+𝒂𝒂𝒕𝒕−𝟏𝟏
+𝒂𝒂𝒕𝒕−𝟐𝟐
+Vision 
+Model
+“move spoon to below 
+the bowl on right.”
+observation (step 𝒕𝒕)
+Large 
+Language 
+Model
+step 𝒕𝒕 
+prediction 
+Action 
+Model
+Transformer Blocks
+tokenize
+Image &amp; language tokens
+×M
+…
+…
+𝒂𝒂𝒕𝒕+𝑵𝑵
+𝒂𝒂𝒕𝒕+𝟑𝟑
+𝒂𝒂𝒕𝒕+𝟐𝟐
+𝒂𝒂𝒕𝒕+𝟏𝟏
+𝒂𝒂𝒕𝒕
+cognition token
+cognition feature
+vision and language input
+denoising
+…
+𝒂𝒂𝒕𝒕+𝑵𝑵−𝟏𝟏
+𝒂𝒂𝒕𝒕+𝟐𝟐
+𝒂𝒂𝒕𝒕+𝟏𝟏
+𝒂𝒂𝒕𝒕
+𝒂𝒂𝒕𝒕−𝟏𝟏
+action output
+previous 
+prediction
+adaptive
+ensembling
+𝒂𝒂𝒕𝒕
+action space
+𝜟𝜟𝜟𝜟
+𝜟𝜟𝜟𝜟
+𝒈𝒈
+noise
+Figure 2. Overview of our architecture. Our model is componentized into three parts: 1) a vision module encoding information from the
+current image observation into visual tokens; 2) a language module that integrates the visual tokens with the language instructions, and
+produces a cognition feature determining the desired action to be executed; 3) a diffusion action module, which predicts a sequence of
+multi-step actions conditioned on the cognition feature. An adaptive ensemble strategy is applied for trajectory ensemble at inference.
+3.2. Diffusion Action Module
+The action module receives the cognition feature as an in-
+put condition to generate a series of actions, as defined in
+Eq. (1) and (2). Given that real-world physical actions are
+continuous and often multi-modal, we predict them using
+a diffusion modeling process [47]. To model complex and
+temporally-correlated actions, we apply a di</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

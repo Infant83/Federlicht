@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2503.20020v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2503.20020v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> Gemini Robotics: Bringing AI into the Physical World</p><p><strong>Authors:</strong> Gemini Robotics Team et al.</p><p><strong>Published:</strong> 2025-03-25T19:02:56+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2503.20020v1">http://arxiv.org/abs/2503.20020v1</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2503.20020v1.pdf">./archive/arxiv/pdf/2503.20020v1.pdf</a></p><p><strong>Summary:</strong><br />Recent advancements in large multimodal models have led to the emergence of remarkable generalist capabilities in digital domains, yet their translation to physical agents such as robots remains a significant challenge. This report introduces a new family of AI models purposefully designed for robotics and built upon the foundation of Gemini 2.0. We present Gemini Robotics, an advanced Vision-Language-Action (VLA) generalist model capable of directly controlling robots. Gemini Robotics executes smooth and reactive movements to tackle a wide range of complex manipulation tasks while also being robust to variations in object types and positions, handling unseen environments as well as following diverse, open vocabulary instructions. We show that with additional fine-tuning, Gemini Robotics can be specialized to new capabilities including solving long-horizon, highly dexterous tasks, learning new short-horizon tasks from as few as 100 demonstrations and adapting to completely novel robot embodiments. This is made possible because Gemini Robotics builds on top of the Gemini Robotics-ER model, the second model we introduce in this work. Gemini Robotics-ER (Embodied Reasoning) extends Gemini&#x27;s multimodal reasoning capabilities into the physical world, with enhanced spatial and temporal understanding. This enables capabilities relevant to robotics including object detection, pointing, trajectory and grasp prediction, as well as multi-view correspondence and 3D bounding box predictions. We show how this novel combination can support a variety of robotics applications. We also discu <em>[truncated]</em></p></div><pre>
+
+===== PAGE 1 =====
+Gemini Robotics: Bringing AI into the Physical
+World
+Gemini Robotics Team, Google DeepMind1
+Recent advancements in large multimodal models have led to the emergence of remarkable generalist
+capabilities in digital domains, yet their translation to physical agents such as robots remains a significant
+challenge. Generally useful robots need to be able to make sense of the physical world around them, and
+interact with it competently and safely. This report introduces a new family of AI models purposefully
+designed for robotics and built upon the foundation of Gemini 2.0. We present Gemini Robotics, an
+advanced Vision-Language-Action (VLA) generalist model capable of directly controlling robots. Gemini
+Robotics executes smooth and reactive movements to tackle a wide range of complex manipulation tasks
+while also being robust to variations in object types and positions, handling unseen environments as well
+as following diverse, open vocabulary instructions. We show that with additional fine-tuning, Gemini
+Robotics can be specialized to new capabilities including solving long-horizon, highly dexterous tasks
+like folding an origami fox or playing a game of cards, learning new short-horizon tasks from as few
+as 100 demonstrations, adapting to completely novel robot embodiments including a bi-arm platform
+and a high degrees-of-freedom humanoid. This is made possible because Gemini Robotics builds on
+top of the Gemini Robotics-ER model, the second model we introduce in this work. Gemini Robotics-ER
+(Embodied Reasoning) extends Gemini’s multimodal reasoning capabilities into the physical world, with
+enhanced spatial and temporal understanding. This enables capabilities relevant to robotics including
+object detection, pointing, trajectory and grasp prediction, as well as 3D understanding in the form of
+multi-view correspondence and 3D bounding box predictions. We show how this novel combination
+can support a variety of robotics applications, e.g., zero-shot (via robot code generation), or few-shot
+(via in-context learning). We also discuss and address important safety considerations related to this
+new class of robotics foundation models. The Gemini Robotics family marks a substantial step towards
+developing general-purpose robots that realize AI’s potential in the physical world.
+1. Introduction
+The remarkable progress of modern artificial intelligence (AI) models – with pre-training on large-
+scale datasets – has redefined information processing, demonstrating proficiency and generalization
+across diverse modalities such as text, images, audio, and video. This has opened a vast landscape of
+opportunities for interactive and assistive systems within the digital realm, ranging from multimodal
+chatbots to virtual assistants. However, realizing the potential of general-purpose autonomous AI in
+the physical world requires a substantial shift from the digital world, where physically grounded AI
+agents must demonstrate robust human-level embodied reasoning: The set of world knowledge that
+encompasses the fundamental concepts which are critical for operating and acting in an inherently
+physically embodied world. While, as humans, we take for granted our embodied reasoning abilities –
+such as perceiving the 3D structure of environments, interpreting complex inter-object relationships,
+or understanding intuitive physics – these capabilities form an important basis for any embodied AI
+agent. Furthermore, an embodied AI agent must also go beyond passively understanding the spatial
+and physical concepts of the real world; it must also learn to take actions that have direct effects
+1See Contributions and Acknowledgments section for full author list.
+Please send correspondence to
+gemini-robotics-report@google.com.
+© 2025 Google DeepMind. All rights reserved
+arXiv:2503.20020v1  [cs.RO]  25 Mar 2025
+
+
+===== PAGE 2 =====
+Gemini Robotics: Bringing AI into the Physical World
+Gemini Robotics-ER
+Gemini Robotics
+2.0
+Robotics specific training
+Dexterous, general &amp; instructable Vision-Language-Action model
+Adaptation &amp; specialization
+dataset
+Embodied reasoning
+dataset
+Diverse robot actions
+dataset
+Dexterous tasks
+dataset
+New embodiments
+dataset
+Advanced reasoning
+Open the bottom drawer of the 
+jewelry box.
+Take out the bottle from the right 
+side pocket of the bag.
+Put the brown bar in the top 
+pocket of the lunch bag.
+Wrap the wire around the 
+headphone.
+Advanced embodied reasoning for robotics
+3D object detection.
+2D object detection.
+2D pointing.
+Grasp point and angle prediction.
+New embodiments
+Complex dexterous tasks
+Advanced reasoning &amp; acting
+Figure 1 | Overview of the Gemini Robotics family of embodied AI models. Gemini 2.0 already exhibits
+capabilities relevant to robotics such as semantic safety understanding and long contexts. The robotics-specific
+training and the optional specialization processes enable the Gemini Robotics models to exhibit a variety of
+robotics-specific capabilities. The models generate dexterous and reactive motions, can be quickly adapted to
+new embodiments, and use advanced visuo-spatial reasoning to inform actions.
+on their external environment, bridging the gap between passive perception and active physical
+interaction.
+With the recent advancements in robotics hardware, there is exciting potential for creating
+embodied AI agents that can perform highly dexterous tasks. With this in mind, we ask: What would
+it take to endow a state-of-the-art digital AI model with the embodied reasoning capabilities needed
+to interact with our world in a general and dexterous manner?
+Our thesis is predicated on harnessing the advanced multimodal understanding and reasoning
+capabilities inherent in frontier Vision-Language Models (VLMs), such as Gemini 2.0. The generalized
+comprehension afforded by these foundation models, with their ability to interpret visual inputs and
+complex text instructions, forms a powerful foundation for building embodied agents. This endeavor
+hinges on two fundamental components. First, Gemini needs to acquire robust embodied reasoning,
+gaining the ability to understand the rich geometric and temporal-spatial details of the physical world.
+Second, we must ground this embodied reasoning in the physical world by enabling Gemini to speak
+the language of physical actions, understanding contact physics, dynamics, and the intricacies of
+real-world interactions. Ultimately, these pieces must coalesce to enable fast, safe and dexterous
+control of robots in the real world.
+To this end, we introduce the Gemini Robotics family of embodied AI models, built on top of Gemini
+2.0, our most advanced multimodal foundation model. We first validate the performance and generality
+of the base Gemini 2.0’s innate embodied reasoning capabilities with a new open-source general
+embodied reasoning benchmark, ERQA. We then introduce two models: The first model is Gemini
+Robotics-ER, a VLM with strong embodied reasoning capabilities at its core, exhibiting generalization
+across a wide range of embodied reasoning tasks while also maintaining its core foundation model
+2
+
+
+===== PAGE 3 =====
+Gemini Robotics: Bringing AI into the Physical World
+2D Object Detection
+2D Pointing
+2D Pointing
+Multi-view Correspondence
+3D Object Detection
+Figure 2 | Gemini 2.0 excels at embodied reasoning capabilities — detecting objects and points in 2D, leveraging
+2D pointing for grasping and trajectories, and corresponding points and detecting objects in 3D. All results
+shown are obtained with Gemini 2.0 Flash.
+capabilities. Gemini Robotics-ER exhibits strong performance on multiple capabilities critical for
+understanding the physical world, ranging from 3D perception to detailed pointing to robot state
+estimation and affordance prediction via code. The second model is Gemini Robotics, a state-of-the-
+art Vision-Language-Action (VLA) model that connects strong embodied reasoning priors to dexterous
+low-level control of real-world robots to solve challenging manipulation tasks. As a generalist VLA,
+Gemini Robotics can perform a wide array of diverse and complicated tasks, while also closely following
+language guidance and generalizing to distribution shifts in instructions, visuals, and motions. To
+emphasize the flexibility and generality of the Gemini Robotics models, we also introduce an optional
+specialization stage, which demonstrates how Gemini Robotics can be adapted for extreme dexterity,
+for advanced reasoning in difficult generalization settings, and for controlling completely new robot
+embodiments. Finally, we discuss the safety implications of training large robotics models such as the
+Gemini Robotics models, and provide guidelines for how to study such challenges in the context of
+VLAs. Specifically, this report highlights:
+1. ERQA: An open-source benchmark specifically designed to evaluate embodied reasoning ca-
+pabilities of multimodal models, addressing the lack of benchmarks that go beyond assessing
+atomic capabilities and facilitating standardized assessment and future research.
+2. Gemini Robotics-ER: A VLM demonstrating enhanced embodied reasoning capabilities.
+3. Gemini Robotics: A VLA model resulting from the integration of robot action data, enabling
+high-frequency dexterous control, robust generalization and fast adaptation across diverse
+robotic tasks and embodiments.
+4. Responsible Development: We discuss and exercise responsible development of our family of
+models in alignment with Google AI Principles carefully studying the societal benefits and risks
+of our models, and potential risk mitigation.
+The Gemini Robotics models serve as an initial step towards more generally capable robots. We
+believe that, ultimately, harnessing the embodied reasoning capabilities from internet scale data,
+3
+
+
+===== PAGE 4 =====
+Gemini Robotics: Bringing AI into the Physical World
+Approximately which colored 
+trajectory should the zipper follow 
+to begin zipping up the suitcase?
+A. Blue
+B. Purple
+C. Green
+D. Red
+How should the person move the 
+wrench so that it is ready to rotate 
+the hex screw closest to it?
+A. Forward and right
+B. Up and left
+C. Forward and left
+D. None of the above
+There are 4 sinks in the picture. 
+Which arrow points to the one that 
+is closest to the viewer?
+A. Cyan
+B. Blue
+C. Red
+D. None of the arrows
+Figure 3 | Example questions from the Embodied Reasoning Question Answering (ERQA) benchmark, with
+answers in bold.
+grounded with action data from real world interactions, can enable robots to deeply understand the
+physical world and act competently. This understanding will empower them to achieve even the most
+challenging goals with generality and sophistication that has so far seemed out of reach for robotic
+systems.
+2. Embodied Reasoning with Gemini 2.0
+Gemini 2.0 is a Vision-Language Model (VLM) that is capable of going beyond tasks that only require
+visual understanding and language processing. In particular, this model exhibits advanced embodied
+reasoning (ER) capabilities. We define ER as the ability of a Vision-Language Model to ground objects
+and spatial concepts in the real world, and the ability to synthesize those signals for downstream
+robotics applications. See some examples of such capabilities in Fig. 2. In Section 2.1, we first
+introduce a benchmark for evaluating a broad spectrum of ER capabilities and show that Gemini 2.0
+models are state-of-the-art. In Section 2.2, we demonstrate the wide range of specific ER capabilities
+enabled by Gemini 2.0. Finally, in Section 2.3, we showcase how these capabilities can be put to use
+in robotics applications without the need for fine-tuning on robot action data, enabling use cases such
+as zero-shot control via code generation and few-shot robot control via in-context learning.
+2.1. Embodied Reasoning Question Answering (ERQA) Benchmark
+Spatial
+Reasoning
+84
+Action
+Reasoning
+72
+Trajectory
+Reasoning
+66
+State
+Estimation
+55
+Task
+Reasoning
+38
+Multi-view
+Reasoning
+37
+Pointing
+34
+Other
+14
+Figure 4 | ERQA question categories.
+To capture progress in embodied reasoning for VLMs, we intro-
+duce ERQA, short for Embodied Reasoning Question Answer-
+ing, a benchmark that focuses specifically on capabilities likely
+required by an embodied agent interacting with the physical
+world. ERQA consists of 400 multiple choice Visual Ques-
+tion Answering (VQA)-style questions across a wide variety of
+categories, including spatial reasoning, trajectory reasoning,
+action reasoning, state estimation, pointing, multi-view rea-
+soning, and task reasoning. A breakdown of the distribution
+of question types is in Fig. 4. Of the 400 questions 28% have
+more than one image in the prompt — these questions that
+4
+
+
+===== PAGE 5 =====
+Gemini Robotics: Bringing AI into the Physical World
+Gemini
+GPT
+Claude
+Benchmark
+1.5 Flash
+1.5 Pro
+2.0 Flash
+2.0 Pro Experimental
+4o-mini
+4o
+3.5 Sonnet
+ERQA
+42.3
+41.8
+46.3
+48.3
+37.3
+47.0
+35.5
+RealworldQA (test)
+69.0
+64.5
+71.6
+74.5
+65.0
+71.9
+61.4
+BLINK (val)
+59.2
+64.4
+65.0
+65.2
+56.9
+62.3
+60.2
+Table 1 | Comparing VLMs on benchmarks that assess a wide range of embodied reasoning capabilities,
+including our new ERQA benchmark. Benchmarks are evaluated by accuracies of multiple-choice answers.
+Results obtained in Feb 2025.
+require corresponding concepts across multiple images tend to be more challenging than single-image
+questions.
+ERQA is complementary to existing VLM benchmarks, which tend to highlight more atomic
+capabilities (e.g., object recognition, counting, localization), but in most cases do not take sufficient
+account of the broader set of capabilities needed to act in the physical world. Fig. 3 shows some
+example questions and answers of our ERQA. Some questions require the VLM to recognize and
+register objects across multiple frames; others require reasoning about objects’ affordances and
+3D relationships with the rest of the scene. Full details of the benchmark can be found at https:
+//github.com/embodiedreasoning/ERQA.
+We manually labeled all questions in ERQA to ensure correctness and quality. Images (not
+questions) in the benchmark are either taken by ourselves or sourced from these datasets: OXE (O’Neill
+et al., 2024), UMI Data (UMI-Data, 2024), MECCANO (Ragusa et al., 2021, 2022), HoloAssist (Wang
+et al., 2023), and EGTEA Gaze+ (Li et al., 2021). In Table 1, we report results of Gemini models
+and other models on ERQA, as well as on RealworldQA (XAI-org, 2024) and BLINK (Fu et al., 2024),
+two popular benchmarks that also measure spatial and image understanding capabilities. Specifically,
+we report results of Gemini 2.0 Flash, a powerful low-latency workhorse model and Gemini 2.0 Pro
+Experimental 02-05 (short as Gemini 2.0 Pro Experimental in the rest of the paper), the best Gemini
+model for complex tasks. Gemini 2.0 Flash and Pro Experimental achieve a new state-of-the-art on all
+three benchmarks in their respective model classes. We also note that ERQA is the most challenging
+benchmark across these three, making the performance here especially notable.
+Gemini 2.0 models are capable of advanced reasoning — we found we can significantly improve
+Gemini 2.0’s performance on the benchmark if we use Chain-of-Thought (CoT) prompting (Wei et al.,
+2022), which encourages the model to output reasoning traces to “think” about a problem before
+choosing the multiple choice answer, instead of directly predicting the answer. We use the following
+instruction as the CoT prompt appended at the end of each question: “Reason step by step about the
+answer, and show your work, for each step. Only after that, proceed to the final answer.” Results are
+shown in Table 2. With CoT prompting, Gemini 2.0 Flash’s performance exceeds that of Gemini 2.0
+Pro Experimental without CoT, and CoT further improves Gemini 2.0 Pro Experimental’s performance.
+We highlight two such reasoning traces in Fig. 5, questions that Gemini 2.0 Pro Experimental answered
+incorrectly without CoT, but correctly with CoT. The reasoning traces demonstrate Gemini 2.0 is able
+Gemini
+GPT
+C</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

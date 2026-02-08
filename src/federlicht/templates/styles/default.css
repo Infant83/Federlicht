@@ -14,6 +14,12 @@ body.template-acs_review {
   --masthead-link: rgba(248, 250, 252, 0.88);
   --masthead-link-border: rgba(248, 250, 252, 0.3);
   --masthead-link-bg: rgba(15, 23, 42, 0.2);
+  --chrome-ink: rgba(248, 250, 252, 0.94);
+  --chrome-muted: rgba(248, 250, 252, 0.66);
+  --chrome-surface: rgba(82, 88, 97, 0.9);
+  --chrome-border: rgba(248, 250, 252, 0.22);
+  --chrome-hover-soft: rgba(248, 250, 252, 0.1);
+  --chrome-hover: rgba(248, 250, 252, 0.16);
   --paper-alt: #f2ede3;
   --page-bg: radial-gradient(1200px 600px at 18% -12%, #efe9e0 0%, #f6f2ea 45%, #fdfcf9 100%);
   --body-font: "Iowan Old Style", "Charter", "Palatino Linotype", "Book Antiqua", Georgia, serif;

@@ -4,7 +4,9 @@ description: Professional technical review (current default).
 tone: Professional, evidence-based, readable.
 audience: Technical leaders and researchers.
 css: default.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Executive Summary
 section: Scope & Methodology
 section: Key Findings
@@ -21,3 +23,5 @@ writer_guidance: Synthesize across sources; avoid lists of summaries.
 writer_guidance: Separate facts from interpretation; label web-derived support.
 writer_guidance: Avoid overly formal phrasing; keep sentences direct and readable.
 ---
+
+

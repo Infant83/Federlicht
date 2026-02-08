@@ -46,7 +46,7 @@ from .utils import json_bytes as _json_bytes, safe_rel as _safe_rel
 
 
 class FedernettHandler(BaseHTTPRequestHandler):
-    server_version = "federnett/1.2.0"
+    server_version = "federnett/1.3.0"
 
     def _cfg(self) -> FedernettConfig:
         return self.server.cfg  # type: ignore[attr-defined]
@@ -613,7 +613,7 @@ def build_parser() -> argparse.ArgumentParser:
 """
     ap = argparse.ArgumentParser(
         prog="federnett",
-        description="Federnett: a friendly web studio for Feather and Federlicht.",
+        description="Federnett studio (Federlicht platform): web control plane for Feather intake and Federlicht reporting.",
         epilog=examples,
         formatter_class=_HelpFormatter,
     )

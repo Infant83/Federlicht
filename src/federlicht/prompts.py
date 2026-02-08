@@ -25,6 +25,13 @@ def _is_korean(language: str) -> bool:
     return language.strip().lower() in {"korean", "ko", "kor", "kr"}
 
 
+def _normalize_rigidity(template_rigidity: str | None) -> str:
+    token = (template_rigidity or "").strip().lower()
+    if token in {"strict", "balanced", "relaxed", "loose", "off"}:
+        return token
+    return "balanced"
+
+
 def build_scout_prompt(language: str) -> str:
     return (
         "당신은 소스 스카우트입니다. 아카이브를 매핑하고 핵심 소스 파일을 식별한 뒤 읽기 계획을 제안하세요. "
@@ -116,6 +123,9 @@ def build_evidence_prompt(language: str) -> str:
         "파일 경로는 대괄호로 인용하세요. 가능하면 추출 텍스트 파일을 우선하고, 필요할 때만 PDF를 사용하세요. "
         "가능하면 원문 URL도 함께 캡처하세요(아카이브 경로만 남기지 않기). "
         "인용은 해당 문장 끝에 inline으로 붙이고, 인용만 단독 줄로 두지 마세요. "
+        "외부 소스(논문/웹/영상)의 저작권과 재사용 조건은 원 출처 정책을 따릅니다. "
+        "장문 직접 인용은 최소화하고, 요약/재서술(paraphrase)을 우선하세요. "
+        "핵심 주장마다 가능하면 최소 1개의 원출처 URL을 확보하세요. "
         "도구 출력에 [artifact] Original chunks 경로가 있으면, NEEDS_VERIFICATION 항목은 해당 chunk 파일을 "
         "read_document로 다시 열어 원문을 확인한 뒤 인용하세요. "
         "PDF의 뒷부분이 필요하면 read_document의 start_page를 사용해 필요한 페이지를 추가로 읽으세요. "
@@ -133,6 +143,9 @@ def build_writer_prompt(
     output_format: str,
     language: str,
     depth: str | None = None,
+    template_rigidity: str = "balanced",
+    figures_enabled: bool = False,
+    figures_mode: str = "auto",
 ) -> str:
     critics_guidance = ""
     if any(section.lower().startswith("critics") for section in required_sections):
@@ -196,6 +209,55 @@ def build_writer_prompt(
             "Custom 템플릿 가이드는 depth 지시보다 우선합니다. "
             "충돌하는 경우 템플릿 가이드에 맞추고, depth는 보조 기준으로만 사용하세요. "
         )
+    rigidity = _normalize_rigidity(template_rigidity)
+    rigidity_guidance = ""
+    if rigidity == "strict":
+        rigidity_guidance = (
+            "Template rigidity=strict: 템플릿 섹션 의도와 형식 규칙을 강하게 따르세요. "
+            "섹션 제목과 순서는 시스템 지시를 우선하고, 섹션 내에서도 주장-근거-해석 흐름을 명확히 유지하세요. "
+            "표/불릿은 정보밀도를 높일 때만 사용하고 장식적 형식 추가는 피하세요. "
+        )
+    elif rigidity == "balanced":
+        rigidity_guidance = (
+            "Template rigidity=balanced: 템플릿은 기본 골격으로 사용하되, 보고서 목적과 근거 밀도에 맞춰 "
+            "문단/불릿/표를 유연하게 혼합하세요. 형식보다 전달력을 우선하되 핵심 섹션 정합성은 유지하세요. "
+        )
+    elif rigidity == "relaxed":
+        rigidity_guidance = (
+            "Template rigidity=relaxed: 템플릿은 참고 기준으로만 사용하세요. "
+            "섹션별 분량과 내부 구성은 근거 가용성에 맞게 조절하고, 불필요한 형식 반복을 줄이세요. "
+        )
+    elif rigidity == "loose":
+        rigidity_guidance = (
+            "Template rigidity=loose: 템플릿 강제보다 문제 해결 중심 서사를 우선하세요. "
+            "필수 섹션/인용 규칙만 지키며, 섹션 내부 구조와 서술 방식은 실용적으로 재구성하세요. "
+        )
+    else:
+        rigidity_guidance = (
+            "Template rigidity=off: 템플릿 강제는 최소화하고 보고서 목적에 최적화된 전개를 우선하세요. "
+            "단, 시스템이 요구하는 필수 섹션/인용/출력 형식 규칙은 유지하세요. "
+        )
+    evidence_layout_guidance = (
+        "표현 전략: 비교 대상이 3개 이상이거나 수치 대비가 핵심이면 compact 표를 우선 고려하세요. "
+        "절차/워크플로우는 번호 리스트를 사용하고, 해석은 문단으로 이어서 맥락을 완성하세요. "
+        "불릿만 연속으로 나열하지 말고 문단-불릿-문단 리듬을 유지하세요. "
+    )
+    figure_guidance = ""
+    if figures_enabled:
+        if figures_mode == "select":
+            figure_guidance = (
+                "Figure mode=select: 선택된 그림만 삽입되므로, 본문은 그림 없이도 이해 가능해야 합니다. "
+                "그림 언급은 핵심 해석에 필요한 경우로 제한하고, Figure 번호/캡션/페이지를 본문에 하드코딩하지 마세요. "
+            )
+        else:
+            figure_guidance = (
+                "Figure mode=auto: 관련 섹션 말미에 그림이 자동 삽입됩니다. "
+                "본문에서는 그림의 해석적 역할만 간결히 연결하고, Figure 번호/캡션/페이지를 하드코딩하지 마세요. "
+            )
+    else:
+        figure_guidance = (
+            "Figure extraction이 비활성화되어 있으므로, 시각 자료가 필요한 설명은 표/불릿/문단 구조로 대체하세요. "
+        )
     tone_instruction = (
         "PRL/Nature/Annual Review 스타일의 학술 저널 톤으로 작성하세요. "
         if template_spec.name in FORMAL_TEMPLATES
@@ -222,6 +284,8 @@ def build_writer_prompt(
         "JSONL 인덱스 내용을 그대로 덤프하지 말고, 실제 문서/기사 내용을 분석하세요. "
         "JSONL 인덱스 파일을 인용하지 마세요(tavily_search.jsonl, openalex/works.jsonl 등). "
         "대신 실제 원문 URL과 추출 텍스트/PDF/트랜스크립트를 인용하세요. "
+        "외부 소스의 저작권/라이선스는 원 출처 정책을 따른다는 점을 전제로 작성하세요. "
+        "긴 원문을 그대로 복제하지 말고, 분석 목적의 요약/재서술을 우선하세요. "
         "References 전체 목록은 작성하지 마세요. 스크립트가 Source Index를 자동으로 추가합니다. "
         "Report Prompt 또는 Clarifications 섹션을 추가하지 마세요. 스크립트가 자동으로 추가합니다. "
         "그림 목록/페이지 번호 섹션을 별도로 만들지 마세요. 스크립트가 Figure callout을 삽입합니다. "
@@ -230,7 +294,10 @@ def build_writer_prompt(
         f"{format_instructions.citation_instruction}"
         "수식이 중요할 때는 LaTeX($...$ 또는 $$...$$)로 렌더링되게 작성하세요. "
         f"{custom_priority}"
+        f"{rigidity_guidance}"
         f"{depth_guidance}"
+        f"{evidence_layout_guidance}"
+        f"{figure_guidance}"
         f"{critics_guidance}"
         f"{risk_gap_guidance}"
         f"{not_applicable_guidance}"
@@ -251,6 +318,9 @@ def build_writer_finalizer_prompt(
     output_format: str,
     language: str,
     depth: str | None = None,
+    template_rigidity: str = "balanced",
+    figures_enabled: bool = False,
+    figures_mode: str = "auto",
 ) -> str:
     base_prompt = build_writer_prompt(
         format_instructions,
@@ -260,6 +330,9 @@ def build_writer_finalizer_prompt(
         output_format,
         language,
         depth,
+        template_rigidity,
+        figures_enabled,
+        figures_mode,
     )
     finalizer_guidance = (
         "이 단계는 선택된 초안에 대한 최종 정리 패스입니다. "
@@ -278,6 +351,7 @@ def build_repair_prompt(
     language: str,
     mode: str = "replace",
     free_form: bool = False,
+    template_rigidity: str = "balanced",
 ) -> str:
     mode_instruction = ""
     if mode == "append":
@@ -293,7 +367,14 @@ def build_repair_prompt(
             "기존 섹션을 삭제하거나 이름을 바꾸지 마세요. "
         )
     else:
-        heading_rule = "필수 스켈레톤의 섹션 헤딩을 그대로 사용하고 순서를 유지하세요. "
+        rigidity = _normalize_rigidity(template_rigidity)
+        if rigidity == "strict":
+            heading_rule = "필수 스켈레톤의 섹션 헤딩을 그대로 사용하고 순서를 유지하세요. "
+        else:
+            heading_rule = (
+                "필수 스켈레톤의 섹션 헤딩 텍스트는 그대로 유지하세요. "
+                "순서는 현재 보고서의 흐름을 해치지 않는 범위에서 유지하세요. "
+            )
     return (
         "당신은 구조 편집자입니다. 보고서에 필수 섹션이 누락되었습니다. "
         "기존 내용과 인용을 유지하면서 누락 섹션을 추가하세요. "
@@ -427,9 +508,14 @@ def build_template_generator_prompt(language: str) -> str:
         "- sections: 섹션 제목 리스트(순서 유지)\n"
         "- section_guidance: 섹션 제목 -> 1-2문장 가이드\n"
         "- writer_guidance: 전체 작성 규칙(짧은 불릿 리스트)\n"
+        "- layout: single_column 또는 sidebar_toc (선택)\n"
         "- css: 완전한 CSS 문자열\n"
         "CSS는 body.template-<slug> 셀렉터로 시작하고, masthead/article/typography/표 스타일을 "
         "세련된 웹진 느낌으로 정의하세요. "
+        "sidebar_toc를 사용하는 경우 TOC/헤더 같은 chrome 영역과 본문(article) 영역의 색 토큰을 분리하세요. "
+        "가독성을 위해 다음 토큰을 포함하세요: --chrome-ink, --chrome-muted, --chrome-surface, "
+        "--chrome-border, --chrome-hover-soft, --chrome-hover. "
+        "TOC 항목 텍스트와 배경의 명도 대비를 충분히 확보하세요(낮은 대비 금지). "
         "헤더에는 짙은 박스 배경, 큰 타이틀, 얕은 데크 라인을 반영하세요. "
         f"모든 텍스트는 {language}로 작성하세요."
     )

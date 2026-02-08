@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2506.07339v2.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2506.07339v2.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> Real-Time Execution of Action Chunking Flow Policies</p><p><strong>Authors:</strong> Kevin Black, Manuel Y. Galliker, Sergey Levine</p><p><strong>Published:</strong> 2025-06-09T01:01:59+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2506.07339v2">http://arxiv.org/abs/2506.07339v2</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2506.07339v2.pdf">./archive/arxiv/pdf/2506.07339v2.pdf</a></p><p><strong>Summary:</strong><br />Modern AI systems, especially those interacting with the physical world, increasingly require real-time performance. However, the high latency of state-of-the-art generalist models, including recent vision-language action models (VLAs), poses a significant challenge. While action chunking has enabled temporal consistency in high-frequency control tasks, it does not fully address the latency problem, leading to pauses or out-of-distribution jerky movements at chunk boundaries. This paper presents a novel inference-time algorithm that enables smooth asynchronous execution of action chunking policies. Our method, real-time chunking (RTC), is applicable to any diffusion- or flow-based VLA out of the box with no re-training. It generates the next action chunk while executing the current one, &quot;freezing&quot; actions guaranteed to execute and &quot;inpainting&quot; the rest. To test RTC, we introduce a new benchmark of 12 highly dynamic tasks in the Kinetix simulator, as well as evaluate 6 challenging real-world bimanual manipulation tasks. Results demonstrate that RTC is fast, performant, and uniquely robust to inference delay, significantly improving task throughput and enabling high success rates in precise tasks $\unicode{x2013}$ such as lighting a match $\unicode{x2013}$ even in the presence of significant latency. See <a href="https://pi.website/research/real_time_chunking">https://pi.website/research/real_time_chunking</a> for videos.</p></div><pre>
+
+===== PAGE 1 =====
+Real-Time Execution of Action Chunking Flow Policies
+Kevin Black1,2,
+Manuel Y. Galliker1
+Sergey Levine1,2
+1Physical Intelligence
+2UC Berkeley
+{kevin,manuel,sergey}@physicalintelligence.company
+Abstract
+Modern AI systems, especially those interacting with the physical world, increas-
+ingly require real-time performance. However, the high latency of state-of-the-art
+generalist models, including recent vision-language-action models (VLAs), poses
+a significant challenge. While action chunking has enabled temporal consistency
+in high-frequency control tasks, it does not fully address the latency problem,
+leading to pauses or out-of-distribution jerky movements at chunk boundaries.
+This paper presents a novel inference-time algorithm that enables smooth asyn-
+chronous execution of action chunking policies. Our method, real-time chunking
+(RTC), is applicable to any diffusion- or flow-based VLA out of the box with no
+re-training. It generates the next action chunk while executing the current one,
+“freezing” actions guaranteed to execute and “inpainting” the rest. To test RTC, we
+introduce a new benchmark of 12 highly dynamic tasks in the Kinetix simulator,
+as well as evaluate 6 challenging real-world bimanual manipulation tasks. Results
+demonstrate that RTC is fast, performant, and uniquely robust to inference delay,
+significantly improving task throughput and enabling high success rates in precise
+tasks—such as lighting a match—even in the presence of significant latency. See
+<a href="https://pi.website/research/real_time_chunking">https://pi.website/research/real_time_chunking</a> for videos.
+deg
+Position
+Time (s)
+deg/s
+Velocity
+deg/s²
+Acceleration
+Real-time chunking (ours)
+Synchronous
+Temporal ensembling (Zhao et. al.)
+Figure 1: Top: Real-time chunking (RTC) enables the robot to perform highly dexterous and dynamic tasks,
+such as lighting a match—even in the presence of inference delays in excess of 300 milliseconds, corresponding
+to more than 30% of the model’s prediction horizon. Bottom: RTC performs the same robot motion 20% faster
+than synchronous inference [5, 30, 8, 24, 31, 59], and smoother than all competing methods, including temporal
+ensembling [68]. The shown positions, velocities, and accelerations correspond to the shoulder joint of one arm,
+and are taken from the first 10 seconds of a real autonomous match-lighting rollout.
+39th Conference on Neural Information Processing Systems (NeurIPS 2025).
+arXiv:2506.07339v2  [cs.RO]  5 Dec 2025
+
+
+===== PAGE 2 =====
+1
+Introduction
+As AI systems have become more capable, they have also interacted more and more directly with their
+environment. Whether they’re executing terminal commands [45], playing Pokémon on livestream
+[20], or browsing the web on your behalf [65], recent advances—driven primarily by large-scale
+deep learning—have enabled these systems to increasingly control, rather than merely process, the
+vast heterogeneity of the outside world. Embodied agents, where machine learning models directly
+control real, physical constructs, are perhaps the quintessential example. The same advances fueling
+agentic language and vision models are also making great strides in physical intelligence on platforms
+ranging from humanoid robots [4] to autonomous cars [60].
+Cyber-physical systems, unlike chatbots and image generators, always operate in real time. While a
+robot is “thinking”, the world around it evolves according to physical laws. Thus, delays between
+inputs and outputs have a tangible impact on performance. For a language model, the difference
+between fast and slow generation is a satisfied or annoyed user; for a robot action model, on the other
+hand, it could be the difference between a robot handing you a hot coffee or spilling it in your lap.
+Unfortunately, the effectiveness of modern large-scale machine learning comes with high latency
+as an unavoidable side effect. Large language models (LLMs), vision-language models (VLMs),
+and vision-language-action models (VLAs)—the last referring to a class of models designed for
+visuomotor control—have billions of parameters [8, 30, 5, 4, 58]. These models are not only slow to
+run, but also require heavy-duty hardware that is difficult to attach to edge devices such as mobile
+robots, adding even more overhead for remote inference. Edge hardware will improve over time, but
+as robot datasets grow in size, so will the best VLAs [28].
+Thus, applying large models to real-time control problems effectively will require some form of
+asynchronicity: that is, a model must think about its future actions while executing a previous one.
+Action chunking [68, 33, 11], where a model outputs and executes a sequence of multiple actions for
+each inference call, presents a partial solution. Although action chunking has already achieved many
+state-of-the-art results in dexterous manipulation [5, 4, 58], it still suffers from the latency problem.
+Chunking sacrifices the reactivity of a system to external stimuli and also introduces discontinuities
+in the transition points between chunks, as adjacent chunks may jump between different modes
+(or “strategies”) from the learned action distribution. Such anomalies are especially harmful to
+learning-based systems, as they produce a distribution shift in dynamics that the model is likely not
+equipped to handle. Naive smoothing strategies, such as averaging multiple predictions together [68],
+are not guaranteed to produce valid actions and may only make matters worse (e.g., see Figure 2).
+A good real-time system must produce a consistent and continuous control signal, incorporating
+the latest observations without perturbing the environment’s natural dynamics or the model’s ability
+to produce correct actions. In this work, we present real-time chunking (RTC), which poses
+asynchronous action chunking as an inpainting problem. Our algorithm generates the next action
+chunk while executing the previous one, freezing the actions that are guaranteed to be executed (due
+to inference delay) and “inpainting” the rest. It is applicable to any diffusion- [22] or flow-based [36]
+VLA, and operates purely at inference time, requiring no changes to existing training recipes.
+Our contributions are as follows. First, we present a novel system for asynchronous, real-time
+inference of action chunking diffusion- or flow-based policies for continuous control. Since standard
+simulation benchmarks are quasi-static—and have mostly been saturated with pseudo open-loop
+inference strategies [11]—we devise a new benchmark based on the Kinetix simulator [43] consisting
+of 12 highly dynamic manipulation and locomotion tasks. In the real world, we evaluate RTC on 6
+challenging bimanual manipulation tasks using the π0.5 VLA [24] as the base policy. Across both
+simulation and the real world, we demonstrate that RTC is fast and performant; it is uniquely robust
+to inference latency, even in highly precise tasks such as lighting a match (Figure 1), and it achieves
+greatly improved task throughput on all real tasks.
+2
+Preliminaries and Motivation
+We begin with an action chunking policy denoted by π(At|ot), where At = [at, at+1, ..., at+H−1]
+is a chunk of future actions, ot is an observation, and t indicates a controller timestep. We call
+H the prediction horizon. When action chunking policies are rolled out, only the first s ≤H
+actions from each chunk are executed. We call s the execution horizon; often it is shorter than the
+2
+
+
+===== PAGE 3 =====
+prediction horizon, but still much greater than 1 (e.g., s ≈H/2 [11, 5, 24]). Chunked execution
+ensures temporal consistency at the expense of reactivity. A long execution horizon reduces a policy’s
+responsiveness to new information, while a short one increases the likelihood of mode-jumping, jerky
+behavior resulting from discontinuities between chunks.
+In this paper, we consider policies trained with conditional flow matching [36], though our method
+can also be used with diffusion policies by converting them to flow policies at inference time [48, 18].
+To generate an action chunk from a flow policy, random noise A0
+t is first sampled from a standard
+Gaussian, and then the flow’s velocity field, vπ (a learned neural network) is integrated from τ = 0
+to 1 using the update rule
+A
+τ+ 1
+n
+t
+= Aτ
+t + 1
+nvπ(Aτ
+t , ot, τ),
+(1)
+where τ ∈[0, 1) denotes a flow matching timestep, and n determines the number of denoising steps.
+a0
+a1
+a2
+a3
+a4
+a5
+a6
+a7
+a8
+a9
+a10
+a11
+a12
+a13
+a14
+a15
+a′4
+a′5
+a′6
+a′7
+a′8
+a′9
+a′10
+a′11
+a′12
+a′13
+a′14
+a′15
+naive async
+inference finishes
+inference starts
+inference delay, d
+temporal
+ensemble
+obstacle
+A0
+A4
+Figure 2: An illustration of a typical bifurcation be-
+tween consecutive chunks. Inference is started between
+timesteps 3 and 4. The original chunk that was execut-
+ing, {at} (black), had planned to go above the obstacle
+while the newly generated chunk {a′
+t} (red) goes be-
+low the obstacle. However, {a′
+t} is not available until
+d = 7 steps later. A naive asynchronous algorithm
+might jump from a10 to a′
+11, inducing a very high, out-
+of-distribution acceleration. Temporal ensembling [68],
+i.e., interpolating between chunks, reduces the acceler-
+ation but produces poor actions.
+Now, let ∆t be sampling period of the controller,
+i.e., the duration of a controller timestep, and let
+δ be the time it takes for the policy to generate an
+action chunk. We say that a system is real-time
+if it is guaranteed to produce a response (in our
+case: at) to an event (receiving ot) within a fixed
+time constraint (∆t). If δ ≤∆t, then meeting
+the real-time constraint is trivial, since an entire
+chunk can be generated between two controller
+timesteps. However, this is near impossible to
+achieve with modern VLAs. For example, with
+an RTX 4090 GPU, the 3 billion parameter π0
+VLA spends 46ms on the KV cache prefill alone,
+before any denoising steps [5], and targets a 50Hz
+control frequency (∆t = 20ms). Run in remote
+inference for mobile manipulation, π0 lists 13ms
+of network latency, in perfect conditions with
+a wired connection. In a more realistic setting,
+the network overhead alone could easily exceed
+20ms. Kim et al. [31], who optimize the 7B
+OpenVLA model [30] specifically for inference
+speed, achieve no better than 321ms of latency
+on a server-grade A100 GPU.
+Naive synchronous inference, the default in many prior works [5, 30, 8, 24, 31, 59], simply starts
+inference at the end of the execution horizon and waits while the policy generates the next chunk.
+When δ &gt; ∆t, this introduces visible pauses between chunks that not only slow down execution but
+also change the dynamics of the robot, introducing distribution shift between training and evaluation.
+To develop a real-time strategy, we must first introduce asynchronous inference, where inference is
+started early and happens concurrently with execution.
+We define d := ⌊δ/∆t⌋and call this quantity the inference delay, corresponding to number of
+controller timesteps between when ot is received and when At is available.1 Let at′|t denote the
+(t′ −t)-th action of chunk At, generated from observing ot. If A0 is currently executing, and we
+desire an execution horizon of s, then an asynchronous algorithm must start inference at s −d. So
+long as d ≤H −s, then this strategy will satisfy the real-time constraint and guarantee that an action
+is always available when it is needed. However, since the policy cannot know what will happen
+between steps s −d and s while generating As−d, the transition point between as−1|0 and as|s−d
+may be arbitrarily discontinuous and out-of-distribution. Similar to a too-short execution horizon,
+this strategy leads to jerky behavior that is worsened dramatically with higher delays; see Figure 2.
+1For simplicity, we do not consider delays or synchronization issues at the sub-timestep level; we assume
+that the environment or lower-level controller provides ot at the same instant that at−1 is consumed.
+3
+
+
+===== PAGE 4 =====
+next inference starts
+a0
+a1
+a2
+a3
+a-1
+a-2
+a-3
+a-4
+a-5
+a4
+a5
+a6
+a7
+a8
+a9
+a10
+a11
+a12
+a13
+a14
+a15
+guidance
+weight
+0
+1
+inference delay, d
+frozen, will be executed
+execution horizon, s
+empty, must be freshly generated
+execution horizon, s
+steps since last inference started
+intermediate region, H ‒ d ‒ s
+actions can be changed
+inference starts
+last chunk boundary
+Figure 3: A diagram illustrating how action generation attends to the previous action chunk in real-time chunking.
+If inference starts after the execution of a−1 and the inference delay is d = 4, then the newly generated chunk
+will not be available until after a3 is consumed. Therefore, a0:3 are “frozen” and are attended to with a full
+guidance weight of 1. In the intermediate region, a4:10, actions from the previous chunk are available but may be
+updated, since inference will have finished before a4 is needed. This region is attended to with an exponentially
+decreasing guidance weight. Finally, the last s = 5 actions are beyond the end of the previous chunk, and need
+to be freshly generated. The execution horizon, s, is a hyperparameter constrained by d ≤s ≤H −d.
+3
+Real-Time Chunking via Inpainting
+The key challenge in real-time execution is to maintain continuity between chunks. By the time a new
+chunk is available, the previous one has already been executed partway, and therefore the new chunk
+must be “compatible” with the previous one. At the same time, the new chunk should still incorporate
+new observations, so that the policy does not lose the ability to react and make corrections.
+Our key insight is to pose real-time chunking as an inpainting problem. To make the new chunk
+“compatible”, we must use the overlapping timesteps where we have access to the remaining actions of
+the previous chunk. The first d actions from the new chunk cannot be used, since those timesteps will
+have already passed by the time the new chunk becomes available. Thus, it makes sense to “freeze”
+those actions to the values that we know will be executed; our goal is then to fill in the remainder of
+the new chunk in a way that is consistent with this frozen prefix (see Figure 3), much like inpainting a
+section of an image that has been removed. We describe this basic inpainting principle in Sec. 3.1. In
+Sec. 3.2, we introduce a soft masking extension that is critical for full cross-chunk continuity; finally,
+we describe our full real-time chunking system in Sec. 3.3.
+3.1
+Inference-Time Inpainting with Flow Matching
+Inpainting is a known strength of iterative denoising frameworks such as diffusion and flow matching.
+We build on the training-free image inpainting algorithm from Pokle et al. [48], which is itself based
+on pseudoinverse guidance (ΠGDM; [55]). The algorithm operates by adding a gradient-based
+guidance term to the learned velocity field v at each denoising step (Equation 1) that encourages the
+final generation to match some target value, Y, which is a corrupted version of the desired result.
+In the case of image inpainting, the corruption operator is masking, Y is the masked image, and
+the desired result is a full image consistent with Y in the non-masked areas. The ΠGDM gradient
+correction, specialized to our setting, is given by
+vΠGDM(Aτ
+t , ot, τ) = v(Aτ
+t , ot, τ) + min
+
+β, 1 −τ
+τ · r2τ
+ 
+Y −c
+A1
+t
+⊤
+diag(W) ∂c
+A1
+t
+∂Aτ
+t
+(2)
+where c
+A1
+t = Aτ
+t + (1 −τ)v(Aτ
+t , ot, τ),
+(3)
+r2
+τ =
+(1 −τ)2
+τ 2 + (1 −τ)2 .
+(4)
+c
+A1
+t is an estimate of the final, fully denoised action chunk and W is the mask. We are abusing
+notation by treating Y, At, and W as vectors of dimension HM where M is the dimension of
+each action. Thus, the guidance term is a vector-Jacobian product and can be computed using
+4
+
+
+===== PAGE 5 =====
+backpropagation. The guidance weight clipping, β, is our addition; we found that without it, the
+algorithm became unstable with the small number of denoising steps commonly used in control
+problems (see A.2 for an ablation).
+3.2
+Soft Masking for Improved Cross-Chunk Continuity
+0
+d = 8
+41
+Step
+deg
+Hard masking
+Soft masking
+Prev. chunk
+Figure 4: A comparison of naive in-
+paintin</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

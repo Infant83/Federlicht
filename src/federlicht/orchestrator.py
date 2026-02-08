@@ -981,6 +981,7 @@ class ReportOrchestrator:
                     language,
                     mode=repair_mode,
                     free_form=args.free_format,
+                    template_rigidity=args.template_rigidity,
                 ),
                 self._agent_overrides,
             )
@@ -1074,6 +1075,9 @@ class ReportOrchestrator:
                     output_format,
                     language,
                     depth,
+                    template_rigidity=args.template_rigidity,
+                    figures_enabled=bool(args.extract_figures),
+                    figures_mode=args.figures_mode,
                 ),
                 self._agent_overrides,
             )
@@ -1467,6 +1471,7 @@ class ReportOrchestrator:
                 args.model,
                 self._create_deep_agent,
                 backend,
+                adjust_mode=args.template_adjust_mode,
                 max_input_tokens=adjust_max,
                 max_input_tokens_source=adjust_max_source,
             )
@@ -1497,6 +1502,7 @@ class ReportOrchestrator:
             required_sections,
             free_form=args.free_format,
             language=language,
+            template_rigidity=getattr(args, "template_rigidity", "balanced"),
         )
         context_lines.append(f"Template: {template_spec.name}")
         if template_spec.source:
@@ -2050,6 +2056,9 @@ class ReportOrchestrator:
                 output_format,
                 language,
                 depth,
+                template_rigidity=args.template_rigidity,
+                figures_enabled=bool(args.extract_figures),
+                figures_mode=args.figures_mode,
             ),
             self._agent_overrides,
         )

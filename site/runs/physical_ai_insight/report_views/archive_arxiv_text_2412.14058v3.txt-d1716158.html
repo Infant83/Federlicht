@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2412.14058v3.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2412.14058v3.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> Towards Generalist Robot Policies: What Matters in Building Vision-Language-Action Models</p><p><strong>Authors:</strong> Xinghang Li et al.</p><p><strong>Published:</strong> 2024-12-18T17:07:20+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2412.14058v3">http://arxiv.org/abs/2412.14058v3</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2412.14058v3.pdf">./archive/arxiv/pdf/2412.14058v3.pdf</a></p><p><strong>Summary:</strong><br />Foundation Vision Language Models (VLMs) exhibit strong capabilities in multi-modal representation learning, comprehension, and reasoning. By injecting action components into the VLMs, Vision-Language-Action Models (VLAs) can be naturally formed and also show promising performance. Existing work has demonstrated the effectiveness and generalization of VLAs in multiple scenarios and tasks. Nevertheless, the transfer from VLMs to VLAs is not trivial since existing VLAs differ in their backbones, action-prediction formulations, data distributions, and training recipes. This leads to a missing piece for a systematic understanding of the design choices of VLAs. In this work, we disclose the key factors that significantly influence the performance of VLA and focus on answering three essential design choices: which backbone to select, how to formulate the VLA architectures, and when to add cross-embodiment data. The obtained results convince us firmly to explain why we need VLA and develop a new family of VLAs, RoboVLMs, which require very few manual designs and achieve a new state-of-the-art performance in three simulation tasks and real-world experiments. Through our extensive experiments, which include over 8 VLM backbones, 4 policy architectures, and over 600 distinct designed experiments, we provide a detailed guidebook for the future design of VLAs. In addition to the study, the highly flexible RoboVLMs framework, which supports easy integrations of new VLMs and free combinations of various design choices, is made public to facilitate future research. We open-source all deta <em>[truncated]</em></p></div><pre>
+
+===== PAGE 1 =====
+1
+Towards Generalist Robot Policies: What Matters in
+Building Vision-Language-Action Models
+Xinghang Li1,2∗, Peiyan Li2,3∗, Minghuan Liu2,4∗, Dong Wang1,2∗, Jirong Liu2,4∗,
+Bingyi Kang2, Xiao Ma2, Tao Kong2,B, Hanbo Zhang5,B, Huaping Liu1,B
+1Tsinghua University, 2ByteDance Research, 3CASIA MAIS-NLPR,
+4Shanghai Jiao Tong University, 5National University of Singapore
+lixingha23@mails.tsinghua.edu.cn, hpliu@tsinghua.edu.cn,
+kongtao@bytedance.com, zhanghb@comp.nus.edu.sg
+Abstract
+Foundation Vision Language Models (VLMs) exhibit strong capabilities in multi-modal representation learning, comprehension,
+and reasoning. By injecting action components into the VLMs, Vision-Language-Action models (VLAs) can be naturally formed
+and also show promising performance. Existing work has demonstrated the effectiveness and generalization of VLAs in multiple
+scenarios and tasks. Nevertheless, the transfer from VLMs to VLAs is not trivial since existing VLAs differ in their backbones,
+action-prediction formulations, data distributions, and training recipes. This leads to a missing piece for a systematic understanding
+of the design choices of VLAs. In this work, we disclose the key factors that significantly influence the performance of VLA and
+focus on answering three essential design choices: which backbone to select, how to formulate the VLA architectures, and when to
+add cross-embodiment data. The obtained results convince us firmly to explain why we prefer VLA and develop a new family of
+VLAs, RoboVLMs, which require very few manual designs and achieve a new state-of-the-art performance in three simulation
+tasks and real-world experiments. Through our extensive experiments, which include over 8 VLM backbones, 4 policy architectures,
+and over 600 distinct designed experiments, we provide a detailed guidebook for the future design of VLAs. In addition to the
+study, the highly flexible RoboVLMs framework, which supports easy integrations of new VLMs and free combinations of various
+design choices, is made public to facilitate future research. We open-source all details, including codes, models, datasets, and
+toolkits, along with detailed training and evaluation recipes at: robovlms.github.io.
+Index Terms
+Robot Foundation Models, Vision-Language-Action Models, Generalist Robot Policies
+What Matters？
+VLMs
+When to use 
+Extra Data
+How To 
+Formulate
+Which 
+Backbone
+Action Space
+History  
+Aggr
+Data Scale
+VLM 
+Structure
+Cross-
+Embodiemt
+In-Domain
+Obs 
+Horizon
+VLMs
+Flamingo
+Language
+open the oven
+Multi-View
+Arbitrary Horizon
+Vision
+Various Scenarios &amp; Tasks
+Multiple Embodiments
+PaliGemma
+RoboVLMs
+…
+Unified Framework
+Fig. 1: This work mainly considers four questions for building VLAs based on VLMs: Why do we prefer VLAs; Which
+backbone to use; How to formulate the VLAs; and When to use cross-embodiment data as an extra data source. With our
+proposed RoboVLMs, we can easily transfer VLMs into generalist robot policies that support multiple embodiments, various
+scenarios, and tasks.
+*The work was accomplished during the authors’ internship at ByteDance Research. BCorresponding authors.
+arXiv:2412.14058v3  [cs.RO]  24 Dec 2024
+
+
+===== PAGE 2 =====
+2
+I. INTRODUCTION
+Building generalizable robot policies capable of perceiving, reasoning, and interacting with the physical environment given
+human instructions has been a long-standing challenge in robotics [4, 5, 7, 35]. Recently, there has been an active exploration
+into learning robot foundation models by fine-tuning the Vision-Language Models (VLMs) on robot data with certain architectural
+adjustments. The resulting models, also referred to as Vision-Language-Action Models (VLAs), show promising results in
+both simulated and real-world tasks [7, 22, 24]1. Except for VLAs, there also exist various generalist policies, e.g., the ones
+from video models or even from scratch. Therefore, a natural question arises: Why do we prefer VLAs built upon large-scale
+pre-trained VLMs? Compared with other generalist policies, a mostly believed reason for utilizing VLM-based VLAs is that
+VLMs have demonstrated strong capabilities in learning generalized and robust representations of multi-modal data, such
+as text, images/videos, through extensive training on web-scale data. Such capabilities can inspire the adaptation of robot
+foundation models to bridge the gap between highly diverse open-world scenes and limited robotic data. However, it remains
+an open problem to what extent large-scale vision-language pre-train facilitates generalist robot policies. Moreover, a large and
+diverse set of different VLMs emerged rapidly with different kinds of LLM backbone, training data, model sizes, architectures,
+and training recipes. Which kind of VLM backbones is more suitable for robot manipulation is also a crucial issue for the
+development of successful VLAs.
+Beyond the diversity of different backbones, for generalist robot policies, including VLAs, the structures are more complex
+and vary in form. Based on the most prevalent existing work [4, 7, 20, 22, 24, 34, 35, 39, 47, 55], we propose a categorization
+based on 1) how the history and action information are incorporated in VLAs and 2) whether the action space is continuous
+or discrete. As shown in Fig.2, four types of structure formulations are considered. For history information modeling, two
+forms are identified: 1) one-step modeling, which utilizes only the current state or observation to produce actions; and 2)
+history modeling, which processes a sliding window of historical states or observations. Regarding the aggregation of history
+information, we classify it into two approaches: a) interleaved modeling, which integrates historical observation and action
+sequences in an interleaved format; and b) policy head, which separately processes each historical step and fuses the information
+at a distinct policy head for action prediction. Different structures leverage the pre-trained VLMs in different ways. Hence, they
+may have different features in terms of robustness, generalization ability, and data efficiency when faced with different types of
+environments and tasks. Therefore, it is practically important but underexplored to understand: How should we formulate
+VLAs to sufficiently leverage the power of VLMs in practice?
+In addition to the VLA itself, the quality and diversity of the training data used to develop VLAs are equally critical. With
+recent progress achieved by well-known VLAs [4, 7, 22, 35, 39], large-scale data from different sources is important to further
+improve performance in terms of robustness and generalization against out-of-distribution tasks and environments. Yet, they
+differ largely in detailed training recipes: some utilize additional data to further pre-train VLMs, refining representations closer to
+robotic manipulation tasks [4], while others co-train VLAs alongside in-domain tasks [7, 22, 35, 39]. Moreover, by sufficiently
+pre-trained on diverse manipulation skills, robot policies are expected to learn new skills with minimal demonstrations [13].
+Consequently, in the case of developing efficient VLAs, When to leverage the large-scale cross-embodiment data becomes an
+intriguing issue.
+To thoroughly study the aforementioned issues and find the most effective solution for VLAs, our study chose 4 VLA
+structures, 8 various backbones, and 3 different training data recipes to train the VLA models. In our experiments, we propose
+a new framework, RoboVLMs, to easily transfer the VLMs into VLAs and implement a fair comparison. We evaluate these
+models on two popular robot manipulation benchmarks in simulation: CALVIN [32] and SimplerEnv [37]. Moreover, we also
+trained and evaluated the built VLAs on a self-collected real-world robot manipulation dataset, consisting of 100 manipulation
+tasks and a total of 74K trajectories. Specifically, we initially selected three commonly used VLMs–LLaVA, Flamingo, and
+KosMos, as backbones, combining each with the four VLA structures to examine the effects of action space, observation
+horizon, and history aggregating methods. With the finding that the policy head modeling with continuous action space performs
+best, we compare 8 various VLMs as the backbone with policy head formulation to answer which backbone is more suitable.
+Meanwhile, we compare the generalization and data efficiency of different VLA structures. For the question of when to leverage
+cross-embodiment data, we compare pre-training (the VLAs trained with Open X-Embodiment), finetuning (the VLAs trained
+with target dataset), and post-training (the VLAs pre-trained with Open X-Embodiment and further finetuned with target dataset).
+Finally, to confirm the real-world applicability of the VLAs with the optimal configuration, we trained and evaluated them in
+real-world robot manipulation scenarios, demonstrating generalization across 1) unseen distractors, 2) unseen backgrounds, 3)
+unseen target objects, and 4) novel skill descriptions.
+Through our extensive and comprehensive studies, we derive important insight into building high-performance VLAs around
+the following questions:
+Why do we prefer VLAs? VLAs built upon pre-trained VLMs have proven to be both effective and efficient for generalist robot
+policies. Across all experiments, including simulations and real-world manipulation tasks, our VLA consistently outperforms
+1Although the rigorous definition of VLAs is not consistent in different works, we regard fine-tuning pre-trained VLMs as the key factor to identify VLAs in
+this work.
+
+
+===== PAGE 3 =====
+3
+Historical
+Discrete
+Continuous
+RoboFlamingo (2023)
+RoboMamba (2023)
+GR-1 (2023)
+GR-2 (2024)
+Octo (2023)
+RT-2-X (2023)
+RT-2 (2023)
+OpenVLA (2024)
+Embodied-COT (2024)
+RT-1-X (2023)
+3D-VLA (2024)
+3D Diffuser (2024)
+R3M (2022)
+LAPA (2024)
+RoboUniview (2024)
+DeeRVLA (2024)
+ACT (2023)
+One-Step
+Policy-Head
+Interleaved
+One-Step
+Open-Sourced
+Close-Sourced
+MVP (2022)
+VIMA (2022)
+BC-Z (2022)
+GATO (2022)
+RoboCat (2023)
+RT-1 (2022)
+π0 (2024)
+Fig. 2: The categorization of the existing generalist policies and recent works with year information under our taxonomy.
+We categorize the VLA structures based on two primary levels: 1) action space (vertical axis); and 2) whether the history
+information is integrated (horizontal axis). Moreover, for the VLAs that involved history, we split the VLAs that involved
+history into policy head and interleaved formulation based on the organization pattern of the history information. Note that this
+categorization not only considers models derived from pre-trained VLMs but also encompasses policy architectures that, while
+not pre-trained on VLMs (and therefore not claimed as VLAs), can provide insights into transforming VLMs into VLAs.
+open-source state-of-the-art VLAs by a significant margin. Furthermore, pre-trained VLMs exhibit notable advantages in
+generalization and data efficiency, making them highly desirable for real-world robotic applications.
+Which VLM backbone is more suitable for VLAs? Our extensive study on 8 different VLM backbones shows two distinguished
+VLM backbones, namely KosMos [36] and Paligemma [3], which significantly outperform the others. These results highlight
+that comprehensive vision-language pretraining is essential for achieving superior VLA performance.
+How should we formulate VLAs? Through extensive study and experiments, continuous actions consistently outperform
+auto-regressive discrete actions, while incorporating historical context is crucial for enhancing performance and addressing partial
+observability. For the model architecture, Vision-Language Models (VLMs) integrated directly with policy heads demonstrate
+superior performance compared to other formulations due to the consistent usage, i.e., vision-language tokens should be processed
+in their original pretraining format, with a policy head added to integrate past visual and proprioceptive observations for effective
+decision-making. Finally, larger VLMs further enhance efficiency, requiring fewer data to achieve higher performance.
+When should we leverage cross-embodiment datasets? While it is widely believed that pre-training or post-training with
+cross-embodiment data improves performance, this belief has not been rigorously validated. Our findings reveal that pre-training
+with cross-embodiment data does not consistently yield significant improvements in final performance. However, post-training
+a cross-embodiment pre-trained model on the target dataset can lead to notable performance gains. Additionally, leveraging
+manipulation data from the same robots or tasks provides a clear boost in performance.
+Throughout the study, we propose a new framework, RoboVLMs, which transfers VLMs into VLAs, and provides a unified,
+flexible, easy-to-use, open-source framework that enables seamless integration of any VLM into VLAs with minimal effort,
+allowing robotics practitioners to investigate, compare, and deploy future VLAs. Further, the VLAs built by RoboVLMs
+demonstrate strong performance in generalization, dexterity, and flexibility across a wide range of benchmarks and real-world
+tasks. We open-source the code, along with model weights, and comprehensive guidelines to facilitate the reproducibility of all
+the results. Our goal is to shed light on the robotics community and help build generalized robots.
+II. MAIN RESULTS AND FINDINGS
+Vision-language-action models (VLAs) are commonly defined as models fine-tuned from pre-trained large-scale vision-
+language models (VLMs) using imitation learning [7, 24]. By leveraging the robust vision-language representation capabilities of
+VLMs, VLAs offer a promising approach for developing generalist robotic policies capable of handling complex tasks. However,
+this approach is not universally accepted as the sole or optimal solution. For instance, modular approaches utilize pre-trained
+vision and language modules to encode latent representations of multi-modal inputs [6, 31], while alternative methods rely on
+direct training with diverse robotic datasets [39]. Even within VLA research, there is no consensus on architectures or training
+recipes [7, 8, 22, 24].
+The primary objective of this work is to establish VLAs as robust generalist robotic policies by thoroughly analyzing
+contemporary VLA architectures and identifying the key factors driving their performance. To this end, we introduce RoboVLMs,
+
+
+===== PAGE 4 =====
+4
+TABLE I: The performance of the built VLAs based on VLMs with different image token numbers and VL pre-train data scales.
+The first three rows are flamingo backbones with encoder-decoder structures, the rest backbones are decoder-only structures.
+Note that for VLMs with multi-stage training, the data scale refers to the data amount utilized for the final stage of fine-tuning.
+“UNK” denotes unknown.
+Essential Questions
+Research Questions
+Research Findings
+Q1: Why VLAs
+Q1.1: Are VLAs a proper choice for building gener-
+alist robot policies?
+A1.1: VLA is a promising path towards generalist robot
+policies.
+Q1.2: How does the best VLA built with RoboVLMs
+perform in real-world scenarios?
+A1.2: The best setup VLA built with RoboVLMs
+appears strong effectiveness and robustness in real-world
+scenarios.
+Q2: Which Backbone
+Q2.1: Which type of VLMs are more suitable for
+constructing VLAs?
+A2.1: Sufficient vision-language pre-trained on large
+vision-language datasets benefit VLAs
+Q3: How to Formulate
+Q3.1: What is the best-performing VLA structure?
+A3.1: Continuous action space with policy head to
+integrate history is the best structure.
+Q3.2: How do different formulations affect the
+generalization and data efficiency for VLAs?
+A3.2: The KosMos backbone with a separate policy head
+for history fusion performs the best in generalization
+and data efficiency.
+Q4: When to Leverage Extra Data
+Q4.1: How do large-scale cross-embodiment datasets
+contribute to VLAs?
+A4.1: Extra in-domain data shows beneficial; 2) Post-
+training further improves overall as well as few-shot
+perf</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

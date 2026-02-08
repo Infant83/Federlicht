@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2406.09246v3.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2406.09246v3.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> OpenVLA: An Open-Source Vision-Language-Action Model</p><p><strong>Authors:</strong> Moo Jin Kim et al.</p><p><strong>Published:</strong> 2024-06-13T15:46:55+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2406.09246v3">http://arxiv.org/abs/2406.09246v3</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2406.09246v3.pdf">./archive/arxiv/pdf/2406.09246v3.pdf</a></p><p><strong>Summary:</strong><br />Large policies pretrained on a combination of Internet-scale vision-language data and diverse robot demonstrations have the potential to change how we teach robots new skills: rather than training new behaviors from scratch, we can fine-tune such vision-language-action (VLA) models to obtain robust, generalizable policies for visuomotor control. Yet, widespread adoption of VLAs for robotics has been challenging as 1) existing VLAs are largely closed and inaccessible to the public, and 2) prior work fails to explore methods for efficiently fine-tuning VLAs for new tasks, a key component for adoption. Addressing these challenges, we introduce OpenVLA, a 7B-parameter open-source VLA trained on a diverse collection of 970k real-world robot demonstrations. OpenVLA builds on a Llama 2 language model combined with a visual encoder that fuses pretrained features from DINOv2 and SigLIP. As a product of the added data diversity and new model components, OpenVLA demonstrates strong results for generalist manipulation, outperforming closed models such as RT-2-X (55B) by 16.5% in absolute task success rate across 29 tasks and multiple robot embodiments, with 7x fewer parameters. We further show that we can effectively fine-tune OpenVLA for new settings, with especially strong generalization results in multi-task environments involving multiple objects and strong language grounding abilities, and outperform expressive from-scratch imitation learning methods such as Diffusion Policy by 20.4%. We also explore compute efficiency; as a separate contribution, we show that OpenVLA can be fine- <em>[truncated]</em></p></div><pre>
+
+===== PAGE 1 =====
+OpenVLA:
+An Open-Source Vision-Language-Action Model
+Moo Jin Kim∗,1
+Karl Pertsch∗,1,2
+Siddharth Karamcheti∗,1,3
+Ted Xiao4
+Ashwin Balakrishna3
+Suraj Nair3
+Rafael Rafailov1
+Ethan Foster1
+Grace Lam
+Pannag Sanketi4
+Quan Vuong5,†
+Thomas Kollar3
+Benjamin Burchfiel3
+Russ Tedrake3,6
+Dorsa Sadigh1
+Sergey Levine2
+Percy Liang1
+Chelsea Finn1
+<a href="https://openvla.github.io">https://openvla.github.io</a>
+970k Robot  
+Episodes
+ViT
+Llama 2 7B
+Base VLM
+OpenVLA
+Vision-Language-Action Model
+Fine-tune VLM w/ Robot Actions:
+Closed-Loop
+Robot Control Policy
+User: Wipe the table.
+OpenVLA:
+[ x, 
+, Grip] = …
+Δ
+Δθ Δ
+Multi-Robot Control &amp; Efficient Fine-Tuning
+Large-Scale Robot 
+Training Data
+Fully
+Data
+Weights
+Code
+Open-Source
+Figure 1: We present OpenVLA, a 7B-parameter open-source vision-language-action model (VLA), trained
+on 970k robot episodes from the Open X-Embodiment dataset [1]. OpenVLA sets a new state of the art for
+generalist robot manipulation policies. It supports controlling multiple robots out of the box and can be quickly
+adapted to new robot domains via parameter-efficient fine-tuning. The OpenVLA checkpoints and PyTorch
+training pipeline are fully open-source and models can be downloaded and fine-tuned from HuggingFace.
+Abstract:
+Large policies pretrained on a combination of Internet-scale vision-
+language data and diverse robot demonstrations have the potential to change how
+we teach robots new skills: rather than training new behaviors from scratch, we can
+fine-tune such vision-language-action (VLA) models to obtain robust, generalizable
+policies for visuomotor control. Yet, widespread adoption of VLAs for robotics
+has been challenging as 1) existing VLAs are largely closed and inaccessible to the
+public, and 2) prior work fails to explore methods for efficiently fine-tuning VLAs
+for new tasks, a key component for adoption. Addressing these challenges, we intro-
+duce OpenVLA, a 7B-parameter open-source VLA trained on a diverse collection
+of 970k real-world robot demonstrations. OpenVLA builds on a Llama 2 language
+model combined with a visual encoder that fuses pretrained features from DINOv2
+and SigLIP. As a product of the added data diversity and new model components,
+OpenVLA demonstrates strong results for generalist manipulation, outperforming
+closed models such as RT-2-X (55B) by 16.5% in absolute task success rate across
+29 tasks and multiple robot embodiments, with 7x fewer parameters. We further
+show that we can effectively fine-tune OpenVLA for new settings, with especially
+∗: denotes equal contribution
+Correspondence to: moojink@stanford.edu, pertsch@berkeley.edu, skaramcheti@stanford.edu
+1Stanford University, 2UC Berkeley, 3Toyota Research Institute, 4Google Deepmind, 5Physical Intelligence,
+6MIT, †Work done in part while at Google Deepmind
+arXiv:2406.09246v3  [cs.RO]  5 Sep 2024
+
+
+===== PAGE 2 =====
+strong generalization results in multi-task environments involving multiple objects
+and strong language grounding abilities, and outperform expressive from-scratch
+imitation learning methods such as Diffusion Policy by 20.4% We also explore
+compute efficiency; as a separate contribution, we show that OpenVLA can be
+fine-tuned on consumer GPUs via modern low-rank adaptation methods and served
+efficiently via quantization without a hit to downstream success rate. Finally, we
+release model checkpoints, fine-tuning notebooks, and our PyTorch codebase with
+built-in support for training VLAs at scale on Open X-Embodiment datasets.
+1
+Introduction
+A key weakness of learned policies for robotic manipulation is their inability to generalize beyond
+their training data: while existing policies trained for individual skills or language instructions have
+the capacity to extrapolate behaviors to new initial conditions such as object positions or lighting
+[2, 3], they lack robustness to scene distractors or novel objects [4, 5] and struggle to execute unseen
+task instructions [6, 7]. Yet beyond robotics, existing foundation models for vision and language
+such as CLIP [8], SigLIP [9], and Llama 2 [10] are capable of these types of generalization and more,
+stemming from the priors captured by their Internet-scale pretraining datasets. While reproducing
+this scale of pretraining for robotics is still an open challenge — even the largest robot manipulation
+datasets [1, 11] only have 100K to 1M examples – this imbalance suggests an opportunity: using
+existing foundation models for vision and language as a core building block for training robotic
+policies that can generalize to objects, scenes, and tasks beyond their training data.
+Towards this goal, existing work has explored integrating pretrained language and vision-language
+models for robotic representation learning [12–14] and as a component in modular systems for task
+planning and execution [15, 16]. More recently, they have been used for directly learning vision-
+language-action models [VLAs; 1, 7, 17, 18] for control. VLAs provide a direct instantiation of
+using pretrained vision-and-language foundation models for robotics, directly fine-tuning visually-
+conditioned language models (VLMs) such as PaLI [19, 20] to generate robot control actions. By
+building off of strong foundation models trained on Internet-scale data, VLAs such as RT-2 [7]
+demonstrate impressive robustness results, as well as an ability to generalize to novel objects and
+tasks, setting a new standard for generalist robot policies. Yet, there are two key reasons preventing
+the widespread use of existing VLAs: 1) current models [1, 7, 17, 18] are closed, with limited
+visibility into model architecture, training procedures, and data mixture, and 2) existing works do
+not provide best practices for deploying and adapting VLAs to new robots, environments, and tasks
+— especially on commodity hardware (e.g., consumer-grade GPUs). We argue that to develop a
+rich foundation for future research and development, robotics needs open-source, generalist VLAs
+that support effective fine-tuning and adaptation, akin to the existing ecosystem around open-source
+language models [21–24].
+To this end, we introduce OpenVLA, a 7B-parameter open-source VLA that establishes a new
+state of the art for generalist robot manipulation policies.1 OpenVLA consists of a pretrained
+visually-conditioned language model backbone that captures visual features at multiple granularities,
+fine-tuned on a large, diverse dataset of 970k robot manipulation trajectories from the Open-X
+Embodiment [1] dataset — a dataset that spans a wide range of robot embodiments, tasks, and scenes.
+As a product of increased data diversity and new model components, OpenVLA outperforms the
+55B-parameter RT-2-X model [1, 7], the prior state-of-the-art VLA, by 16.5% absolute success
+rate across 29 evaluation tasks on the WidowX and Google Robot embodiments. We additionally
+investigate efficient fine-tuning strategies for VLAs, a new contribution not explored in prior work,
+across 7 diverse manipulation tasks spanning behaviors from object pick-and-place to cleaning a
+table. We find that fine-tuned OpenVLA policies clearly outperform fine-tuned pretrained policies
+such as Octo [5]. Compared to from-scratch imitation learning with diffusion policies [3], fine-tuned
+OpenVLA shows substantial improvement on tasks involving grounding language to behavior in
+1OpenVLA uses multiple pretrained model components: SigLIP [9] and DinoV2 [25] vision encoders and a
+Llama 2 [10] language model backbone. For all three models, weights are open, but not their training data or
+code. We release training data, code and model weights for reproducing OpenVLA on top of these components.
+2
+
+
+===== PAGE 3 =====
+multi-task settings with multiple objects. Following these results, we are the first to demonstrate the
+effectiveness of compute-efficient fine-tuning methods leveraging low-rank adaptation [LoRA; 26]
+and model quantization [27] to facilitate adapting OpenVLA models on consumer-grade GPUs instead
+of large server nodes without compromising performance. As a final contribution, we open-source
+all models, deployment and fine-tuning notebooks, and the OpenVLA codebase for training VLAs
+at scale, with the hope that these resources enable future work exploring and adapting VLAs for
+robotics.
+2
+Related Work
+Visually-Conditioned Language Models
+Visually-conditioned language models (VLMs), which
+are trained on Internet-scale data to generate natural language from input image(s) and language
+prompts, have been adopted for myriad applications from visual question answering [28–31] to object
+localization [32, 33]. One of the key advances fueling recent VLMs are model architectures that
+bridge features from pretrained vision encoders [8, 9, 25] with pretrained language models [10, 23, 34–
+36], directly building on advances in both computer vision and natural language modelling to create
+powerful multimodal models. While early work explored various architectures for cross-attending
+between vision and language features [37–41], new open-source VLMs [20, 42–44] have converged
+on a simpler “patch-as-token” approach, in which patch features from pretrained visual transformers
+are treated as tokens, and are then projected into the input space of a language model. This simplicity
+makes it easy to repurpose existing tools for training language models at scale for VLM training. We
+employ these tools in our work to scale VLA training, and specifically use VLMs from Karamcheti
+et al. [44] as our pretrained backbone, as they are trained from multi-resolution visual features, fusing
+low-level spatial information from DINOv2 [25] with higher-level semantics from SigLIP [9] to aid
+in visual generalization.
+Generalist Robot Policies
+A recent trend in robotics works towards training multi-task “generalist”
+robot policies [2, 6, 45–49] on large diverse robot datasets [1, 2, 6, 11, 45, 49–56], spanning many
+different robot embodiments [1, 5, 53, 57–66]. Notably, Octo [5] trains a generalist policy that can
+control multiple robots out-of-the-box and allows for flexible fine-tuning to new robot setups. A
+key difference between these approaches and OpenVLA is the model architecture. Prior works like
+Octo typically compose pretrained components such as language embeddings or visual encoders with
+additional model components initialized from scratch [2, 5, 6], learning to “stitch” them together
+during the course of policy training. Unlike these works, OpenVLA adopts a more end-to-end
+approach, directly fine-tuning VLMs to generate robot actions by treating them as tokens in the
+language model vocabulary. Our experimental evaluation shows that this simple yet scalable pipeline
+substantially boosts performance and generalization ability over prior generalist policies.
+Vision-Language-Action Models
+A number of works have explored the use of VLMs for robotics,
+e.g., for visual state representations [12, 13], object detection [67], high-level planning [16], and for
+providing a feedback signal [68–71]. Others integrate VLMs directly into end-to-end visuomotor
+manipulation policies [14, 15], but incorporate significant structure into the policy architecture
+or require calibrated cameras, which limits their applicability. A number of recent works have
+explored similar recipes to ours and directly fine-tuned large pretrained VLMs for predicting robot
+actions [1, 7, 17, 18, 72–74]. Such models are often referred to as vision-language-action models
+(VLAs), since they fuse robot control actions directly into VLM backbones. This has three key
+benefits: (1) it performs alignment of pretrained vision and language components on a large, Internet-
+scale vision-language dataset, (2) the use of a generic architecture, not custom-made for robot control,
+allows us to leverage the scalable infrastructure underlying modern VLM training [75–77] and scale
+to training billion-parameter policies with minimal code modifications, and (3) it provides a direct
+pathway for robotics to benefit from the rapid improvements in VLMs. Existing works on VLAs
+either focus on training and evaluating in single robot or simulated setups [72–74, 78] and thus lack
+generality, or are closed and do not support efficient fine-tuning to new robot setups [1, 7, 17, 18].
+Most closely related, RT-2-X [1] trains a 55B-parameter VLA policy on the Open X-Embodiment
+dataset and demonstrates state-of-the-art generalist manipulation policy performance. However, our
+work differs from RT-2-X in multiple important aspects: (1) by combining a strong open VLM
+3
+
+
+===== PAGE 4 =====
+“Put eggplant
+DinoV2
+SigLIP
+Llama Tokenizer
+“What should the robot do to {task}? A:”
+OpenVLA
+Llama 2 7B
+Action De-Tokenizer
+in bowl”
+MLP Projector
+x
+Δ
+Δθ
+Grip
+Δ
+7D Robot
+Action
+Input Image
+Language Instruction
+2
+3
+1
+Figure 2: OpenVLA model architecture. Given an image observation and a language instruction, the model
+predicts 7-dimensional robot control actions. The architecture consists of three key components: (1) a vision
+encoder that concatenates Dino V2 [25] and SigLIP [79] features, (2) a projector that maps visual features to
+the language embedding space, and (3) the LLM backbone, a Llama 2 7B-parameter large language model [10].
+backbone with a richer robot pretraining dataset, OpenVLA outperforms RT-2-X in our experiments
+while being an order of magnitude smaller; (2) we thoroughly investigate fine-tuning of OpenVLA
+models to new target setups, while RT-2-X does not investigate the fine-tuning setting; (3) we are
+the first to demonstrate the effectiveness of modern parameter-efficient fine-tuning and quantization
+approaches for VLAs; and (4) OpenVLA is the first generalist VLA that is open-source and thus
+supports future research on VLA training, data mixtures, objectives, and inference.
+3
+The OpenVLA Model
+We introduce the OpenVLA model, a 7B-parameter vision-language-action model (VLA) trained
+on 970k robot demonstrations from the Open X-Embodiment dataset [1]. There are many, largely
+unexplored, questions around best practices for developing VLA models, e.g., what are the best
+model backbones, datasets, and hyperparameters to use for training. Below, we detail our approach
+for developing OpenVLA and summarize our key learnings. Concretely, we first provide a brief
+overview of modern VLMs, which form the backbone of OpenVLA (Section 3.1); then describe
+our basic training recipe and dataset (Section 3.2 and Section 3.3); discuss key design decisions
+(Section 3.4); and provide details of the used infrastructure for training and inference (Section 3.5).
+3.1
+Preliminaries: Vision-Language Models
+The architecture of most recent VLMs [20, 42–44] consists of three main parts (see Fig. 2): (1) a
+visual encoder that maps image inputs to a number of “image patch embeddings”, (2) a projector
+that takes the output embeddings of the visual encoder and maps them into the input space of a
+language model, and (3) a large language model (LLM) backbone. During VLM training, the
+model is trained end-to-end with a next text token prediction objective on paired or interleaved vision
+and language data curated from various Internet sources.
+In this work, we build on the Prismatic-7B VLM [44]. Prismatic follows the same standard architec-
+ture described above, with a 600M-parameter visual encoder, a small 2-layer MLP projector, and a
+7B-parameter Llama 2 language model backbone [10]. Notably, Prismatic uses a two-part visual en-
+coder, consisting of pretrained SigLIP [79] and DinoV2 [25] models. Input image patches are passed
+separately through both encoders and the resulting feature vectors are concatenated channel-wise. In
+contrast to the more commonly used vision encoders such as CLIP- [80] or SigLIP-only encoders,
+the addition of DinoV2 features has been shown to be helpful for improved spatial reasoning [44],
+which can be particularly helpful for robot control.
+SigLIP, DinoV2, and Llama 2 do not release details about their training data, which likely consists of
+trillions of tokens of Internet-sourced image-text</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

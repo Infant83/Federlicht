@@ -349,6 +349,30 @@
                       <input id="federlicht-model-vision" placeholder="gpt-4o" list="model-options" />
                     </label>
                     <label>
+                      <span>Template Rigidity</span>
+                      <select id="federlicht-template-rigidity">
+                        <option value="strict">strict</option>
+                        <option value="balanced" selected>balanced</option>
+                        <option value="relaxed">relaxed</option>
+                        <option value="loose">loose</option>
+                        <option value="off">off</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Temperature Level</span>
+                      <select id="federlicht-temperature-level">
+                        <option value="very_low">very_low (0.0)</option>
+                        <option value="low">low (0.1)</option>
+                        <option value="balanced" selected>balanced (0.2)</option>
+                        <option value="high">high (0.4)</option>
+                        <option value="very_high">very_high (0.7)</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Temperature (override)</span>
+                      <input id="federlicht-temperature" type="number" min="0" max="2" step="0.05" />
+                    </label>
+                    <label>
                       <span>Stages</span>
                       <input id="federlicht-stages" placeholder="scout,evidence,writer" />
                     </label>
@@ -716,6 +740,14 @@
                 <input id="agent-name" class="ghost-input" placeholder="FederHav" />
               </label>
               <label>
+                Author name
+                <input id="agent-author-name" class="ghost-input" placeholder="Report byline author name" />
+              </label>
+              <label>
+                Organization (optional)
+                <input id="agent-organization" class="ghost-input" placeholder="Team or organization label" />
+              </label>
+              <label>
                 Tagline
                 <input
                   id="agent-tagline"
@@ -993,6 +1025,12 @@
                 </li>
                 <li>
                   <code>--depth</code>: brief | normal | deep | exhaustive (auto if unset).
+                </li>
+                <li>
+                  <code>--template-rigidity</code>: strict | balanced | relaxed | loose | off (default: balanced).
+                </li>
+                <li>
+                  <code>--temperature-level</code>/<code>--temperature</code>: model creativity profile or explicit override (default level: balanced=0.2).
                 </li>
                 <li>
                   <code>--web-search</code>: enable web research (default: off).

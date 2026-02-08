@@ -4,7 +4,9 @@ description: Review of Modern Physics-style deep technical survey.
 tone: Scholarly, rigorous, method-heavy.
 audience: Domain experts.
 css: review_of_modern_physics.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Abstract
 section: Introduction
 section: Theory & Foundations
@@ -21,3 +23,5 @@ guide Synthesis & Outlook: reconcile findings and articulate open problems.
 writer_guidance: Assume expert audience; be explicit about assumptions.
 writer_guidance: Include precise references and methodological caveats.
 ---
+
+

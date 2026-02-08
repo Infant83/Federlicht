@@ -4,11 +4,37 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "federlicht"
-version = "1.2.0"
-description = "Feather-light knowledge intake."
+version = "1.3.0"
+description = "Federlicht platform: Feather intake, Federlicht report engine, Federnett studio, and FederHav profile workflows."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+authors = [
+  { name = "Hyun-Jung Kim", email = "Infant@kias.re.kr" },
+  { name = "Hyun-Jung Kim", email = "angpangmokjang@gmail.com" },
+]
+license = { file = "LICENSE" }
+keywords = ["federlicht", "feather", "rag", "research", "reporting", "agentic", "federnett", "federhav"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = ["requests"]
+
+[project.urls]
+Homepage = "https://github.com/Infant83/FEATHER"
+Repository = "https://github.com/Infant83/FEATHER"
+Documentation = "https://github.com/Infant83/FEATHER#readme"
+"Google Scholar" = "https://scholar.google.com/citations?user=FtSLeT4AAAAJ&hl=en"
+GitHub = "https://github.com/Infant83"
+LinkedIn = "https://www.linkedin.com/in/hyun-jung-kim-8126a7236/"
 
 [project.optional-dependencies]
 arxiv = ["arxiv"]
@@ -21,6 +47,16 @@ report = [
   "markdown",
   "langchain-openai",
   "pymupdf",
+  "pypdfium2",
+  "pillow",
+  "pdfplumber",
+  "beautifulsoup4",
+  "openpyxl",
+]
+report-lite = [
+  "deepagents",
+  "markdown",
+  "langchain-openai",
   "pypdfium2",
   "pillow",
   "pdfplumber",
@@ -69,7 +105,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 exclude = [".backup", "runs", "archive"]
 
 [tool.ruff.lint]

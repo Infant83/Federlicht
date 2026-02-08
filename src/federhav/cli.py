@@ -45,7 +45,9 @@ def _default_output(run_dir: Path) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="FederHav CLI - report update runner.")
+    parser = argparse.ArgumentParser(
+        description="FederHav (Federlicht platform): profile-guided report revision and update runner."
+    )
     parser.add_argument("--run", required=True, help="Run directory (site/runs/...)")
     parser.add_argument("--base-report", required=True, help="Base report path (relative or absolute)")
     parser.add_argument("--update", required=True, help="Update request / revision instructions")

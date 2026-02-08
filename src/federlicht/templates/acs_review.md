@@ -4,7 +4,9 @@ description: ACS-style review article structure.
 tone: Scholarly, chemistry and materials focus.
 audience: Materials science and chemistry researchers.
 css: default.css
+
 latex: acs_review.tex
+layout: sidebar_toc
 section: Abstract
 section: Introduction
 section: Current Landscape
@@ -22,3 +24,5 @@ guide Outlook: expected advances and validation needs.
 writer_guidance: Use clear terminology and define acronyms.
 writer_guidance: Separate consensus from speculative signals.
 ---
+
+

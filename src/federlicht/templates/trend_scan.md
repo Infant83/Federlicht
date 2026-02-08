@@ -4,7 +4,9 @@ description: Trend signal scan with implications and scenarios.
 tone: Analytical, exploratory, forward-looking.
 audience: Strategy and research teams.
 css: trend_scan.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Executive Summary
 section: Signal Landscape
 section: Trend Themes
@@ -19,3 +21,5 @@ guide Risks & Gaps: data gaps and false-positive risks.
 writer_guidance: Separate weak signals from established findings.
 writer_guidance: Note uncertainty and confidence levels explicitly.
 ---
+
+

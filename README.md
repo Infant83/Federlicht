@@ -1,13 +1,28 @@
-# Feather Collector
+# Federlicht Platform
 
 Author: Hyun-Jung Kim (angpangmokjang@gmail.com, Infant@kias.re.kr)
 
-Version: 1.2.0
+Version: 1.3.0
 
-Feather-light knowledge intake. This CLI ingests text instructions (`.txt` files), runs Tavily search/extract, fetches arXiv papers, and builds an offline-friendly archive of everything it collected. Input can be a single `.txt` file or a folder of `.txt` files.
+Federlicht is the base platform package name. It includes four operational components:
+- `feather`: external evidence intake and source archival (RAG collector).
+- `federlicht`: report generation pipeline (agentic synthesis, quality loop, rendering).
+- `federnett`: web studio for workflow control and artifact inspection.
+- `federhav`: profile-guided update and revision workflow for report refinement.
+
+Feather-light knowledge intake is one component of this package. The collector ingests text instructions (`.txt` files), runs Tavily search/extract, fetches arXiv papers, and builds an offline-friendly archive of everything it collected. Input can be a single `.txt` file or a folder of `.txt` files.
 
 Feather and Federlicht are designed as a deliberate two-step flow. Feather is about gathering: knowledge floats in the air like feathers, and only the right collection can form a meaningful whole. It also plays on “feeder” — the collected knowledge is fed into language models, so the intake must be curated through well‑designed queries in the instruction file. Federlicht is about illumination and curation: “feder + licht” (feather + light) — a German word pairing. The separation is intentional: collection and synthesis need different knobs. The way you combine input arguments (sources, limits, language, templates, prompts) shapes not just coverage but the narrative voice and report style, so tuning both steps together is essential for high-quality output. That tuning is done by the user — typically domain experts — and even in the GenAI/agentic era, the decision maker and director remain essential for choosing what matters, what to trust, and how to frame the story. 
 “Knowledge is light; ignorance is darkness.”
+
+## Package Identity
+- Distribution/package name: `federlicht`
+- Repository name: `FEATHER`
+- Primary CLI commands shipped by this package:
+  - `feather` (collector)
+  - `federlicht` (report engine)
+  - `federnett` (studio UI)
+  - `federhav` (profile-guided revision runner)
 
 ## Features
 - Parse natural-language instructions from `.txt` files.
@@ -20,7 +35,7 @@ Feather and Federlicht are designed as a deliberate two-step flow. Feather is ab
 - Federlicht report synthesis: multi-step agentic review with templates, citations, and HTML/TeX output.
 
 ## Requirements
-- Python 3.9+ recommended.
+- Python 3.10+ recommended (3.12 verified).
 - Required package: `requests` (declared in `pyproject.toml`).
 - Optional packages (extra features, declared as extras):
   - `arxiv` for arXiv metadata/search.
@@ -38,6 +53,12 @@ Feather and Federlicht are designed as a deliberate two-step flow. Feather is ab
 - Optional env: `OPENAI_BASE_URL_VISION` / `OPENAI_API_KEY_VISION` for vision-only models (used with `--model-vision`).
 - `requirements.txt` is a convenience bundle for local runs/tests and includes optional deps + pytest.
 
+### License and Dependency Notice
+- This repository is licensed under MIT (`LICENSE`).
+- Some optional extras may install dependencies under different licenses.
+- In particular, `pymupdf` is distributed under AGPL/commercial terms, so using extras that include it (`pdf`, `report`, `all`) requires your own compliance review.
+- If your organization requires permissive-only dependencies, use `report-lite` and avoid extras that include `pymupdf`.
+
 ## Installation
 ```bash
 # PyPI install (distribution name):
@@ -50,6 +71,10 @@ python -m pip install -e .
 # With optional features (arXiv + PDF text):
 python -m pip install -e ".[all]"
 python -m pip install "federlicht[all]"
+
+# Federlicht report stack without pymupdf (permissive-leaning default):
+python -m pip install -e ".[report-lite]"
+python -m pip install "federlicht[report-lite]"
 
 # Local file ingestion only:
 python -m pip install -e ".[local]"
@@ -97,8 +122,9 @@ python run.py --input ./instructions --output ./archive --download-pdf --max-res
 federlicht --run ./examples/runs/20260104_oled --output ./examples/runs/20260104_oled/report_full.md --lang ko --prompt-file ./examples/instructions/20260104_prompt_oled.txt
 # HTML output:
 federlicht --run ./examples/runs/20260104_oled --output ./examples/runs/20260104_oled/report_full.html --lang ko --prompt-file ./examples/instructions/20260104_prompt_oled.txt
-# (or: python scripts/federlicht_report.py --run ./examples/runs/20260104_oled --output ./examples/runs/20260104_oled/report_full.html --lang ko --prompt-file ./examples/instructions/20260104_prompt_oled.txt)
-# See scripts/README_federlicht_report.md for detailed options.
+# Structure/creativity controls:
+federlicht --run ./examples/runs/20260104_oled --output ./examples/runs/20260104_oled/report_full.html --template-rigidity balanced --temperature-level balanced
+# See docs/federlicht_report.md for detailed options.
 
 # Windows wrappers (no install):
 # .\feather.ps1 --input .\instructions --output .\archive --max-results 8
@@ -133,6 +159,28 @@ federnett --root . --static-dir site/federnett --site-root site
 ```
 
 Then open `http://127.0.0.1:8765/`.
+
+### Agent Profile Author Metadata
+Agent profiles can carry report byline metadata:
+- `author_name`: author label to show in the report header.
+- `organization` (optional): appended as `author_name / organization`.
+
+Author resolution order in Federlicht:
+1) `--author` (and optional `--organization`)  
+2) selected agent profile `author_name`/`organization`  
+3) `Author:` line in report prompt  
+4) fallback `Federlicht Writer`
+
+Notes:
+- Built-in profiles stay read-only.
+- Site profile IDs are auto-assigned as random 6-digit numbers for new profiles.
+- `author_name` / `organization` are metadata only and do not grant any memory/DB permissions.
+
+### Auth-Gated Memory/DB (TODO)
+- Add certificate/SSO-based access control for profile-bound memory connectors.
+- Add API-key token option for controlled vector DB or knowledge-base access.
+- Enforce explicit permission policies (who can query which memory source, and when).
+- Keep report generation presets separate from identity/permission profiles for reproducibility.
 
 ### Python API (Federlicht)
 ```python
@@ -189,7 +237,7 @@ federlicht --run ./examples/runs/20260104_oled \
   --figures-preview
 ```
 
-See `scripts/README_federlicht_report.md` for full figure options and dependencies.
+See `docs/federlicht_report.md` for full figure options and dependencies.
 
 ## Hosting the Report Hub (GitHub/GitLab Pages)
 Federlicht can generate a static report hub under `./site` (`index.html` + `manifest.json`). To host on an internal GitHub/GitLab, keep all report outputs under `site/runs/` and refresh the index before deployment.
@@ -232,6 +280,7 @@ Option B: copy `site/` to `docs/` and set Pages source to `/docs`.
 Notes:
 - The hub expects relative paths under `site/`, so keep reports inside `site/runs/`.
 - When reports are updated, run `federlicht --site-refresh ./site` and redeploy.
+- The hub footer includes an AI transparency and source-rights notice for publication/distribution contexts.
 
 ## Workflow (Feather -> Federlicht)
 Use Feather to collect sources, then Federlicht to synthesize a report.
@@ -261,7 +310,7 @@ federlicht --run ./runs/20260110_qc-oled --output ./runs/20260110_qc-oled/report
 Notes:
 - Feather only collects data; Federlicht never re-fetches sources.
 - The run folder contains `instruction/`, `archive/`, and `*-index.md` used by Federlicht.
-- See `examples/README.md` and `scripts/README_federlicht_report.md` for advanced templates and report options.
+- See `examples/README.md` and `docs/federlicht_report.md` for advanced templates and report options.
 
 Arguments:
 - `--input` (required): Folder containing one or more `.txt` instruction files, or a single `.txt` file.
@@ -366,7 +415,7 @@ Created under `--output/<queryID>/`:
 - `src/feather/`: Core package code.
 - `tests/`: Unit tests (pytest).
 - `examples/`: Sample instruction files.
-- `scripts/`: Helper scripts (e.g., deepagents report generator).
+- `docs/`: Detailed CLI/report references and operational notes.
 - `.backup/`: Archived files moved out of the main tree.
 - `run.py`: Local CLI runner without installation.
 - `feather.ps1` / `feather.cmd`: Convenience wrappers for Windows.

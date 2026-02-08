@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0
+- Make report byline identity profile-aware: author now resolves in order `--author/--organization` -> agent profile (`author_name`/`organization`) -> prompt `Author:` line -> fallback.
+- Add `--organization` to Federlicht and persist `organization` plus profile author metadata in `report_meta.json`.
+- Extend agent profile schema with `author_name` and `organization` fields for reusable byline identity.
+- Update Federnett Agent Profiles editor to manage `Author name` and optional `Organization`.
+- Enforce random 6-digit IDs for new site agent profiles (including New/Clone flows) while keeping legacy site IDs editable.
+- Document profile author metadata behavior and add auth-gated memory/DB connector TODOs in `README.md`.
+
 ## 1.2.0
 - Add run log history indexing (`_log.txt`, `_feather_log.txt`, `_federlicht_log.txt`) and surface it in Recent Jobs.
 - Allow historical logs to open in Live Logs with automatic run/form restoration.

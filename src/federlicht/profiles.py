@@ -19,6 +19,8 @@ class AgentProfile:
     profile_id: str
     name: str
     tagline: str
+    author_name: str
+    organization: str
     system_prompt: str
     apply_to: list[str]
     version: str
@@ -71,6 +73,8 @@ def list_profiles(profile_dir: Path) -> list[dict[str, Any]]:
                 "id": payload.get("id") or key,
                 "name": payload.get("name") or key,
                 "tagline": payload.get("tagline") or "",
+                "author_name": payload.get("author_name") or "",
+                "organization": payload.get("organization") or "",
                 "version": payload.get("version") or "",
                 "apply_to": payload.get("apply_to") or [],
                 "file": file_name,
@@ -103,6 +107,8 @@ def load_profile(profile_id: Optional[str], profile_dir: Optional[str] = None) -
             data = {}
     name = str(data.get("name") or profile_id)
     tagline = str(data.get("tagline") or "")
+    author_name = str(data.get("author_name") or "").strip()
+    organization = str(data.get("organization") or "").strip()
     system_prompt = str(data.get("system_prompt") or "").strip()
     apply_to = list(data.get("apply_to") or ["writer"])
     version = str(data.get("version") or "")
@@ -120,6 +126,8 @@ def load_profile(profile_id: Optional[str], profile_dir: Optional[str] = None) -
         profile_id=profile_id,
         name=name,
         tagline=tagline,
+        author_name=author_name,
+        organization=organization,
         system_prompt=system_prompt,
         apply_to=apply_to,
         version=version,
@@ -154,6 +162,8 @@ def profile_summary(profile: AgentProfile) -> dict[str, Any]:
         "id": profile.profile_id,
         "name": profile.name,
         "tagline": profile.tagline,
+        "author_name": profile.author_name,
+        "organization": profile.organization,
         "version": profile.version,
         "apply_to": profile.apply_to,
         "memory_path": str(profile.memory_path) if profile.memory_path else None,

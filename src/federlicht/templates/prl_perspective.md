@@ -4,7 +4,9 @@ description: PRL-style perspective highlight.
 tone: Concise, high-impact, technical.
 audience: Physics and engineering researchers.
 css: prl_perspective.css
+
 latex: prl_revtex4-2.tex
+layout: sidebar_toc
 section: Synopsis
 section: Context
 section: Key Result
@@ -21,3 +23,5 @@ guide Outlook: near-term validation and next experiments.
 writer_guidance: Keep narrative tight; prioritize one central takeaway.
 writer_guidance: Cite only the most relevant sources.
 ---
+
+

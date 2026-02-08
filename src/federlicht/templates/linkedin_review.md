@@ -4,7 +4,9 @@ description: LinkedIn-style practitioner review with a strategist lens.
 tone: Conversational but professional, opinionated with evidence.
 audience: Industry leaders, product strategists, and applied researchers.
 css: linkedin_review.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Hook
 section: Executive Summary
 section: Evidence Highlights
@@ -21,3 +23,5 @@ guide Actionable Takeaways: 3-6 bullet actions with conditions.
 writer_guidance: Keep paragraphs short; use bold labels sparingly for emphasis.
 writer_guidance: Blend narrative and bullet lists; stay evidence-forward.
 ---
+
+

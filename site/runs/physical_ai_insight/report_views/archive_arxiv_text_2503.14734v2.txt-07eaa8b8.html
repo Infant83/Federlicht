@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2503.14734v2.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2503.14734v2.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> GR00T N1: An Open Foundation Model for Generalist Humanoid Robots</p><p><strong>Authors:</strong> NVIDIA et al.</p><p><strong>Published:</strong> 2025-03-18T21:06:21+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2503.14734v2">http://arxiv.org/abs/2503.14734v2</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2503.14734v2.pdf">./archive/arxiv/pdf/2503.14734v2.pdf</a></p><p><strong>Summary:</strong><br />General-purpose robots need a versatile body and an intelligent mind. Recent advancements in humanoid robots have shown great promise as a hardware platform for building generalist autonomy in the human world. A robot foundation model, trained on massive and diverse data sources, is essential for enabling the robots to reason about novel situations, robustly handle real-world variability, and rapidly learn new tasks. To this end, we introduce GR00T N1, an open foundation model for humanoid robots. GR00T N1 is a Vision-Language-Action (VLA) model with a dual-system architecture. The vision-language module (System 2) interprets the environment through vision and language instructions. The subsequent diffusion transformer module (System 1) generates fluid motor actions in real time. Both modules are tightly coupled and jointly trained end-to-end. We train GR00T N1 with a heterogeneous mixture of real-robot trajectories, human videos, and synthetically generated datasets. We show that our generalist robot model GR00T N1 outperforms the state-of-the-art imitation learning baselines on standard simulation benchmarks across multiple robot embodiments. Furthermore, we deploy our model on the Fourier GR-1 humanoid robot for language-conditioned bimanual manipulation tasks, achieving strong performance with high data efficiency.</p></div><pre>
+
+===== PAGE 1 =====
+2025-3-28
+GR00T N1: An Open Foundation Model for Generalist
+Humanoid Robots
+NVIDIA1
+Abstract
+General-purpose robots need a versatile body and an intelligent mind. Recent advancements in humanoid
+robots have shown great promise as a hardware platform for building generalist autonomy in the human
+world. A robot foundation model, trained on massive and diverse data sources, is essential for enabling
+the robots to reason about novel situations, robustly handle real-world variability, and rapidly learn new
+tasks. To this end, we introduce GR00T N1, an open foundation model for humanoid robots. GR00T
+N1 is a Vision-Language-Action (VLA) model with a dual-system architecture. The vision-language
+module (System 2) interprets the environment through vision and language instructions. The subsequent
+diffusion transformer module (System 1) generates fluid motor actions in real time. Both modules are
+tightly coupled and jointly trained end-to-end. We train GR00T N1 with a heterogeneous mixture of real-
+robot trajectories, human videos, and synthetically generated datasets. We show that our generalist robot
+model GR00T N1 outperforms the state-of-the-art imitation learning baselines on standard simulation
+benchmarks across multiple robot embodiments. Furthermore, we deploy our model on the Fourier GR-1
+humanoid robot for language-conditioned bimanual manipulation tasks, achieving strong performance
+with high data efficiency.
+1. Introduction
+Creating autonomous robots to perform everyday tasks in the human world has long been a fascinating goal and,
+at the same time, a significant technical undertaking. Recent progress in robotic hardware, artificial intelligence,
+and accelerated computing has collectively paved the ground for developing general-purpose robot autonomy.
+To march toward human-level physical intelligence, we advocate for a full-stack solution that integrates the
+three key ingredients: hardware, models, and data. First and foremost, robots are embodied physical agents,
+and their hardware determines their capability envelope. It makes humanoid robots a compelling form factor
+to build robot intelligence due to their human-like physique and versatility. Second, the diversity and variability
+of the real world demands that the robots operate on open-ended objectives and perform a wide range of tasks.
+Achieving this requires a generalist robot model sufficiently expressive and capable of handling various tasks.
+Third, real-world humanoid data are costly and time-consuming to acquire at scale. We need an effective data
+strategy to train large-scale robotic models.
+In recent years, foundation models have brought forth dramatic breakthroughs in understanding and generating
+visual and text data. They demonstrate the effectiveness of training generalist models on web-scale data to
+enable strong generalization and fast adaptation to downstream tasks. The successes of foundation models in
+neighboring fields of AI have depicted a promising roadmap for building the “backbone” of intelligence for
+generalist robots, endowing them with a set of core competencies and enabling them to rapidly learn and
+adapt in the real world. However, unlike the digital realms of words and pixels, no Internet of humanoid robot
+datasets exist for large-scale pre-training. The data available for any single humanoid hardware would be orders
+of magnitude too small. Recent efforts in the robot learning community (Open X-Embodiment Collaboration
+et al., 2024) have explored cross-embodied learning to enlarge the dataset by pooling training data from many
+different robots. However, the great variability in robot embodiments, sensors, actuator degrees of freedom,
+1A detailed list of contributors and acknowledgments can be found in App. A of this paper.
+© 2025 NVIDIA. All rights reserved.
+arXiv:2503.14734v2  [cs.RO]  27 Mar 2025
+
+
+===== PAGE 2 =====
+GR00T N1: An Open Foundation Model for Generalist Humanoid Robots
+control modes, and other factors result in an archipelago of “data islands” rather than a coherent, Internet-scale
+dataset needed for training a true generalist model.
+Web Data &amp;
+Human Videos
+Synthetic Data
+Real-World Data
+Figure 1: Data Pyramid for Robot Foundation Model
+Training. GR00T N1’s heterogeneous training corpora
+can be represented as a pyramid: data quantity de-
+creases, and embodiment-specificity increases, moving
+from the bottom to the top.
+We introduce GR00T N1, an open foundation model
+for generalist humanoid robots. The GR00T N1
+model is a Vision-Language-Action (VLA) model,
+which generates actions from image and language
+instruction input. It has cross-embodiment support
+from tabletop robot arms to dexterous humanoid
+robots. It adopts a dual-system compositional ar-
+chitecture, inspired by human cognitive process-
+ing (Kahneman, 2011). The System 2 reasoning
+module is a pre-trained Vision-Language Model
+(VLM) that runs at 10Hz on an NVIDIA L40 GPU. It
+processes the robot’s visual perception and language
+instruction to interpret the environment and under-
+stand the task goal. Subsequently, a Diffusion Trans-
+former, trained with action flow-matching, serves
+as the System 1 action module. It cross-attends to
+the VLM output tokens and employs embodiment-
+specific encoders and decoders to handle variable state and action dimensions for motion generation. It
+generates closed-loop motor actions at a higher frequency (120Hz). Both the System 1 and System 2 modules
+are implemented as Transformer-based neural networks, tightly coupled and jointly optimized during training
+to facilitate coordination between reasoning and actuation.
+To mitigate the “data island” problem mentioned earlier, we structure the VLA training corpora as a data
+pyramid, illustrated in Fig. 1. Rather than treating the training datasets as a homogeneous pool, we organize
+heterogeneous sources by scale: large quantities of web data and human videos lay the base of the pyramid;
+synthetic data generated with physics simulations and/or augmented by off-the-shelf neural models form
+the middle layer, and real-world data collected on the physical robot hardware complete the top. The lower
+layers of the pyramid provide broad visual and behavioral priors, while the upper layers ensure grounding in
+embodied, real-robot execution.
+We develop an effective co-training strategy to learn across the entire data pyramid in both pre- and post-
+training phases. To train our model with action-less data sources, such as human videos and neural-generated
+videos, we learn a latent-action codebook (Ye et al., 2025) and also use a trained inverse dynamics model
+(IDM) to infer pseudo-actions. These techniques enable us to annotate actions on action-less videos so we
+can effectively treat them as additional robot embodiments for model training. By unifying all data sources
+across the data pyramid, we construct a consistent dataset where the input consists of the robot state, visual
+observations, and language instruction, and the output is the corresponding motor action. We pre-train our
+model end-to-end across the three data layers, spanning (annotated) video datasets, synthetically generated
+datasets, and real-robot trajectories — by sampling training batches across this heterogeneous data mixture.
+With a unified model and single set of weights, GR00T N1 can generate diverse manipulation behaviors
+using single-arm, bimanual, and humanoid embodiments. Evaluated on standard simulation benchmark
+environments, GR00T N1 achieves superior results compared to state-of-the-art imitation learning baselines.
+We also demonstrate GR00T N1’s strong performance in real-world experiments with GR-1 humanoid robots.
+Our GR00T-N1-2B model checkpoint, training data, and simulation benchmarks are publicly available here:
+GitHub and HuggingFace Datasets.
+2
+
+
+===== PAGE 3 =====
+GR00T N1: An Open Foundation Model for Generalist Humanoid Robots
+Robot State
+“Pick up the industry 
+object and place in 
+yellow bin.”
+Joint
+Positions
+Joint
+Velocities
+Base
+Position
+EEF Poses …
+Tokenize
+Encode
+System 2
+Vision-Language
+Model
+Image
+Tokens
+Text
+Tokens
+Encode
+Action Tokens
+Denoising
+System 1
+Diffusion
+Transformer
+Motor Action
+Image Observation
+Language Instruction
+Figure 2: GR00T N1 Model Overview. Our model is a Vision-Language-Action (VLA) model that adopts a
+dual-system design. We convert the image observation and language instruction into a sequence of tokens to
+be processed by the Vision-Language Model (VLM) backbone. The VLM outputs, together with robot state and
+action encodings, are passed to the Diffusion Transformer module to generate motor actions.
+2. GR00T N1 Foundation Model
+GR00T N1 is a Vision-Language-Action (VLA) model for humanoid robots trained on diverse data sources.
+The model contains a vision-language backbone that encodes language and image input and a DiT-based
+flow-matching policy that outputs high-frequency actions. We use the NVIDIA Eagle-2 VLM (Li et al., 2025) as
+the vision-language backbone. Specifically, our publicly released GR00T-N1-2B model has 2.2B parameters
+in total, with 1.34B in the VLM. The inference time for sampling a chunk of 16 actions is 63.9ms on an L40
+GPU using bf16. Fig. 2 provides a high-level overview of our model design. We highlight three key features of
+GR00T N1:
+• We design a compositional model that integrates Vision-Language Model (VLM)-based reasoning module
+(System 2) and Diffusion Transformer (DiT)-based action module (System 1) in a unified learning
+framework;
+• We develop an effective pre-training strategy using a mixture of human videos, simulation and neural-
+generated data, and real robot demonstrations (see Fig. 1) for generalization and robustness;
+• We train a massively multi-task, language-conditioned policy that supports a wide range of robot embodi-
+ments and enables rapid adaptation to new tasks through data-efficient post-training.
+2.1. Model Architecture
+In this section, we describe the GR00T N1 model architecture, illustrated in Fig. 3. GR00T N1 uses flow-
+matching (Lipman et al.) to learn action generation. A diffusion transformer (DiT) processes the robot’s
+proprioceptive state and action, which are then cross-attended with image and text tokens from the Eagle-2
+VLM backbone to output the denoised motor actions. Below, we elaborate on each module in detail.
+State and Action Encoders
+To process states and actions of varying dimensions across different robot embodiments, we use an MLP per
+embodiment to project them to a shared embedding dimension as input to the DiT. As in Black et al. (2024),
+3
+
+
+===== PAGE 4 =====
+GR00T N1: An Open Foundation Model for Generalist Humanoid Robots
+Robot State
+Eagle-2 
+VLM
+Cross-Attention
+Self-Attention
+Cross-Attention
+Self-Attention
+State
+Encoder
+Action 
+Decoder
+DiT Blocks 
+Motor
+Action
+Action 
+Encoder
+x N
+“Pick up the apple 
+and place it into 
+the bottom shelf”
+Noised Action
+Embodiment-Specific Module
+Vision
+Encoder
+Text 
+Tokenizer
+K iterations
+Pre-trained and Frozen
+𝑞!
+. . .
+𝑎!
+𝑎!&quot;#
+𝑎!&quot;$%#
+. . .
+𝑎!
+𝑎!&quot;#
+𝑎!&quot;$%#
+Figure 3: GR00T N1 Model Architecture. GR00T N1 is trained on a diverse set of embodiments ranging from
+single-arm robot arms to bimanual humanoid dexterous hands. To deal with different robot embodiment’s
+state observation and action, we use DiT blocks with an embodiment-aware state and action encoder to embed
+the robot’s state and action inputs. GR00T N1 model leverages latent embeddings of the Eagle-2 model to
+incorporate the robot’s visual observation and language instructions. The vision language tokens will then be
+fed into the DiT blocks through cross-attention layers.
+the Action Encoder MLP also encodes the diffusion timestep together with the noised action vector.
+We use action flow matching, which samples actions through iterative denoising. The model takes as input
+noised actions in addition to encodings of the robot’s proprioceptive state, image tokens, and text tokens. The
+actions are processed in chunks as in Zhao et al. (2023), meaning that at any given time 𝑡the model uses
+𝐴𝑡= [𝑎𝑡, 𝑎𝑡+1, . . . , 𝑎𝑡+𝐻−1] which contains the action vectors of timesteps 𝑡through 𝑡+ 𝐻−1. We set 𝐻= 16
+in our implementation.
+Vision-Language Module (System 2)
+For encoding vision and language inputs, GR00T N1 uses the Eagle-2 (Li et al., 2025) vision-language model
+(VLM) pretrained on Internet-scale data. Eagle-2 is finetuned from a SmolLM2 (Allal et al., 2025) LLM and
+a SigLIP-2 (Tschannen et al., 2025) image encoder. Images are encoded at resolution 224 × 224 followed by
+pixel shuffle (Shi et al., 2016), resulting in 64 image token embeddings per frame. These embeddings are then
+further encoded together with text by the LLM component of the Eagle-2 VLM. The LLM and image encoder
+are aligned over a broad set of vision-language tasks following the general recipe of Li et al. (2025).
+During policy training, a text description of the task, as well as (possibly multiple) images, are passed to the
+VLM in the chat format used during vision-language training. We then extract vision-language features of
+shape (batch size × sequence length × hidden dimension) from the LLM. We found that using middle-layer
+instead of final-layer LLM embeddings resulted in both faster inference speed and higher downstream policy
+success rate. For GR00T-N1-2B, we use the representations from the 12th layer.
+Diffusion Transformer Module (System 1)
+For modeling actions, GR00T N1 uses a variant of DiT (Peebles and Xie, 2023), which is a transformer with
+denoising step conditioning via adaptive layer normalization, denoted as 𝑉𝜃. As shown in Fig. 3, 𝑉𝜃consists of
+4
+
+
+===== PAGE 5 =====
+GR00T N1: An Open Foundation Model for Generalist Humanoid Robots
+alternating cross-attention and self-attention blocks, similar to Flamingo (Alayrac et al., 2022) and VIMA (Jiang
+et al., 2023). The self-attention blocks operate on noised action token embeddings 𝐴𝜏
+𝑡together with state
+embeddings 𝑞𝑡, while cross-attention blocks allow conditioning on the vision-language token embeddings 𝜑𝑡
+output by VLM. After the final DiT block, we apply an embodiment-specific Action Decoder, another MLP, to
+the final 𝐻tokens to predict the actions.
+Given a ground-truth action chunk 𝐴𝑡, a flow-matching timestep 𝜏∈[0, 1] and sampled noise 𝜖∼𝒩(0, I),
+the noised action chunk 𝐴𝜏
+𝑡is computed as 𝐴𝜏
+𝑡= 𝜏𝐴𝑡+ (1 −𝜏)𝜖. The model prediction 𝑉𝜃(𝜑𝑡, 𝐴𝜏
+𝑡, 𝑞𝑡) aims to
+approximate the denoising vector field 𝜖−𝐴𝑡by minimizing the following loss:
+ℒfm(𝜃) = E𝜏
+[︀
+‖𝑉𝜃(𝜑𝑡, 𝐴𝜏
+𝑡, 𝑞𝑡) −(𝜖−𝐴𝑡)‖2]︀
+.
+(1)
+As in Black et al. (2024), we use 𝑝(𝜏) = Beta( 𝑠−𝜏
+𝑠; 1.5, 1), 𝑠= 0.999. During inference, we generate action
+chunks with 𝐾-step denoising. First, randomly sample 𝐴0
+𝑡∼𝒩(0, I) and then use forward Euler integration to
+iteratively generate the action chunk, updating as follows:
+𝐴𝜏+1/𝐾
+𝑡
+= 𝐴𝜏
+𝑡+ 1
+𝐾𝑉𝜃(𝜑𝑡, 𝐴𝜏
+𝑡, 𝑞𝑡).
+In practice, we found 𝐾= 4 inference steps to work well across all embodiments.
+2.2. Training Data Generation
+To train GR00T N1, we use a diverse set of data sources and objectives to construct the data pyramid (Fig. 1).
+We first source diverse human egocentric video data from open datasets, which forms the base, together with
+the web data used in VLM pretraining. Next, we generate synthetic neural trajectories using pre-trained video
+generation models. In this way, we ∼10× our in-house collected teleoperation trajectories — the “peak” of
+the data pyramid — from 88 hours to 827 hours, using diverse counterfactual robot trajectories with novel
+language instructions (see Fig. 5 for examples). We additionally generate diverse simulation trajectories, which
+also expand the middle part of the data pyramid.
+In the next paragraph, we first describe how we extract latent actions from videos, which we use to extract
+labels for web-scaled human egocentric datasets. Next, we describe how we generate neural and simulated
+robot trajectories, and how we obtain actions for each of these data sources.
+Latent Actions
+For human egocentric videos and neural trajectories, we do not </pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

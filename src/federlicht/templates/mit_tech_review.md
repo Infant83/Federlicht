@@ -4,7 +4,9 @@ description: MIT Technology Review-style analysis (impact + context).
 tone: Editorial, clear, evidence-backed, plain-language.
 audience: Technical leaders, product strategists.
 css: mit_tech_review.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Executive Summary
 section: What Changed
 section: The Core Idea
@@ -24,3 +26,5 @@ writer_guidance: Keep paragraphs short (<=3 sentences).
 writer_guidance: Use minimal equations; prioritize clarity.
 writer_guidance: Avoid hype; separate observed signals from extrapolation.
 ---
+
+

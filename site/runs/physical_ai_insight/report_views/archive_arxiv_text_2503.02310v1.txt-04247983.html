@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2503.02310v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2503.02310v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> Accelerating Vision-Language-Action Model Integrated with Action Chunking via Parallel Decoding</p><p><strong>Authors:</strong> Wenxuan Song et al.</p><p><strong>Published:</strong> 2025-03-04T06:12:08+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2503.02310v1">http://arxiv.org/abs/2503.02310v1</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2503.02310v1.pdf">./archive/arxiv/pdf/2503.02310v1.pdf</a></p><p><strong>Summary:</strong><br />Vision-Language-Action (VLA) models demonstrate remarkable potential for generalizable robotic manipulation. The performance of VLA models can be improved by integrating with action chunking, a critical technique for effective control. However, action chunking linearly scales up action dimensions in VLA models with increased chunking sizes. This reduces the inference efficiency. To tackle this problem, we propose PD-VLA, the first parallel decoding framework for VLA models integrated with action chunking. Our framework reformulates autoregressive decoding as a nonlinear system solved by parallel fixed-point iterations. This approach preserves model performance with mathematical guarantees while significantly improving decoding speed. In addition, it enables training-free acceleration without architectural changes, as well as seamless synergy with existing acceleration techniques. Extensive simulations validate that our PD-VLA maintains competitive success rates while achieving 2.52 times execution frequency on manipulators (with 7 degrees of freedom) compared with the fundamental VLA model. Furthermore, we experimentally identify the most effective settings for acceleration. Finally, real-world experiments validate its high applicability across different tasks.</p></div><pre>
+
+===== PAGE 1 =====
+Accelerating Vision-Language-Action Model Integrated with Action
+Chunking via Parallel Decoding
+Wenxuan Song*1, Jiayi Chen*1, Pengxiang Ding2,3, Han Zhao2,3,
+Wei Zhao2, Zhide Zhong1, Zongyuan Ge4, Jun Ma1, Haoang Li1
+Fig. 1: Comparison between the proposed parallel decoding on the left and traditional autoregressive (AR) decoding on the right. Unlike AR decoding,
+which predicts action tokens sequentially, our parallel decoding simultaneously predicts all the tokens in parallel.
+Abstract— Vision-Language-Action (VLA) models demon-
+strate remarkable potential for generalizable robotic manip-
+ulation. The performance of VLA models can be improved
+by integrating with action chunking, a critical technique for
+effective control. However, action chunking linearly scales up
+action dimensions in VLA models with increased chunking
+sizes. This reduces the inference efficiency. Therefore, accel-
+erating VLA integrated with action chunking is an urgent
+need. To tackle this problem, we propose PD-VLA, the first
+parallel decoding framework for VLA models integrated with
+action chunking. Our framework reformulates autoregressive
+decoding as a nonlinear system solved by parallel fixed-
+point iterations. This approach preserves model performance
+with mathematical guarantees while significantly improving
+decoding speed. In addition, it enables training-free acceleration
+without architectural changes, as well as seamless synergy with
+existing acceleration techniques. Extensive simulations validate
+that our PD-VLA maintains competitive success rates while
+achieving 2.52× execution frequency on manipulators (with
+7 degrees of freedom) compared with the fundamental VLA
+model. Furthermore, we experimentally identify the most ef-
+fective settings for acceleration. Finally, real-world experiments
+validate its high applicability across different tasks.
+*Wenxuan Song and Jiayi Chen contributed equally to this work.
+1The Hong Kong University of Science and Technology (Guangzhou),
+Guangzhou, China.
+2Westlake University, Hangzhou, China.
+3Zhejiang University, Hangzhou, China.
+4Monash University, Melbourne, Australia.
+I. INTRODUCTION
+The pursuit of robust and generalizable robotic manipula-
+tion policies remains a fundamental challenge in embodied
+AI research [1]. Recent advancements in Vision-Language
+Models (VLMs) [2], [3] have showcased impressive multi-
+modal understanding capabilities, inspiring the development
+of Vision-Language-Action (VLA) models [4], [5], [6], [7],
+[8], [9]. These end-to-end architectures, which are trained
+on large-scale robotic datasets [10], [11], integrate visual
+perception and language understanding to directly generate
+executable actions. This emerging paradigm shows strong
+effectiveness and generalization in diverse scenarios.
+Recent VLA work [12], [13], [14] has explored the inte-
+gration with action chunking [15], which highly improves
+the performance of VLA models in laboratory scenarios.
+However, action chunking dramatically increases the action
+dimensions in a single inference. For typical manipulators
+with 7 degrees of freedom (DoF) (including 3-DoF transla-
+tion, 3-DoF rotation, 1-DoF gripper), an action chunk of m
+steps creates 7m-dimensional action sequences. This linearly
+increases single-inference time when autoregressive (AR)
+decoding is employed in VLA models. The reason is that
+AR decoding sequentially predicts each token in an one-by-
+one manner. As a result, the generation time is proportional
+to the predicted token length. Therefore, there is an urgent
+need to accelerate the decoding process for VLA models
+integrated with action chunking.
+To address the above challenges, we present a novel
+arXiv:2503.02310v1  [cs.RO]  4 Mar 2025
+
+
+===== PAGE 2 =====
+TABLE I: Comparison between different acceleration methods for VLA
+models. “Model-redesign-free” indicates that a method does not redesign
+the foundation models. “Training-free” indicates that a method does not
+need training. “Modification-free” indicates that a method does not require
+modifications or adding auxiliary components to pre-trained VLA models.
+Methods
+Model-redesign Training- Modification-
+free
+free
+free
+TinyVLA [16]
+×
+-
+-
+RoboMamba [17]
+×
+-
+-
+QAIL [18]
+✓
+×
+×
+DeeR-VLA [19]
+✓
+×
+×
+VLA w/ Sparse.[20]
+✓
+✓
+×
+VLA w/ FastV [21]
+✓
+✓
+×
+VLA-Cache [22]
+✓
+✓
+×
+PD-VLA (ours)
+✓
+✓
+✓
+parallel decoding framework for the mainstream VLA model
+with action chunking, called Parallel Decoding for VLA
+(PD-VLA). Fig. 1 illustrates the core concept of our parallel
+decoding approach. Our key insight reframes AR action
+decoding as a system of nonlinear equations solved through
+parallel fixed-point iteration methods, e.g., Jacobi fix-point
+iteration method [23]. This approach preserves model perfor-
+mance with mathematical guarantees while significantly im-
+proving decoding speed. Please note that we only accelerate
+the decoding process during VLA inference. Accordingly,
+our method enables friendly deployment, compared with
+existing methods, i.e., it achieves training-free acceleration
+without redesign and modification of models (see Table I).
+Moreover, our method achieves seamless synergy with ex-
+isting acceleration techniques.
+We validate our PD-VLA in extensive simulation and real-
+world experiments. In simulation experiments, our method
+achieves significant acceleration without compromising per-
+formance. Compared to the fundamental VLA model, our
+PD-VLA achieves 2.52× execution frequency. Furthermore,
+we experimentally identify the most effective settings for
+acceleration. Finally, the real-world experiments show the
+strong applicability of PD-VLA, especially in the dexterous
+tasks, such as pouring the water.
+Our primary contributions include:
+• We propose the first parallel decoding framework for
+VLA models integrated with action chunking. It pre-
+serves action performance while eliminating the bottle-
+necks in the efficiency of autoregressive decoding.
+• We design a decoding-process-only acceleration strat-
+egy for VLA inference. It enables friendly deployment
+on VLA models and seamlessly synergizes with other
+acceleration methods.
+• We conduct comprehensive empirical validation across
+simulation and real-world platforms, with ablation stud-
+ies characterizing performance tradeoffs.
+II. RELATED WORKS
+A. Vision-Language-Action Models
+Vision-language-action (VLA) models are designed to
+process both visual feedback from robotic systems and
+natural language operation instructions as input, generating
+executable commands for robots. Several large-scale VLA
+models [5], [9], [24], [25] have been developed by fine-
+tuning pre-trained multimodal large models, which inherently
+possess strong visual question answering (VQA) capabilities,
+on extensive robot datasets. These methods have shown
+strong performance in both simulated and real-world tasks.
+However, the inference speed of VLA models with a large
+number of parameters is relatively slow, which prevents
+them from achieving high control frequencies and further
+limits the consistency of their actions and their effectiveness
+when learning flexible tasks from high-frequency demon-
+strations [13]. This paper aims to improve inference speed,
+thereby partially alleviating the aforementioned issues.
+B. Action Chunking
+Predicting and executing a sequence of actions without
+intermediate replanning, which is known as action chunking,
+is increasingly used in robot learning from human demon-
+strations. This approach involves two key strategies. First, it
+predicts multi-step action sequences and executes them either
+fully or partially [15], [26]. Second, it models the distribution
+of action chunks and performs sampling from the learned
+model, either independently [26], [27] or with weak depen-
+dencies [28], [15], to facilitate sequential decision-making.
+While some research highlights the effectiveness of this
+method in achieving high-performing policies in laboratory
+settings
+[15], [26], other studies report contrasting results
+in real-world applications [29]. Further, [30] analyzed the
+different outcomes under practical conditions and proposed a
+bidirectional decoding to balance consistency and reactivity.
+One of the state-of-the-art VLA model, pi0 [12], use an
+action chunking architecture with flow matching to represent
+complex continuous action distributions. It validates the
+effectiveness of action chunking in VLA models. In this
+paper, we aim to tackle a significant problem existing in the
+VLA models with action chunking that the inference speed
+is severely limited.
+C. Acceleration for Vision-Language-Action Models
+Various acceleration strategies, including quantization [31]
+and token pruning [21], have been effectively applied to
+LLMs, yet they often fail to meet the stringent real-time re-
+quirements of action generation. Efforts to enhance efficiency
+have led to architectural modifications in VLA models, such
+as DeeR-VLA [19], which dynamically adjusts inference
+depth, and QAIL [18], which integrates quantization-aware
+training. Further innovations, like RoboMamba [17] and
+TinyVLA [16], replace traditional attention mechanisms or
+focus on developing lightweight models from the ground
+up, frequently necessitating model re-training and additional
+data collection. Meanwhile, VLA-Cache [22] selectively
+
+
+===== PAGE 3 =====
+Fig. 2: The network architecture of our PD-VLA with a chunk size of m. Given images and language instructions, our method first tokenizes the input
+and then feeds the results into the LLM in a parallel decoding manner. The LLM outputs action tokens, which are finally detokenized into valid action
+values and deployed on the mechanical arm.
+caches static tokens and recomputes only dynamic or task-
+relevant ones. FAST [13] proposes a compression-based
+tokenization scheme based on the discrete cosine transform.
+In contrast, our PD-VLA enhances inference speed by op-
+timizing the decoding mechanism, offering a more practical
+and deployment-friendly solution compared to the above
+methods, as shown in Table I.
+III. METHOD
+In this section, we introduce the details of our method
+PD-VLA. We first present the architecture of our VLA
+model in subsection III-A. Subsequently, we incorporate
+action chunking with our VLA model in subsection III-B.
+Finally, we present parallel decoding to accelerate inference
+in subsection III-C.
+A. Vision-language-action Model
+Model Architecture. We build a fundamental VLA model,
+LLaVA-VLA, on the widely recognized vision-language
+model, LLaVA [32], ensuring a generalizable and com-
+prehensive exploration. LLaVA mainly consists of a large
+language model LLM and a vision encoder fencoder. It takes
+two images as input, a static image Istatic and a gripper
+image Igripper, to get a comprehensive observation. Then the
+images are processed through fencoder into the visual tokens
+himg. Along with the input images, the text instructions S
+are tokenized into tokens hI via a tokenizer T. Then the
+LLM takes in text tokens hS and image tokens himg and
+autoregressively generates action tokens hact. Finally, the
+action tokens are detokenized into 7-dimensionl action a.
+The whole process can be formulated as:
+a = Detokenize(hact) = Detokenize(LLM(hI, hS))
+= Detokenize(fencoder(Istatic, Igripper), T(S)),
+(1)
+Action Tokenization. Here, we discretize a continuous ac-
+tion a into 256 uniformly spaced bins and represent them
+as integer indices. Specifically, we utilize the 256 least
+frequently used tokens in the language model vocabulary
+to serve as action tokens hact. Therefore, the robot action
+tokens across all motion dimensions can be concatenated
+with a space character to form a textual string, which serves
+as the training label. Consequently, a 7-dimensional action a
+is formatted as:
+a = [X, Y Z, ϕ, θ, ψ, G],
+(2)
+where X, Y, Z represent the Cartesian coordinates of the end
+effector’s position, ϕ, θ, ψ denote the rotation angles of the
+end effector along each axis, and G is the gripper state.
+B. Action Chunking for VLA Models
+Based on the above fundamental VLA model, we incor-
+porate the action chunking [15] techniques. Recent works
+have pursued a generative approach equipped with action
+chunking, which predicts a sequence of actions over multiple
+time steps and executes all or part of the sequence [15], [26],
+[30]. Some studies find this approach improves manipulation
+performance and execution inference in imitation learn-
+ing [15], diffusion policies [26], [27], and VLA models [14].
+Action chunking allows the learner to better capture temporal
+dependencies in demonstrations and generate more consistent
+and stable actions [30]. We integrate action chunking with the
+VLA model by extending the effective action horizon (chunk
+size). At the current time step t, given chunk size m, the
+predicted actions will be extended into an action sequences
+At = [at, at+1, at+2, ..., at+m−1], where each element is
+defined in Equation (1). Here, following previous work [14],
+we set the chunk size to 5.
+However, extended action sequences consume longer sin-
+gle inference time, which impacts the continuity and effec-
+tiveness of the actions. Therefore, there is an urgent need to
+propose a more efficient action decoding method.
+C. Parallel Decoding for VLA Models
+To meet the demands of a more efficient decoding al-
+gorithm, we propose parallel decoding for VLA models
+integrated with action chunking. In this subsection, we first
+revisit the theory of AR decoding. Then, by leveraging
+Jacobi decoding, we break the sequential dependency to
+achieve parallel decoding, and further analyze and refine the
+approach based on the structural characteristics of VLA. Fi-
+nally, we analyze the acceleration phenomenon demonstrated
+by parallel decoding.
+
+
+===== PAGE 4 =====
+Preliminary: Jacobi Decoding. Given a prompt x, compris-
+ing both textual and visual components, and a pre-trained
+LLM model p(·|x), we typically predicte tokens using the
+standard AR decoding method under a greedy strategy, i.e.,
+yi = arg max
+y
+p(y|Yi, x) for i = 1, . . . , n
+(3)
+where Yi denotes {y1, . . . , yi−1}, n denotes the decoding
+horizon, representing the number of tokens to predict. As
+shown in Fig. 1, n forward passes of the LLM are required
+to obtain n tokens Yn. The sequential characteristic in AR
+decoding restricts the efficient generation of a lengthy token
+sequence.
+Compared with the aforementioned AR decoding, Jacobi
+decoding [33], [34] has shown the capacity to tackle lengthy
+token sequences. Concretely, supposing f(yi, Yi, x) := yi −
+arg maxy p(y|Yi, x), Jacobi decoding re-frames the infer-
+ence process of LLM in Equation (3) as solving a system of
+nonlinear equations with respect to yi:
+f(yi, Yi, x) = 0 for i = 1, . . . , n.
+(4)
+There are n unknown parameters yi in the nonlinear equation
+system including n Equation (4). Considering Equation 3, the
+system of nonlinear equation system can be formulated as:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+y(j+1)
+1
+= arg max
+y
+p(y|x)
+y(j+1)
+2
+= arg max
+y
+p(y|Y(j)
+1 , x)
+...
+y(j+1)
+n
+= arg max
+y
+p(y|Y(j)
+n , x),
+(5)
+which can be solved in the Jacobi fix-point iteration
+method [23] by using a causal attention mask.
+Our Jacobi Decoding-based Acceleration. In this part, we
+will introduce how we apply the above Jacobi Decoding to
+the VLA model. We first randomly initialize an action token
+sequence of equal length to the decoding horizon n. Both
+the prompt x and the initialized action sequence Y(0) =
+{y(0)
+1 , . . . , y(0)
+n } are fed into the VLA model simultaneously.
+To break the sequential dependencies in the conventional
+VLA model, we replace the above causal attention mech-
+anism with a bidirectional attention mechanism, which re-
+formulate the system of nonlinear equations Equation 5 as:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+y(j+1)
+1
+= arg max
+y
+p(y|Y(j), x)
+y(j+1)
+2
+= arg max
+y
+p(y|Y(j), x)
+...
+y(j+1)
+n
+= arg max
+y
+p(y|Y(j), x).
+(6)
+This enables updates of all action tokens in every single
+iteration. The iterations terminate at the step k where Y(k) =
+Y(k−1), and the Y∗:= Y(k) is</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

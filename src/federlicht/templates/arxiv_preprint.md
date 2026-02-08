@@ -4,7 +4,9 @@ description: arXiv preprint manuscript structure (article class).
 tone: Technical, transparent, reproducible.
 audience: Broad research community.
 css: default.css
+
 latex: arxiv_preprint.tex
+layout: sidebar_toc
 section: Abstract
 section: Introduction
 section: Background
@@ -22,3 +24,5 @@ guide Conclusion: summarize takeaways and next steps.
 writer_guidance: Be explicit about assumptions and data limits.
 writer_guidance: Maintain reproducibility notes where applicable.
 ---
+
+

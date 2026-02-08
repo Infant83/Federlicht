@@ -11,6 +11,9 @@ from ..utils.strings import slugify_label
 _MATH_BLOCK_RE = re.compile(r"(?s)(\$\$.*?\$\$|\\\[.*?\\\])")
 # Bracketed inline math: \( ... \)
 _MATH_BRACKET_RE = re.compile(r"(?s)(\\\(.*?\\\))")
+_MERMAID_CODE_BLOCK_RE = re.compile(r'(?is)<pre><code(?: class="([^"]*)")?>(.*?)</code></pre>')
+_HEADING_RE = re.compile(r"(?is)<h([23])([^>]*)>(.*?)</h\1>")
+_HEADING_ID_RE = re.compile(r'(?i)\bid\s*=\s*"([^"]+)"')
 
 
 def _mask_math_segments(text: str) -> tuple[str, list[str]]:
@@ -99,6 +102,80 @@ def markdown_to_html(markdown_text: str) -> str:
     return _unmask_math_segments(html_text, placeholders)
 
 
+def transform_mermaid_code_blocks(body_html: str) -> tuple[str, bool]:
+    has_mermaid = False
+
+    def replace(match: re.Match[str]) -> str:
+        nonlocal has_mermaid
+        class_attr = (match.group(1) or "").lower()
+        if "mermaid" not in class_attr:
+            return match.group(0)
+        raw = html_lib.unescape(match.group(2) or "").strip()
+        if not raw:
+            return ""
+        has_mermaid = True
+        safe = html_lib.escape(raw)
+        return (
+            "<figure class=\"report-figure report-diagram\">"
+            f"<div class=\"mermaid\">{safe}</div>"
+            "</figure>"
+        )
+
+    transformed = _MERMAID_CODE_BLOCK_RE.sub(replace, body_html or "")
+    return transformed, has_mermaid
+
+
+def _strip_html_tags(text: str) -> str:
+    no_tags = re.sub(r"(?is)<[^>]+>", "", text or "")
+    return html_lib.unescape(no_tags).strip()
+
+
+def prepare_sidebar_toc(body_html: str) -> tuple[str, str]:
+    entries: list[tuple[int, str, str]] = []
+    used_ids: set[str] = set()
+
+    def replace(match: re.Match[str]) -> str:
+        level = int(match.group(1))
+        attrs = match.group(2) or ""
+        inner = match.group(3) or ""
+        label = _strip_html_tags(inner)
+        if not label:
+            return match.group(0)
+        existing = _HEADING_ID_RE.search(attrs)
+        if existing:
+            section_id = existing.group(1).strip()
+        else:
+            base = slugify_label(label) or f"section-{len(entries) + 1}"
+            section_id = base
+            seq = 2
+            while section_id in used_ids:
+                section_id = f"{base}-{seq}"
+                seq += 1
+            attrs = f'{attrs} id="{section_id}"'
+        used_ids.add(section_id)
+        entries.append((level, section_id, label))
+        return f"<h{level}{attrs}>{inner}</h{level}>"
+
+    updated_html = _HEADING_RE.sub(replace, body_html or "")
+    if not entries:
+        return updated_html, ""
+
+    toc_items = []
+    for level, section_id, label in entries:
+        item_class = "toc-item toc-sub" if level >= 3 else "toc-item"
+        toc_items.append(
+            f'<a class="{item_class}" href="#{html_lib.escape(section_id, quote=True)}">'
+            f"{html_lib.escape(label)}</a>"
+        )
+    toc_html = (
+        "<aside class=\"toc-sidebar\" id=\"toc-sidebar\">"
+        "<div class=\"toc-title\">Contents</div>"
+        f"<nav class=\"toc-nav\">{''.join(toc_items)}</nav>"
+        "</aside>"
+    )
+    return updated_html, toc_html
+
+
 def html_to_text(html_text: str) -> str:
     try:
         from bs4 import BeautifulSoup  # type: ignore
@@ -168,6 +245,8 @@ def wrap_html(
     theme_css: Optional[str] = None,
     theme_href: Optional[str] = None,
     extra_body_class: Optional[str] = None,
+    with_mermaid: bool = False,
+    layout: Optional[str] = None,
 ) -> str:
     safe_title = html_lib.escape(title)
     template_class = ""
@@ -178,6 +257,27 @@ def wrap_html(
     if theme_href:
         safe_href = html_lib.escape(theme_href, quote=True)
         theme_link = f"  <link rel=\"stylesheet\" href=\"{safe_href}\" />\n"
+    layout_mode = (layout or "").strip().lower()
+    toc_html = ""
+    if layout_mode == "sidebar_toc":
+        body_html, toc_html = prepare_sidebar_toc(body_html)
+    mermaid_head = ""
+    mermaid_tail = ""
+    if with_mermaid:
+        mermaid_head = (
+            "  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js\"></script>\n"
+        )
+        mermaid_tail = (
+            "  <script>\n"
+            "    if (window.mermaid) {\n"
+            "      mermaid.initialize({\n"
+            "        startOnLoad: true,\n"
+            "        securityLevel: 'strict',\n"
+            "        theme: 'neutral',\n"
+            "      });\n"
+            "    }\n"
+            "  </script>\n"
+        )
     return (
         "<!doctype html>\n"
         "<html lang=\"en\">\n"
@@ -191,6 +291,7 @@ def wrap_html(
         "    };\n"
         "  </script>\n"
         "  <script src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js\"></script>\n"
+        f"{mermaid_head}"
         "  <style>\n"
         "    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');\n"
         "    :root {\n"
@@ -211,6 +312,12 @@ def wrap_html(
         "      --paper-alt: rgba(240, 245, 255, 0.6);\n"
         "      --rule: rgba(15, 23, 42, 0.12);\n"
         "      --shadow: 0 28px 70px rgba(15, 23, 42, 0.22);\n"
+        "      --chrome-ink: #f5f7fb;\n"
+        "      --chrome-muted: rgba(245, 247, 251, 0.66);\n"
+        "      --chrome-surface: rgba(11, 17, 29, 0.62);\n"
+        "      --chrome-border: rgba(255, 255, 255, 0.16);\n"
+        "      --chrome-hover-soft: rgba(255, 255, 255, 0.06);\n"
+        "      --chrome-hover: rgba(255, 255, 255, 0.08);\n"
         "      --link: var(--accent-2);\n"
         "      --link-hover: var(--accent);\n"
         "      --page-bg: radial-gradient(1200px 600px at 12% -10%, var(--glow), transparent 60%),\n"
@@ -246,6 +353,7 @@ def wrap_html(
         "      --accent-strong: #e3546d;\n"
         "    }\n"
         "    * { box-sizing: border-box; }\n"
+        "    html { scroll-behavior: smooth; }\n"
         "    body {\n"
         "      margin: 0;\n"
         "      min-height: 100vh;\n"
@@ -300,6 +408,74 @@ def wrap_html(
         "      max-width: 1040px;\n"
         "      margin: 56px auto 96px;\n"
         "      padding: 0 28px;\n"
+        "    }\n"
+        "    .toc-sidebar {\n"
+        "      display: none;\n"
+        "      position: fixed;\n"
+        "      left: max(18px, calc(50% - 700px));\n"
+        "      top: 64px;\n"
+        "      width: 250px;\n"
+        "      max-height: calc(100vh - 96px);\n"
+        "      overflow-y: auto;\n"
+        "      padding: 16px 12px;\n"
+        "      border-radius: 14px;\n"
+        "      border: 1px solid var(--chrome-border);\n"
+        "      background: var(--chrome-surface);\n"
+        "      backdrop-filter: blur(8px);\n"
+        "      z-index: 2;\n"
+        "    }\n"
+        "    .toc-title {\n"
+        "      font-family: var(--ui-font);\n"
+        "      font-size: 0.78rem;\n"
+        "      letter-spacing: 0.2em;\n"
+        "      text-transform: uppercase;\n"
+        "      color: var(--chrome-muted);\n"
+        "      margin-bottom: 10px;\n"
+        "    }\n"
+        "    .toc-nav {\n"
+        "      display: flex;\n"
+        "      flex-direction: column;\n"
+        "      gap: 4px;\n"
+        "    }\n"
+        "    .toc-item {\n"
+        "      display: block;\n"
+        "      color: var(--chrome-ink);\n"
+        "      text-decoration: none;\n"
+        "      font-family: var(--ui-font);\n"
+        "      font-size: 0.88rem;\n"
+        "      line-height: 1.35;\n"
+        "      opacity: 0.82;\n"
+        "      border-left: 2px solid transparent;\n"
+        "      padding: 6px 8px;\n"
+        "      border-radius: 8px;\n"
+        "      transition: all 0.18s ease;\n"
+        "    }\n"
+        "    .toc-item:hover {\n"
+        "      opacity: 1;\n"
+        "      border-left-color: var(--accent);\n"
+        "      background: var(--chrome-hover-soft);\n"
+        "    }\n"
+        "    .toc-item.active {\n"
+        "      opacity: 1;\n"
+        "      border-left-color: var(--accent);\n"
+        "      background: var(--chrome-hover);\n"
+        "    }\n"
+        "    .toc-sub {\n"
+        "      margin-left: 12px;\n"
+        "      font-size: 0.82rem;\n"
+        "      opacity: 0.75;\n"
+        "    }\n"
+        "    body.layout-sidebar_toc .page {\n"
+        "      max-width: 980px;\n"
+        "    }\n"
+        "    @media (min-width: 1300px) {\n"
+        "      body.layout-sidebar_toc .toc-sidebar {\n"
+        "        display: block;\n"
+        "      }\n"
+        "      body.layout-sidebar_toc .page {\n"
+        "        margin-left: max(300px, calc(50% - 370px));\n"
+        "        margin-right: 56px;\n"
+        "      }\n"
         "    }\n"
         "    .masthead {\n"
         "      display: flex;\n"
@@ -399,6 +575,7 @@ def wrap_html(
         "      background: var(--accent-strong);\n"
         "    }\n"
         "    .article h3 { font-size: 1.2rem; margin-top: 1.7rem; color: #1f2937; }\n"
+        "    .article h2, .article h3 { scroll-margin-top: 92px; }\n"
         "    .article p { font-size: 1.05rem; }\n"
         "    .article ul, .article ol { padding-left: 1.4rem; }\n"
         "    .article blockquote {\n"
@@ -406,6 +583,32 @@ def wrap_html(
         "      padding: 1rem 1.2rem;\n"
         "      border-left: 3px solid var(--accent);\n"
         "      background: rgba(15, 23, 42, 0.04);\n"
+        "    }\n"
+        "    .article .misc-block {\n"
+        "      margin: 1.2rem 0 1.4rem;\n"
+        "      padding: 1rem 1.1rem;\n"
+        "      border-radius: 12px;\n"
+        "      border: 1px solid rgba(15, 23, 42, 0.14);\n"
+        "      background: rgba(148, 163, 184, 0.1);\n"
+        "    }\n"
+        "    .article .misc-block ul {\n"
+        "      margin: 0;\n"
+        "      padding-left: 1.2rem;\n"
+        "    }\n"
+        "    .article .misc-block li {\n"
+        "      margin: 0.35rem 0;\n"
+        "      color: var(--muted);\n"
+        "      font-size: 0.98rem;\n"
+        "    }\n"
+        "    .article .misc-block.ai-disclosure {\n"
+        "      border-color: var(--accent);\n"
+        "      background: rgba(78, 224, 181, 0.08);\n"
+        "    }\n"
+        "    .article .misc-block.ai-disclosure p {\n"
+        "      margin: 0 0 0.55rem;\n"
+        "      color: var(--ink);\n"
+        "      font-family: var(--ui-font);\n"
+        "      letter-spacing: 0.01em;\n"
         "    }\n"
         "    .article a {\n"
         "      color: var(--link);\n"
@@ -426,6 +629,45 @@ def wrap_html(
         "      padding: 1rem 1.1rem;\n"
         "      border-radius: 12px;\n"
         "      overflow-x: auto;\n"
+        "    }\n"
+        "    .article figure.report-figure {\n"
+        "      margin: 1.8rem 0;\n"
+        "      padding: 0;\n"
+        "      width: 100%;\n"
+        "      max-width: 100%;\n"
+        "      overflow: hidden;\n"
+        "    }\n"
+        "    .article figure.report-figure img {\n"
+        "      display: block;\n"
+        "      width: 100%;\n"
+        "      max-width: 100%;\n"
+        "      height: auto;\n"
+        "      max-height: 70vh;\n"
+        "      object-fit: contain;\n"
+        "      border-radius: 14px;\n"
+        "      background: rgba(15, 23, 42, 0.04);\n"
+        "      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);\n"
+        "    }\n"
+        "    .article figure.report-figure figcaption {\n"
+        "      margin-top: 0.65rem;\n"
+        "      font-size: 0.95rem;\n"
+        "      color: var(--muted);\n"
+        "    }\n"
+        "    .article figure.report-diagram {\n"
+        "      background: rgba(15, 23, 42, 0.04);\n"
+        "      border: 1px solid rgba(15, 23, 42, 0.1);\n"
+        "      border-radius: 14px;\n"
+        "      padding: 0.9rem;\n"
+        "    }\n"
+        "    .article .mermaid {\n"
+        "      display: flex;\n"
+        "      justify-content: center;\n"
+        "      overflow-x: auto;\n"
+        "      min-height: 40px;\n"
+        "    }\n"
+        "    .article .mermaid svg {\n"
+        "      max-width: 100% !important;\n"
+        "      height: auto;\n"
         "    }\n"
         "    .article table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; }\n"
         "    .article th, .article td { border: 1px solid var(--rule); padding: 10px 12px; }\n"
@@ -490,12 +732,13 @@ def wrap_html(
         "  </style>\n"
         f"{theme_link}"
         "</head>\n"
-        f"<body class=\"theme-coral{template_class}{extra_class}\">\n"
+        f"<body class=\"theme-coral{template_class}{extra_class}{(' layout-' + layout_mode) if layout_mode else ''}\">\n"
         "  <div class=\"backdrop\">\n"
         "    <div class=\"orb orb-1\"></div>\n"
         "    <div class=\"orb orb-2\"></div>\n"
         "    <div class=\"orb orb-3\"></div>\n"
         "  </div>\n"
+        f"  {toc_html}\n"
         "  <div class=\"page\">\n"
         "    <header class=\"masthead\">\n"
         "      <div class=\"masthead-top\">\n"
@@ -570,8 +813,46 @@ def wrap_html(
         "      });\n"
         "      overlay.addEventListener('click', closeViewer);\n"
         "      closeBtn.addEventListener('click', closeViewer);\n"
+        "      const tocLinks = Array.from(document.querySelectorAll('.toc-item'));\n"
+        "      const tocSections = tocLinks\n"
+        "        .map((link) => {\n"
+        "          const id = (link.getAttribute('href') || '').replace('#', '');\n"
+        "          if (!id) return null;\n"
+        "          const section = document.getElementById(id);\n"
+        "          if (!section) return null;\n"
+        "          return { link, section };\n"
+        "        })\n"
+        "        .filter(Boolean);\n"
+        "      if (tocSections.length) {\n"
+        "        tocLinks.forEach((link) => {\n"
+        "          link.addEventListener('click', (ev) => {\n"
+        "            const href = link.getAttribute('href') || '';\n"
+        "            if (!href.startsWith('#')) return;\n"
+        "            const target = document.getElementById(href.slice(1));\n"
+        "            if (!target) return;\n"
+        "            ev.preventDefault();\n"
+        "            target.scrollIntoView({ behavior: 'smooth', block: 'start' });\n"
+        "            if (history && history.replaceState) {\n"
+        "              history.replaceState(null, '', href);\n"
+        "            }\n"
+        "          });\n"
+        "        });\n"
+        "        \n"
+        "        const updateToc = () => {\n"
+        "          const threshold = window.scrollY + 180;\n"
+        "          let active = null;\n"
+        "          for (const item of tocSections) {\n"
+        "            if (item.section.offsetTop <= threshold) active = item;\n"
+        "          }\n"
+        "          tocLinks.forEach((node) => node.classList.remove('active'));\n"
+        "          if (active) active.link.classList.add('active');\n"
+        "        };\n"
+        "        updateToc();\n"
+        "        window.addEventListener('scroll', updateToc, { passive: true });\n"
+        "      }\n"
         "    })();\n"
         "  </script>\n"
+        f"{mermaid_tail}"
         "</body>\n"
         "</html>\n"
     )

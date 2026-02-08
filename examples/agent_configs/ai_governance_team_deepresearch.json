@@ -1,0 +1,33 @@
+{
+  "config": {
+    "template_rigidity": "balanced",
+    "temperature_level": "low",
+    "quality_iterations": 2,
+    "quality_strategy": "pairwise",
+    "alignment_check": true,
+    "web_search": true,
+    "repair_mode": "append",
+    "template_adjust_mode": "extend",
+    "max_input_tokens": 64000
+  },
+  "agents": {
+    "writer": {
+      "max_input_tokens": 56000
+    },
+    "evidence": {
+      "max_input_tokens": 52000
+    },
+    "planner": {
+      "max_input_tokens": 32000
+    },
+    "critic": {
+      "enabled": true
+    },
+    "reviser": {
+      "enabled": true
+    },
+    "evaluator": {
+      "enabled": true
+    }
+  }
+}

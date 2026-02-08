@@ -567,10 +567,12 @@ body[data-tab="feather"] #run-studio-wrap {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(180deg, rgba(8, 12, 18, 0) 0%, rgba(8, 12, 18, 0.75) 60%);
-  padding: 6px 0 2px;
+  position: static;
+  background: transparent;
+  padding: 2px 0 0;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 10px;
 }
 
 #file-preview-saveas-path {

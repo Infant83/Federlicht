@@ -35,9 +35,18 @@ REPORTER_INPUT_SCHEMA = {
         "web_search": {"type": "boolean", "description": "Enable web research."},
         "supporting_dir": {"type": "string", "description": "Supporting folder for web research."},
         "free_format": {"type": "boolean", "description": "Free-form report structure."},
+        "template_rigidity": {
+            "type": "string",
+            "description": "Template enforcement policy: strict|balanced|relaxed|loose|off.",
+        },
         "stages": {"type": "string", "description": "Comma-separated stages to run."},
         "skip_stages": {"type": "string", "description": "Comma-separated stages to skip."},
         "model": {"type": "string", "description": "Primary model name."},
+        "temperature_level": {
+            "type": "string",
+            "description": "Agent temperature profile: very_low|low|balanced|high|very_high.",
+        },
+        "temperature": {"type": "number", "description": "Optional explicit temperature override."},
         "check_model": {"type": "string", "description": "Check/quality model name."},
         "quality_model": {"type": "string", "description": "Quality model name."},
         "quality_iterations": {"type": "integer", "description": "Number of quality iterations."},
@@ -45,6 +54,8 @@ REPORTER_INPUT_SCHEMA = {
         "max_input_tokens": {"type": "integer", "description": "Fallback max input tokens."},
         "depth": {"type": "string", "description": "Depth preference (brief|normal|deep|exhaustive)."},
         "notes_dir": {"type": "string", "description": "Notes output directory."},
+        "author": {"type": "string", "description": "Author shown in the report byline."},
+        "organization": {"type": "string", "description": "Optional organization shown with author."},
         "overwrite_output": {"type": "boolean", "description": "Overwrite output file if exists."},
         "stream": {"type": "boolean", "description": "Enable streaming output."},
         "progress": {"type": "boolean", "description": "Enable progress snippets."},
@@ -88,6 +99,18 @@ def _apply_arg_overrides(args, overrides: dict) -> None:
                 _mark_cli_flag(args, "--check-model")
             elif attr == "quality_model" and value:
                 _mark_cli_flag(args, "--quality-model")
+            elif attr == "template_rigidity" and value:
+                _mark_cli_flag(args, "--template-rigidity")
+            elif attr == "temperature_level" and value:
+                _mark_cli_flag(args, "--temperature-level")
+            elif attr == "temperature" and value is not None:
+                _mark_cli_flag(args, "--temperature")
+            elif attr == "template_adjust":
+                _mark_cli_flag(args, "--template-adjust")
+            elif attr == "template_adjust_mode" and value:
+                _mark_cli_flag(args, "--template-adjust-mode")
+            elif attr == "repair_mode" and value:
+                _mark_cli_flag(args, "--repair-mode")
             elif attr == "max_input_tokens" and value:
                 args.max_input_tokens_source = "cli"
                 _mark_cli_flag(args, "--max-input-tokens")

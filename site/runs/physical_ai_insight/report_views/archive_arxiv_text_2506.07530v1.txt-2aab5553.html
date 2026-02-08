@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>archive/arxiv/text/2506.07530v1.txt</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body { font-family: "Iowan Old Style", Georgia, serif; margin: 0; color: #1d1c1a; }
+    header { padding: 16px 20px; border-bottom: 1px solid #e7dfd2; background: #f7f4ee; }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    main { padding: 20px; }
+    .meta-block { background: #fdf7ea; border: 1px solid #e7dfd2; padding: 12px 14px; margin-bottom: 16px; }
+    .meta-block p { margin: 0 0 6px 0; }
+    .meta-block p:last-child { margin-bottom: 0; }
+    pre { white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.95rem; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e7dfd2; padding: 8px 10px; text-align: left; }
+    th { background: #f6f1e8; }
+  </style>
+</head>
+<body>
+  <header><h1>archive/arxiv/text/2506.07530v1.txt</h1></header>
+  <main><p><em>Truncated view for readability.</em></p><div class="meta-block"><p><strong>Title:</strong> BitVLA: 1-bit Vision-Language-Action Models for Robotics Manipulation</p><p><strong>Authors:</strong> Hongyu Wang, Chuyan Xiong, Ruiping Wang, Xilin Chen</p><p><strong>Published:</strong> 2025-06-09T08:15:11+00:00</p><p><strong>Source:</strong> <a href="http://arxiv.org/abs/2506.07530v1">http://arxiv.org/abs/2506.07530v1</a></p><p><strong>PDF:</strong> <a href="../archive/arxiv/pdf/2506.07530v1.pdf">./archive/arxiv/pdf/2506.07530v1.pdf</a></p><p><strong>Summary:</strong><br />Vision-Language-Action (VLA) models have shown impressive capabilities across a wide range of robotics manipulation tasks. However, their growing model size poses significant challenges for deployment on resource-constrained robotic systems. While 1-bit pretraining has proven effective for enhancing the inference efficiency of large language models with minimal performance loss, its application to VLA models remains underexplored. In this work, we present BitVLA, the first 1-bit VLA model for robotics manipulation, in which every parameter is ternary, i.e., {-1, 0, 1}. To further reduce the memory footprint of the vision encoder, we propose the distillation-aware training strategy that compresses the full-precision encoder to 1.58-bit weights. During this process, a full-precision encoder serves as a teacher model to better align latent representations. Despite the lack of large-scale robotics pretraining, BitVLA achieves performance comparable to the state-of-the-art model OpenVLA-OFT with 4-bit post-training quantization on the LIBERO benchmark, while consuming only 29.8% of the memory. These results highlight BitVLA&#x27;s promise for deployment on memory-constrained edge devices. We release the code and model weights in <a href="https://github.com/ustcwhy/BitVLA">https://github.com/ustcwhy/BitVLA</a>.</p></div><pre>
+
+===== PAGE 1 =====
+arXiv:2506.07530v1  [cs.RO]  9 Jun 2025
+BitVLA: 1-bit Vision-Language-Action Models for
+Robotics Manipulation
+Hongyu Wang Chuyan Xiong Ruiping Wang Xilin Chen
+Key Laboratory of AI Safety, Institute of Computing Technology, Chinese Academy of Sciences
+University of Chinese Academy of Sciences
+Abstract
+Vision-Language-Action (VLA) models have shown impressive capabilities across
+a wide range of robotics manipulation tasks. However, their growing model
+size poses significant challenges for deployment on resource-constrained robotic
+systems. While 1-bit pretraining has proven effective for enhancing the inference
+efficiency of large language models with minimal performance loss, its application
+to VLA models remains underexplored. In this work, we present BitVLA, the first
+1-bit VLA model for robotics manipulation, in which every parameter is ternary,
+i.e., {−1, 0, 1}. To further reduce the memory footprint of the vision encoder, we
+propose the distillation-aware training strategy that compresses the full-precision
+encoder to 1.58-bit weights. During this process, a full-precision encoder serves
+as a teacher model to better align latent representations. Despite the lack of
+large-scale robotics pretraining, BitVLA achieves performance comparable to the
+state-of-the-art model OpenVLA-OFT with 4-bit post-training quantization on the
+LIBERO benchmark, while consuming only 29.8% of the memory. These results
+highlight BitVLA’s promise for deployment on memory-constrained edge devices.
+We release the code and model weights in <a href="https://github.com/ustcwhy/">https://github.com/ustcwhy/</a>
+BitVLA.
+1
+Introduction
+Recent years have witnessed remarkable progress in vision-language models (VLMs) [HLG+24,
+ZWC+25, WBT+24, BCL+25]. These models have achieved impressive results across a wide
+range of downstream tasks, such as visual question answering [LLWL23, LLLL24], mathematical
+reasoning [ZHY+25, WQH+25], and human-agent interaction [HWL+24, QYF+25]. Building
+upon this progress, the field is increasingly moving toward vision-language-action (VLA) models,
+which extend the modalities of VLMs to incorporate action generation for robotic control [BBC+23,
+ZYX+23, DXS+23, MZH+23, KPK+24, LLZ+24]. These models aim to endow robots with the
+ability to understand visual environments, follow natural language instructions, and perform tasks
+autonomously. VLA models offer a unified framework to bridge perception, language understanding,
+and motor control, making them a promising paradigm for embodied AI.
+However, deploying such large-scale VLA models in real-world robotic systems remains highly
+challenging, particularly on resource-constrained edge devices. These systems are often limited
+in terms of memory, computational throughput, and energy availability. Recent efforts in model
+quantization have shown that reducing the bit-width of model weights and activations can yield
+substantial improvements in efficiency. In particular, 1-bit large language models (LLMs) [WMD+23,
+MWM+24, MWH+25], where every parameter is restricted to ternary values (i.e., {−1, 0, 1}), have
+emerged as a compelling solution. These models achieve competitive performance on a variety of
+NLP benchmarks while dramatically reducing memory footprint, energy consumption, and inference
+latency. Moreover, the ternary parameter space enables efficient hardware execution and can simplify
+Preprint.
+
+
+===== PAGE 2 =====
+deployment on edge accelerators. Despite their promise, existing 1-bit models have been largely
+confined to the language domain. To the best of our knowledge, their extension to multimodal tasks
+and robotic control has not yet been thoroughly explored.
+BitVLA
+Performance
+50
+75
+100
+Succ. Rate
+(%)
+OpenVLA-OFT (INT4)
+BitVLA
+0
+3
+6
+Memory 
+(GB)
+1-bit LLM
+1-bit
+ViT
+Figure 1: Comparison between BitVLA and OpenVLA-
+OFT with 4-bit post-training quantization in terms of end
+task performance and memory footprint. We report the
+average success rate on LIBERO benchmark.
+In this work, we introduce BitVLA, the
+first 1-bit vision-language-action model
+for robotics manipulation, where ev-
+ery parameter is ternary, i.e., {−1, 0, 1}.
+BitVLA is built upon the publicly
+available
+1-bit
+LLM
+BitNet
+b1.58
+2B4T [MWH+25]. We begin by train-
+ing a vision-language model using the
+1-bit LLM in conjunction with a full-
+precision vision encoder, following the
+training paradigm of LLaVA [LLWL23].
+To further reduce memory footprint, we
+introduce distillation-aware training to
+quantize the vision encoder to 1.58-bit
+weights and 8-bit activations. During
+this stage, we only train the vision en-
+coder of the model, in which the full-
+precision encoder is used as the teacher
+model to better align the latent represen-
+tations. Despite the absence of large-scale robotics pretraining, as shown in Figure 1, BitVLA
+achieves performance on par with the state-of-the-art model OpenVLA-OFT [KFL25] with 4-bit
+post-training quantization, while only using 29.8% memory footprint. These results demonstrate that
+BitVLA offers a cost-effective and high-performance solution for robotics manipulation, making it
+feasible for memory-constrained robotic systems.
+2
+Related Works
+Vision-Language-Action models.
+Inspired by the rapid progress of VLMs, researchers in robotics
+have begun exploring VLA models that directly generate low-level control signals.
+The RT
+series [ZYX+23, ORM+] introduced Open X-Embodiment (OXE), a large-scale standardized
+robotics dataset, and used it to train RT-X, a generalist model for robotic manipulation tasks.
+OpenVLA [KPK+24] provided a detailed discussion on the design of VLA, covering aspects
+from the pretraining architecture to parameter-efficient fine-tuning methods and deployment strate-
+gies, while fully open-sourcing the training methods across all stages and the pre-trained model.
+RoboFlamingo [LLZ+24] leveraged pre-trained VLMs for single-step vision-language reason-
+ing, introduced a policy head to capture sequential history, and required minimal fine-tuning
+via imitation learning. OpenVLA-OFT [KFL25] optimized the fine-tuning process by modeling
+continuous actions, employing parallel decoding, and applying action chunking from imitation
+learning [ZKLF23, CFD+23]. To improve inference efficiency, TinyVLA [WZL+24] adopts a
+compact 1.3B VLM backbone and skips pretraining to enhance data efficiency. Most recently,
+NORA [HSH+25] demonstrated competitive performance by utilizing Qwen2.5-VL-3B [BCL+25]
+as its backbone, enhanced with the FAST+ tokenizer for action generation.
+Native 1-bit models.
+Modern deep learning research is increasingly focused on quantization-aware
+training and low-precision inference [PWW+23, XLCZ23, LLH+23]. Recent studies [WMD+23,
+MWM+24, KVM+24, ZZS+24, WMW24, WMW25] have demonstrated the potential of 1-bit and
+1.58-bit pre-training for LLMs. [WMD+23] empirically showed that the performance gap be-
+tween 1-bit and full-precision models narrows as the parameter count increases. Further, BitNet
+b1.58 [MWM+24] showed that 1.58-bit LLMs can match the performance of full-precision models
+starting from the 3B scale, while significantly reducing inference costs in terms of memory footprint,
+decoding latency, and energy consumption. OneBit [XHY+24] further explored the use of knowl-
+edge distillation for training binary LLMs. bitnet.cpp [WZS+25] developed an inference system
+optimized for 1-bit LLMs, substantially lowering energy consumption and improving decoding
+latency on CPU devices. More recently, [MWH+25] trained a 2B-parameter ternary LLM, achieving
+competitive performance relative to leading open-weight LLMs. The low memory and energy require-
+2
+
+
+===== PAGE 3 =====
+BF16
+ViT
+1-bit LLM
+BF16
+ViT
+1-bit LLM
+1-bit
+ViT
+1-bit LLM
+BF16
+ViT
+1-bit
+ViT
+1-bit LLM
+head
+Stage I
+Visual Alignment
+Stage II
+Instruction tuning
+Stage III
+Distillation-aware 
+training
+Robotics fine-tuning
+(OFT)
+Trainable parameters
+Non-trainable parameters
+Figure 2: The overview of the training of BitVLA. We first train a vision-language model using a 1-bit
+LLM [MWH+25] combined with a full-precision vision encoder. Then we apply distillation-aware
+training to quantize the vision encoder’s weights to 1.58-bit precision. Finally, BitVLA is adapted to
+specific robotics tasks through OFT fine-tuning [KFL25].
+ments of 1-bit LLMs make them particularly attractive for edge applications, especially for robotics
+tasks. However, to the best of our knowledge, the extension of 1-bit models to vision-language and
+vision-language-action training remains largely unexplored.
+3
+BitVLA: 1-bit VLA
+In this section, we first introduce the model architecture of BitVLA in Section 3.1. Next, we detail
+the objectives of the distillation-aware training strategy in Section 3.2, which aims to compress the
+full-precision encoder weights to 1.58-bit. Finally, we describe the fine-tuning procedure of BitVLA
+on downstream tasks in Section 3.3.
+3.1
+Model Architecture
+BitVLA adopts BitNet b1.58 2B4T [MWH+25] as the LLM backbone and utilizes SigLIP-
+L [ZMKB23] as the vision encoder. We employ the version of SigLIP-L pre-trained on 224 × 224
+resolution images, resulting in shorter sequences of visual tokens. This choice enhances computa-
+tional efficiency with minimal impact on performance [KPK+24]. We use a two-layer MLP with
+GeLU activation functions as the connector, which remains in full-precision due to its negligible
+contribution to the overall model size.
+Figure 2 provides an overview of the training of BitVLA. Following the training strategy of
+LLaVA [LLWL23], we begin by training the VLM using the 1-bit LLM and a full-precision vi-
+sion encoder. In the first stage, only the connector is trained on a small image captioning dataset to
+align the LLM with the vision encoder. This is followed by a visual instruction tuning phase, during
+which the vision encoder is frozen while the remaining components are updated. Finally, we perform
+distillation-aware tuning to quantize the vision encoder into a low-bit representation.
+For quantization, we employ the absmean quantizer for weights and the per-token absmax quantizer
+for activations [MWM+24]. The weights are quantized to ternary values (i.e., {−1, 0, 1}), while the
+activations are quantized to symmetric INT8 (i.e., [−128, 127]). Specifically, the quantization can be
+formulated as:
+Qw(W) = α · RoundClip(W
+α , −1, 1), α =
+1
+nm||W||1
+(1)
+Qa(x) =
+β
+127 · RoundClip(127x
+β
+, −128, 127), β = ||x||∞
+(2)
+RoundClip(x, a, b) = max(a, min(b, round(x)))
+(3)
+3
+
+
+===== PAGE 4 =====
+Response
+Language 
+Instruction
+Feed-Forward 
+Network
+Multi-Head
+Attention
+× 𝐿 
+1-bit LLM (BitNet b1.58)
+. . .
+. . .
+. . .
+Feed-Forward 
+Network
+Multi-Head
+Attention
+× 𝐿 
+BF16 ViT
+1-bit ViT
+ℒ𝒂𝒖𝒙
+Figure 3: The overview of the distillation-aware training. The original full-precision encoder serves
+as the teacher model to ensure better alignment of the latent representations.
+where W ∈Rm×n denotes the learnable weight of linear layer and x ∈Rn×1 denotes the inputs.
+The output of a ternary linear layer is computed as Y = Qw(W)Qa(x), where Qw and Qa denote
+the quantization functions for weights and activations, respectively.
+We apply quantization to all linear layers in the vision encoder, excluding the input and output
+embedding layers. BitVLA is trained with quantization-aware training, where quantization is per-
+formed on-the-fly during the forward pass. Due to the non-differentiable nature of quantization
+operations, we adopt the straight-through estimator (STE) [BLC13] to approximate gradients during
+backpropagation. Specifically, the gradients are passed directly through the quantization functions,
+following the approximation:
+∂L
+∂W =
+∂L
+∂Qw(W),
+∂L
+∂X =
+∂L
+∂Qa(X)
+(4)
+Both the gradients and optimizer states are maintained in full precision to preserve training stability.
+3.2
+Distillation-aware Training
+In this subsection, we introduce the distillation-aware training to effectively quantize the vision
+encoder of VLM to 1.58 bit-widths. We illustrate the overview in Figure 3. We first initialize the
+latent weights of 1.58-bit encoder from its full-precision counterpart. Then we adopt the full-precision
+encoder as the teacher model. The training objective Ltotal requires the minimization of both task-
+specific loss LLM and an auxiliary alignment loss Laux of latent representations between full-precision
+and 1.58-bit encoder.
+Language modeling loss.
+The auto-regressive language modeling loss, LLM, is widely used in
+training VLMs. Let T denote the input text sequence, which is divided into an instruction part Tins
+and a response part Tans. The visual tokens extracted by the 1.58-bit vision encoder are denoted as
+V1.58-bit. The language modeling loss can be formulated as:
+LLM = −
+X
+tokeni∈Tans
+log Pr(Yi | V1.58-bit, T [:i−1])
+4
+
+
+===== PAGE 5 =====
+where Yi represents the model’s predicted token at position i. The loss is computed only over the
+response tokens Tans, while the instruction and visual tokens are provided as context.
+Representations alignment loss.
+To enhance the alignment between the latent representations of
+the 1.58-bit and full-precision vision encoders, we learn the 1.58-bit encoder through knowledge
+distillation, in which the full-precision encoder is used as the teacher model. Let hl
+bf16 and hl
+1.58-bit
+denote the outputs of the l-th layer from the full-precision and 1.58-bit vision encoders, respectively.
+The alignment loss is defined as:
+Laux = 1
+n
+L
+X
+l=1
+
+
+hl
+bf16 −hl
+1.58-bit
+
+
+2
+where n is the hidden dimension and L is the total number of layers in the vision encoder. This
+auxiliary loss encourages the 1.58-bit vision encoder to mimic the representational behavior of its
+full-precision counterpart.
+Above all, the training objective Ltotal is:
+Ltotal = LLM + γ · Laux
+(5)
+where γ is a coefficient for representations alignment. During the distillation-aware training, only
+the vision encoder is trainable while the other components (i.e., LLM and connector) are frozen. In
+our experiments, we observe that, unlike the 1.58-bit pre-training of LLMs, the quantization-aware
+training of 1.58-bit encoder is highly data-efficient with distillation from a full-precision teacher
+model. It preserves most of the performance of its full-precision counterpart using only billions of
+training tokens.
+3.3
+Robotics Fine-tuning
+In this subsection, we describe the fine-tuning procedure of BitVLA for specific robotics tasks.
+Following OpenVLA-OFT [KFL25], we utilize parallel decoding and action chunking techniques to
+enhance the throughput of VLA models. Specifically, we replace the conventional causal mask used
+in LLMs with a bidirectional attention mask, enabling each forward pass to generate a coherent action
+trajectory over multiple time steps. This approach significantly boosts real-time control efficiency
+compared to autoregressive, token-by-token predictions. Additionally, we integrate an MLP-based
+action head to project the latent representations of query tokens into continuous robotic action space.
+The model is trained to minimize the L1 loss between predicted actions and ground-truth trajectories.
+4
+Experiments
+4.1
+Model Training
+BitVLA is trained with a three-stage procedure. Following LLaVA [LLWL23], we first train the
+connector to align the vision encoder with the LLM using the LLaVA 1.5-558k dataset [LLLL24].
+In the second stage, we freeze the vision encoder and train both the LLM and the connector on
+a 10-million-sample subset of MammoTH-VL [GZB+24], consisting of single-image samples. In
+the final stage, we train the vision encoder from full-precision (W16A16) to 1.58-bit weights and
+8-bit activations (W1.58A8) on a 5-million-sample subset from the data in the second stage. The
+training data in Stage III contains up to 10B tokens. The distillation loss on latent representations is
+weighted by a coefficient γ = 0.1. As recommended by [MWM+24], we use a large learning rate for
+instruction tuning. The training requires 14 days on 8 NVIDIA A100 cards with 80GB memory. We
+present the detailed hyperparameter conf</pre></main>
+  <script>
+    document.querySelectorAll('a').forEach((link) => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    });
+  </script>
+</body>
+</html>

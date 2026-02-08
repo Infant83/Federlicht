@@ -4,7 +4,9 @@ description: MIT Technology Review 10 Breakthrough Technologies-style list repor
 tone: Clear, editorial, evidence-backed, forward-looking.
 audience: Technical leaders, policy makers, strategists.
 css: mit_tech_review_10_breakthroughs.css
+
 latex: default.tex
+layout: sidebar_toc
 section: Executive Summary
 section: How We Chose
 section: Breakthroughs (Top 10)
@@ -23,3 +25,5 @@ writer_guidance: Use short paragraphs and bullet lists inside each entry.
 writer_guidance: Avoid hype; separate observed evidence from projection.
 writer_guidance: Use consistent sublabels per item (What it is / Why it matters / Key players / Availability).
 ---
+
+

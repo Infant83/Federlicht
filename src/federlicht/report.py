@@ -9,7 +9,6 @@ Usage:
   federlicht --run ./examples/runs/20260109_sectioned --notes-dir ./examples/runs/20260109_sectioned/report_notes
   federlicht --run ./examples/runs/20260104_oled --output ./examples/runs/20260104_oled/report_full.html --web-search
   federlicht --run ./examples/runs/20260104_oled --output ./examples/runs/20260104_oled/report_full.tex --template prl_manuscript
-  python scripts/federlicht_report.py --run ./examples/runs/20260104_oled --output ./examples/runs/20260104_oled/report_full.html
 """
 
 from __future__ import annotations
@@ -50,7 +49,13 @@ from .orchestrator import (
     STAGE_ORDER,
 )
 from feather.web_research import run_supporting_web_research
-from .render.html import html_to_text, markdown_to_html, render_viewer_html, wrap_html
+from .render.html import (
+    html_to_text,
+    markdown_to_html,
+    render_viewer_html,
+    transform_mermaid_code_blocks,
+    wrap_html,
+)
 from .utils.json_tools import extract_json_object
 from .utils.strings import slugify_label, slugify_url
 from .readers.pdf import (
@@ -73,7 +78,7 @@ from .readers.xlsx import read_xlsx_text
 DEFAULT_MODEL = "gpt-5.2"
 DEFAULT_CHECK_MODEL = "gpt-4o"
 STREAMING_ENABLED = False
-DEFAULT_AUTHOR = "Hyun-Jung Kim / AI Governance Team"
+DEFAULT_AUTHOR = "Federlicht Writer"
 DEFAULT_TEMPLATE_NAME = "default"
 FEDERLICHT_LOG_PATH: Optional[Path] = None
 DEFAULT_SECTIONS = [
@@ -113,6 +118,43 @@ REPORT_PLACEHOLDER_RE = re.compile(
 MAX_INPUT_TOKENS_ENV = "FEDERLICHT_MAX_INPUT_TOKENS"
 DEFAULT_MAX_INPUT_TOKENS: Optional[int] = None
 DEFAULT_MAX_INPUT_TOKENS_SOURCE = "none"
+TEMPLATE_RIGIDITY_POLICIES = {
+    "strict": {
+        "template_adjust": True,
+        "template_adjust_mode": "replace",
+        "repair_mode": "replace",
+    },
+    "balanced": {
+        "template_adjust": True,
+        "template_adjust_mode": "extend",
+        "repair_mode": "append",
+    },
+    "relaxed": {
+        "template_adjust": True,
+        "template_adjust_mode": "risk_only",
+        "repair_mode": "append",
+    },
+    "loose": {
+        "template_adjust": False,
+        "template_adjust_mode": "risk_only",
+        "repair_mode": "append",
+    },
+    "off": {
+        "template_adjust": False,
+        "template_adjust_mode": "risk_only",
+        "repair_mode": "off",
+    },
+}
+DEFAULT_TEMPLATE_RIGIDITY = "balanced"
+TEMPERATURE_LEVELS = {
+    "very_low": 0.0,
+    "low": 0.1,
+    "balanced": 0.2,
+    "high": 0.4,
+    "very_high": 0.7,
+}
+DEFAULT_TEMPERATURE_LEVEL = "balanced"
+ACTIVE_AGENT_TEMPERATURE = TEMPERATURE_LEVELS[DEFAULT_TEMPERATURE_LEVEL]
 ACTIVE_AGENT_PROFILE: Optional[AgentProfile] = None
 ACTIVE_AGENT_PROFILE_CONTEXT = ""
 
@@ -130,11 +172,10 @@ def templates_dir() -> Path:
         if path.exists():
             return path
     here = Path(__file__).resolve()
-    for parent in [here.parent, *here.parents]:
-        candidate = parent / "scripts" / "templates"
-        if candidate.exists():
-            return candidate
-    return here.parent / "templates"
+    package_templates = here.parent / "templates"
+    if package_templates.exists():
+        return package_templates
+    return package_templates
 
 
 def list_builtin_templates() -> list[str]:
@@ -170,7 +211,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "  federlicht --run ./examples/runs/20260104_oled --output ./examples/runs/20260104_oled/report_full.tex --template prl_manuscript\n"
     )
     ap = argparse.ArgumentParser(
-        description="Deepagents in-depth report generator.",
+        description="Federlicht report engine: agentic evidence synthesis and publication-grade report generation.",
         formatter_class=CleanHelpFormatter,
         epilog=epilog,
     )
@@ -326,12 +367,22 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         ),
     )
     ap.add_argument(
+        "--template-rigidity",
+        default=DEFAULT_TEMPLATE_RIGIDITY,
+        choices=list(TEMPLATE_RIGIDITY_POLICIES.keys()),
+        help=(
+            "How strongly to enforce template structure. "
+            "strict=strong conformance, balanced=adaptive merge (default), relaxed=minimal adjustment, "
+            "loose=light template guidance, off=template enforcement off."
+        ),
+    )
+    ap.add_argument(
         "--preview-template",
         help="Generate template preview HTML and exit (name, path, or 'all').",
     )
     ap.add_argument(
         "--preview-output",
-        help="Preview output path or directory (default: templates/ or scripts/templates/).",
+        help="Preview output path or directory (default: current templates directory).",
     )
     ap.add_argument(
         "--generate-template",
@@ -399,6 +450,23 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
             f"Model name (default: {DEFAULT_MODEL} if supported). "
             "If OPENAI_BASE_URL is set and the model name is not OpenAI (gpt-*/o*), "
             "Federlicht uses ChatOpenAI for OpenAI-compatible endpoints."
+        ),
+    )
+    ap.add_argument(
+        "--temperature-level",
+        default=DEFAULT_TEMPERATURE_LEVEL,
+        choices=list(TEMPERATURE_LEVELS.keys()),
+        help=(
+            "Agent creativity level (very_low=0.0, low=0.1, balanced=0.2, high=0.4, very_high=0.7). "
+            f"Default: {DEFAULT_TEMPERATURE_LEVEL}."
+        ),
+    )
+    ap.add_argument(
+        "--temperature",
+        type=float,
+        help=(
+            "Optional explicit temperature override for agents. "
+            "If unset, --temperature-level is used."
         ),
     )
     env_model_vision = os.getenv("OPENAI_MODEL_VISION") or None
@@ -576,6 +644,10 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     ap.add_argument("--max-refs", type=int, default=200, help="Max references to append (default: 200).")
     ap.add_argument("--notes-dir", help="Optional folder to save intermediate notes (scout/evidence).")
     ap.add_argument("--author", help="Author name shown in the report header.")
+    ap.add_argument(
+        "--organization",
+        help="Optional team/organization shown with the author in the report header.",
+    )
     ap.add_argument(
         "--overwrite-output",
         action=argparse.BooleanOptionalAction,
@@ -951,6 +1023,7 @@ def generate_template_from_prompt(
     sections = parsed.get("sections") if isinstance(parsed.get("sections"), list) else []
     section_guidance = parsed.get("section_guidance") if isinstance(parsed.get("section_guidance"), dict) else {}
     writer_guidance = parsed.get("writer_guidance") if isinstance(parsed.get("writer_guidance"), list) else []
+    layout = parsed.get("layout") if isinstance(parsed.get("layout"), str) else ""
     description = parsed.get("description") if isinstance(parsed.get("description"), str) else ""
     tone = parsed.get("tone") if isinstance(parsed.get("tone"), str) else ""
     audience = parsed.get("audience") if isinstance(parsed.get("audience"), str) else ""
@@ -965,6 +1038,9 @@ def generate_template_from_prompt(
             continue
         clean_guidance[str(key)] = " ".join(value.split())
     clean_writer = [" ".join(str(item).split()) for item in writer_guidance if item]
+    clean_layout = layout.strip().lower()
+    if clean_layout not in {"single_column", "sidebar_toc"}:
+        clean_layout = ""
     slug = slugify_label(template_name or "custom")
     if not css_text or "body.template-" not in css_text:
         css_text = (
@@ -1003,6 +1079,7 @@ def generate_template_from_prompt(
         writer_guidance=clean_writer,
         css=f"{slug}.css",
         latex="default.tex",
+        layout=clean_layout or None,
         source=None,
     )
     return spec, css_text
@@ -1028,6 +1105,8 @@ def write_generated_template(
         header.append(f"audience: {spec.audience}")
     header.append(f"css: {css_path.name}")
     header.append(f"latex: {spec.latex or 'default.tex'}")
+    if spec.layout:
+        header.append(f"layout: {spec.layout}")
     for section in spec.sections:
         header.append(f"section: {section}")
     for section, guide in spec.section_guidance.items():
@@ -1961,6 +2040,30 @@ def build_site_index_html(manifest: dict, refresh_minutes: int = 10) -> str:
         padding: 26px;
         color: var(--muted);
       }}
+      .disclosure-footer {{
+        margin-top: 40px;
+        padding: 20px 22px;
+        border: 1px solid var(--edge);
+        border-radius: 16px;
+        background: rgba(0, 0, 0, 0.24);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }}
+      .disclosure-footer strong {{
+        color: var(--ink);
+        display: block;
+        margin-bottom: 8px;
+        font-family: "Space Grotesk", "Noto Sans KR", sans-serif;
+        letter-spacing: 0.04em;
+      }}
+      .disclosure-footer ul {{
+        margin: 0;
+        padding-left: 18px;
+      }}
+      .disclosure-footer li {{
+        margin-bottom: 6px;
+      }}
       @keyframes floatIn {{
         from {{
           opacity: 0;
@@ -2061,6 +2164,15 @@ def build_site_index_html(manifest: dict, refresh_minutes: int = 10) -> str:
         <div class="grid" id="archive-grid"></div>
         <div class="load-more"><button id="archive-more">더 보기</button></div>
       </section>
+      <footer class="disclosure-footer">
+        <strong>AI Transparency and Source Notice</strong>
+        <ul>
+          <li>이 허브의 게시물은 Federlicht 기반 AI 보조 생성물이며, 최종 책임은 사용자/조직에 있습니다.</li>
+          <li>외부 출처의 저작권/라이선스는 원 저작권자에게 있으며, 재배포 전 원문 정책 확인이 필요합니다.</li>
+          <li>고위험 의사결정(법률·의료·재무·규제)에는 원문 대조와 추가 검증 절차를 수행하세요.</li>
+          <li>EU AI Act 투명성 취지에 따라 AI 생성/보조 작성 콘텐츠임을 명시합니다.</li>
+        </ul>
+      </footer>
     </div>
 
     <div class="banner" id="update-banner" style="display:none;">
@@ -2759,6 +2871,30 @@ def parse_max_input_tokens(value: object) -> Optional[int]:
     return None
 
 
+def parse_temperature(value: object) -> Optional[float]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        parsed = float(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            parsed = float(text)
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed < 0.0:
+        parsed = 0.0
+    if parsed > 2.0:
+        parsed = 2.0
+    return round(parsed, 4)
+
+
 def choose_format(output: Optional[str]) -> str:
     if output and output.lower().endswith((".html", ".htm")):
         return "html"
@@ -3283,6 +3419,27 @@ def format_duration(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
+def _is_korean_lang(language: object) -> bool:
+    token = str(language or "").strip().lower()
+    return token in {"korean", "ko", "kor", "kr"}
+
+
+def transparency_notice_lines(language: object) -> list[str]:
+    if _is_korean_lang(language):
+        return [
+            "AI 투명성 고지: 본 문서는 Federlicht 에이전트 파이프라인을 통해 생성되었으며, 최종 책임과 배포 판단은 사용자/조직에 있습니다.",
+            "출처·저작권 고지: 외부 소스의 저작권/라이선스는 원 저작권자 정책을 따르며, 본문 인용은 분석 목적의 요약/재서술을 원칙으로 합니다.",
+            "검증 고지: 고위험 의사결정(법률·의료·재무·규제)에는 원문 대조 및 추가 검증을 수행하세요.",
+            "EU AI Act 정합성 참고: 본 산출물은 AI 보조 생성물임을 명시하며, 인간 검토를 전제로 사용해야 합니다.",
+        ]
+    return [
+        "AI transparency notice: this document is generated with the Federlicht agent pipeline; final accountability remains with the user/organization.",
+        "Source and copyright notice: external-source rights remain with original owners; quotations should stay minimal and analysis should rely on paraphrased synthesis.",
+        "Verification notice: for high-stakes use (legal, medical, finance, regulation), perform primary-source verification before relying on this report.",
+        "EU AI Act alignment note: this output is explicitly disclosed as AI-assisted/generated content and is intended for human-reviewed use.",
+    ]
+
+
 def format_metadata_block(meta: dict, output_format: str) -> str:
     lines = [
         f"Generated at: {meta.get('generated_at', '-')}",
@@ -3324,9 +3481,12 @@ def format_metadata_block(meta: dict, output_format: str) -> str:
             lines.append(f"Report prompt: {meta.get('report_prompt_path')}")
         if meta.get("figures_preview_path"):
             lines.append(f"Figure candidates: {meta.get('figures_preview_path')}")
+    notice_lines = transparency_notice_lines(meta.get("language"))
     if output_format == "tex":
         block = ["", "\\section*{Miscellaneous}", "\\small", "\\begin{itemize}"]
         block.extend([f"\\item {latex_escape(line)}" for line in lines])
+        block.append("\\item \\textbf{AI Transparency and Source Notice}")
+        block.extend([f"\\item {latex_escape(line)}" for line in notice_lines])
         block.extend(["\\end{itemize}", "\\normalsize"])
         return "\n".join(block)
     if output_format == "html":
@@ -3344,6 +3504,7 @@ def format_metadata_block(meta: dict, output_format: str) -> str:
         add_link("Instruction file", meta.get("instruction_path"))
         add_link("Report prompt", meta.get("report_prompt_path"))
         add_link("Figure candidates", meta.get("figures_preview_path"))
+        notice_items = "\n".join(f"<li>{html_lib.escape(line)}</li>" for line in notice_lines)
         items = "\n".join(items_list)
         return "\n".join(
             [
@@ -3354,10 +3515,18 @@ def format_metadata_block(meta: dict, output_format: str) -> str:
                 items,
                 "</ul>",
                 "</div>",
+                "<div class=\"misc-block ai-disclosure\">",
+                "<p><strong>AI Transparency and Source Notice</strong></p>",
+                "<ul>",
+                notice_items,
+                "</ul>",
+                "</div>",
             ]
         )
     block = ["", "## Miscellaneous"]
     block.extend([f"- {line}" for line in lines])
+    block.extend(["", "### AI Transparency and Source Notice"])
+    block.extend([f"- {line}" for line in notice_lines])
     return "\n".join(block)
 
 
@@ -3541,6 +3710,7 @@ def synthesize_reports(
     backend,
     max_chars: int,
     free_form: bool = False,
+    template_rigidity: str = DEFAULT_TEMPLATE_RIGIDITY,
     max_input_tokens: Optional[int] = None,
     max_input_tokens_source: str = "none",
 ) -> str:
@@ -3549,6 +3719,7 @@ def synthesize_reports(
         required_sections,
         free_form=free_form,
         language=language,
+        template_rigidity=template_rigidity,
     )
     synthesis_prompt = prompts.build_synthesize_prompt(format_instructions, template_guidance_text, language)
     synthesis_agent = create_agent_with_fallback(
@@ -3747,6 +3918,7 @@ class TemplateSpec:
     audience: Optional[str] = None
     css: Optional[str] = None
     latex: Optional[str] = None
+    layout: Optional[str] = None
     source: Optional[str] = None
 
 
@@ -4236,8 +4408,12 @@ def build_format_instructions(
     required_sections: list[str],
     free_form: bool = False,
     language: str = "English",
+    template_rigidity: str = DEFAULT_TEMPLATE_RIGIDITY,
 ) -> FormatInstructions:
     is_korean = is_korean_language(language)
+    rigidity = str(template_rigidity or DEFAULT_TEMPLATE_RIGIDITY).strip().lower()
+    if rigidity not in TEMPLATE_RIGIDITY_POLICIES:
+        rigidity = DEFAULT_TEMPLATE_RIGIDITY
 
     def pick(korean_text: str, english_text: str) -> str:
         return korean_text if is_korean else english_text
@@ -4281,16 +4457,47 @@ def build_format_instructions(
                 )
     else:
         report_skeleton = build_report_skeleton(required_sections, output_format)
-        if output_format != "tex":
-            section_heading_instruction = pick(
-                "아래의 H2 제목을 이 순서대로 정확히 사용하세요(이름 변경 금지; H2 추가 금지):\n",
-                "Use the following exact H2 headings in this order (do not rename; do not add extra H2 headings):\n",
-            )
+        if rigidity == "strict":
+            if output_format != "tex":
+                section_heading_instruction = pick(
+                    "아래의 H2 제목을 이 순서대로 정확히 사용하세요(이름 변경 금지; H2 추가 금지):\n",
+                    "Use the following exact H2 headings in this order (do not rename; do not add extra H2 headings):\n",
+                )
+            else:
+                section_heading_instruction = pick(
+                    "아래의 \\section 제목을 이 순서대로 정확히 사용하세요(이름 변경 금지; \\section 추가 금지):\n",
+                    "Use the following exact \\section headings in this order (do not rename; do not add extra \\section headings):\n",
+                )
+        elif rigidity in {"relaxed", "loose", "off"}:
+            if output_format != "tex":
+                section_heading_instruction = pick(
+                    "아래 필수 H2 제목은 반드시 포함하되, 순서는 필요 시 조정할 수 있습니다. "
+                    "추가 H2는 꼭 필요할 때만 제한적으로 사용하세요(필수 제목 이름은 변경 금지):\n",
+                    "Include all required H2 headings below, but you may adjust ordering when needed. "
+                    "Add extra H2 headings only when necessary (do not rename required headings):\n",
+                )
+            else:
+                section_heading_instruction = pick(
+                    "아래 필수 \\section 제목은 반드시 포함하되, 순서는 필요 시 조정할 수 있습니다. "
+                    "추가 \\section은 꼭 필요할 때만 제한적으로 사용하세요(필수 제목 이름은 변경 금지):\n",
+                    "Include all required \\section headings below, but you may adjust ordering when needed. "
+                    "Add extra \\section headings only when necessary (do not rename required headings):\n",
+                )
         else:
-            section_heading_instruction = pick(
-                "아래의 \\section 제목을 이 순서대로 정확히 사용하세요(이름 변경 금지; \\section 추가 금지):\n",
-                "Use the following exact \\section headings in this order (do not rename; do not add extra \\section headings):\n",
-            )
+            if output_format != "tex":
+                section_heading_instruction = pick(
+                    "아래 H2 제목을 기본 골격으로 사용하세요. 순서는 가능한 유지하되, 근거 흐름상 필요하면 제한적으로 H2를 추가할 수 있습니다 "
+                    "(필수 제목 이름은 변경 금지):\n",
+                    "Use the following H2 headings as the primary scaffold. Keep the order when practical, but you may add limited H2 headings "
+                    "when evidence flow requires it (do not rename required headings):\n",
+                )
+            else:
+                section_heading_instruction = pick(
+                    "아래 \\section 제목을 기본 골격으로 사용하세요. 순서는 가능한 유지하되, 근거 흐름상 필요하면 제한적으로 \\section을 추가할 수 있습니다 "
+                    "(필수 제목 이름은 변경 금지):\n",
+                    "Use the following \\section headings as the primary scaffold. Keep the order when practical, but you may add limited \\section headings "
+                    "when evidence flow requires it (do not rename required headings):\n",
+                )
     if output_format != "tex":
         citation_instruction = pick(
             "본문에 전체 URL을 그대로 출력하지 말고 [source], [paper] 같은 짧은 링크 라벨을 사용하세요. "
@@ -4388,8 +4595,11 @@ def normalize_config_overrides(raw: dict) -> dict:
         "check_model",
         "quality_model",
         "model_vision",
+        "template_rigidity",
         "template_adjust",
         "template_adjust_mode",
+        "temperature_level",
+        "temperature",
         "quality_iterations",
         "quality_strategy",
         "web_search",
@@ -4420,6 +4630,10 @@ def apply_config_overrides(args: argparse.Namespace, config: dict) -> None:
         args.quality_model = config["quality_model"].strip()
     if isinstance(config.get("model_vision"), str) and config["model_vision"].strip():
         args.model_vision = config["model_vision"].strip()
+    if isinstance(config.get("template_rigidity"), str):
+        token = config["template_rigidity"].strip().lower()
+        if token in TEMPLATE_RIGIDITY_POLICIES:
+            args.template_rigidity = token
     if isinstance(config.get("template_adjust"), bool):
         args.template_adjust = config["template_adjust"]
     if isinstance(config.get("template_adjust_mode"), str) and config["template_adjust_mode"] in {
@@ -4448,6 +4662,13 @@ def apply_config_overrides(args: argparse.Namespace, config: dict) -> None:
         args.interactive = config["interactive"]
     if isinstance(config.get("free_format"), bool):
         args.free_format = config["free_format"]
+    if isinstance(config.get("temperature_level"), str):
+        token = config["temperature_level"].strip().lower()
+        if token in TEMPERATURE_LEVELS:
+            args.temperature_level = token
+    parsed_temperature = parse_temperature(config.get("temperature"))
+    if parsed_temperature is not None:
+        args.temperature = parsed_temperature
     config_max_input = parse_max_input_tokens(config.get("max_input_tokens"))
     if config_max_input:
         args.max_input_tokens = config_max_input
@@ -4516,6 +4737,52 @@ def resolve_agent_overrides_from_config(
     return agent_overrides, config_overrides
 
 
+def apply_template_rigidity_policy(
+    args: argparse.Namespace,
+    config_overrides: Optional[dict] = None,
+    argv_flags: Optional[list[str]] = None,
+) -> None:
+    config_overrides = config_overrides or {}
+    argv_flags = argv_flags or getattr(args, "_cli_argv", None) or sys.argv
+    rigidity = str(getattr(args, "template_rigidity", DEFAULT_TEMPLATE_RIGIDITY) or "").strip().lower()
+    if rigidity not in TEMPLATE_RIGIDITY_POLICIES:
+        rigidity = DEFAULT_TEMPLATE_RIGIDITY
+    args.template_rigidity = rigidity
+    policy = TEMPLATE_RIGIDITY_POLICIES[rigidity]
+    cli_tokens = set(str(token) for token in argv_flags)
+    explicit_adjust = (
+        "--template-adjust" in cli_tokens
+        or "--no-template-adjust" in cli_tokens
+        or "template_adjust" in config_overrides
+    )
+    explicit_adjust_mode = "--template-adjust-mode" in cli_tokens or "template_adjust_mode" in config_overrides
+    explicit_repair = "--repair-mode" in cli_tokens or "repair_mode" in config_overrides
+    if not explicit_adjust:
+        args.template_adjust = bool(policy["template_adjust"])
+    if not explicit_adjust_mode:
+        args.template_adjust_mode = str(policy["template_adjust_mode"])
+    if not explicit_repair:
+        args.repair_mode = str(policy["repair_mode"])
+    if args.free_format:
+        args.template_adjust = False
+    args.template_rigidity_effective = {
+        "template_adjust": bool(args.template_adjust),
+        "template_adjust_mode": str(args.template_adjust_mode),
+        "repair_mode": str(args.repair_mode),
+    }
+
+
+def resolve_effective_temperature(args: argparse.Namespace) -> float:
+    level = str(getattr(args, "temperature_level", DEFAULT_TEMPERATURE_LEVEL) or "").strip().lower()
+    if level not in TEMPERATURE_LEVELS:
+        level = DEFAULT_TEMPERATURE_LEVEL
+    explicit = parse_temperature(getattr(args, "temperature", None))
+    effective = explicit if explicit is not None else float(TEMPERATURE_LEVELS[level])
+    args.temperature_level = level
+    args.temperature = effective
+    return effective
+
+
 def prepare_runtime(
     args: argparse.Namespace,
     config_overrides: Optional[dict] = None,
@@ -4534,6 +4801,8 @@ def prepare_runtime(
     if (model_cli or model_config) and not quality_model_cli and not quality_model_config:
         if not args.quality_model:
             args.quality_model = args.model
+    apply_template_rigidity_policy(args, config_overrides=config_overrides, argv_flags=argv_flags)
+    effective_temperature = resolve_effective_temperature(args)
     check_model = args.check_model.strip() if args.check_model else ""
     if not check_model:
         check_model = args.model
@@ -4541,8 +4810,10 @@ def prepare_runtime(
     STREAMING_ENABLED = bool(args.stream)
     global DEFAULT_MAX_INPUT_TOKENS
     global DEFAULT_MAX_INPUT_TOKENS_SOURCE
+    global ACTIVE_AGENT_TEMPERATURE
     DEFAULT_MAX_INPUT_TOKENS = parse_max_input_tokens(args.max_input_tokens)
     DEFAULT_MAX_INPUT_TOKENS_SOURCE = getattr(args, "max_input_tokens_source", "none")
+    ACTIVE_AGENT_TEMPERATURE = effective_temperature
     output_format = choose_format(args.output)
     args.output_format = output_format
     resolve_active_profile(args)
@@ -4664,6 +4935,7 @@ def build_agent_info(
         required_sections,
         free_form=args.free_format,
         language=language,
+        template_rigidity=args.template_rigidity,
     )
     metrics = ", ".join(QUALITY_WEIGHTS.keys())
     depth = getattr(args, "depth", None)
@@ -4677,6 +4949,9 @@ def build_agent_info(
             output_format,
             language,
             depth,
+            template_rigidity=args.template_rigidity,
+            figures_enabled=bool(getattr(args, "extract_figures", False)),
+            figures_mode=getattr(args, "figures_mode", "auto"),
         ),
         overrides,
     )
@@ -4689,7 +4964,13 @@ def build_agent_info(
     evidence_prompt = resolve_agent_prompt("evidence", prompts.build_evidence_prompt(language), overrides)
     repair_prompt = resolve_agent_prompt(
         "structural_editor",
-        prompts.build_repair_prompt(format_instructions, output_format, language, free_form=args.free_format),
+        prompts.build_repair_prompt(
+            format_instructions,
+            output_format,
+            language,
+            free_form=args.free_format,
+            template_rigidity=args.template_rigidity,
+        ),
         overrides,
     )
     critic_prompt = resolve_agent_prompt("critic", prompts.build_critic_prompt(language, required_sections), overrides)
@@ -4858,10 +5139,16 @@ def build_agent_info(
             "language": language,
             "output_format": output_format,
             "model": args.model,
+            "temperature": args.temperature,
+            "temperature_level": args.temperature_level,
             "quality_model": quality_model,
             "model_vision": args.model_vision,
             "template": template_spec.name,
+            "template_rigidity": args.template_rigidity,
+            "template_rigidity_effective": getattr(args, "template_rigidity_effective", {}),
             "template_adjust": template_adjust_enabled,
+            "template_adjust_mode": args.template_adjust_mode,
+            "repair_mode": args.repair_mode,
             "free_format": args.free_format,
             "max_input_tokens": args.max_input_tokens,
             "quality_iterations": args.quality_iterations,
@@ -4955,6 +5242,8 @@ def parse_template_text(text: str, source: Optional[str] = None) -> TemplateSpec
                 spec.css = value
             elif key == "latex":
                 spec.latex = value
+            elif key == "layout":
+                spec.layout = value
             elif key in {"writer_guidance", "guidance"}:
                 spec.writer_guidance.append(value)
     body_text = "\n".join(line.rstrip() for line in body_lines).strip()
@@ -5149,13 +5438,14 @@ def write_template_preview(template_spec: TemplateSpec, output_path: Path) -> No
         template_slug = slugify_label(template_spec.name or "")
         if css_slug and css_slug != template_slug:
             extra_body_class = f"template-{css_slug}"
-    rendered = wrap_html(
-        f"Template Preview - {template_spec.name}",
-        body_html,
-        template_name=template_spec.name,
-        theme_href=theme_href,
-        extra_body_class=extra_body_class,
-    )
+        rendered = wrap_html(
+            f"Template Preview - {template_spec.name}",
+            body_html,
+            template_name=template_spec.name,
+            theme_href=theme_href,
+            extra_body_class=extra_body_class,
+            layout=template_spec.layout,
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(rendered, encoding="utf-8")
 
@@ -7186,9 +7476,21 @@ def render_reference_section(
         "/archive/supporting/web_text/",
     )
     if output_format == "tex":
-        lines = ["", "\\section*{References}", "\\renewcommand{\\labelenumi}{[\\arabic{enumi}]}", "\\begin{enumerate}"]
+        lines = [
+            "",
+            "\\section*{References}",
+            "\\noindent\\textit{Citation policy: inline numeric citations; rights remain with original source owners; verify primary sources for high-stakes use.}",
+            "\\renewcommand{\\labelenumi}{[\\arabic{enumi}]}",
+            "\\begin{enumerate}",
+        ]
     else:
-        lines = ["", "## References", ""]
+        lines = [
+            "",
+            "## References",
+            "",
+            "> Citation policy: keep citations inline as `[n]`; source rights belong to original publishers/authors. Validate primary sources before high-stakes use.",
+            "",
+        ]
     for entry in citations:
         idx = entry["index"]
         kind = entry["kind"]
@@ -7307,19 +7609,52 @@ def find_missing_sections(report_text: str, required_sections: list[str], output
     return missing
 
 
-def resolve_author_name(author_cli: Optional[str], report_prompt: Optional[str]) -> str:
-    if author_cli:
-        cleaned = author_cli.strip()
-        if cleaned:
-            return cleaned
+def compose_author_label(name: str, organization: Optional[str]) -> str:
+    cleaned_name = (name or "").strip()
+    cleaned_org = (organization or "").strip()
+    if not cleaned_name:
+        return ""
+    if not cleaned_org:
+        return cleaned_name
+    if cleaned_org.lower() in cleaned_name.lower():
+        return cleaned_name
+    return f"{cleaned_name} / {cleaned_org}"
+
+
+def _resolve_profile_author(profile: Optional[AgentProfile]) -> tuple[str, str]:
+    if not profile:
+        return "", ""
+    author_name = (getattr(profile, "author_name", "") or "").strip()
+    organization = (getattr(profile, "organization", "") or "").strip()
+    return author_name, organization
+
+
+def resolve_author_identity(
+    author_cli: Optional[str],
+    organization_cli: Optional[str],
+    report_prompt: Optional[str],
+    profile: Optional[AgentProfile] = None,
+) -> tuple[str, str]:
+    cli_name = (author_cli or "").strip()
+    cli_org = (organization_cli or "").strip()
+    if cli_name:
+        return compose_author_label(cli_name, cli_org), cli_org
+
+    profile_name, profile_org = _resolve_profile_author(profile)
+    if profile_name:
+        effective_org = cli_org or profile_org
+        return compose_author_label(profile_name, effective_org), effective_org
+
     if report_prompt:
         for line in report_prompt.splitlines():
             match = _AUTHOR_LINE_RE.match(line)
             if match:
                 name = match.group(1).strip()
                 if name:
-                    return name
-    return DEFAULT_AUTHOR
+                    return compose_author_label(name, cli_org), cli_org
+
+    fallback = compose_author_label(DEFAULT_AUTHOR, cli_org)
+    return fallback, cli_org
 
 
 def build_byline(author: str) -> str:
@@ -7428,7 +7763,11 @@ def is_openai_model_name(model_name: str) -> bool:
     return bool(_OPENAI_MODEL_RE.match(model_name.strip()))
 
 
-def build_openai_compat_model(model_name: str, streaming: bool = False):
+def build_openai_compat_model(
+    model_name: str,
+    streaming: bool = False,
+    temperature: Optional[float] = None,
+):
     try:
         from langchain_openai import ChatOpenAI  # type: ignore
     except Exception:
@@ -7437,6 +7776,8 @@ def build_openai_compat_model(model_name: str, streaming: bool = False):
     kwargs = {"model": model_name}
     if streaming:
         kwargs["streaming"] = True
+    if temperature is not None:
+        kwargs["temperature"] = temperature
     if base_url:
         try:
             return ChatOpenAI(**kwargs, base_url=base_url)
@@ -7445,12 +7786,20 @@ def build_openai_compat_model(model_name: str, streaming: bool = False):
                 return ChatOpenAI(**kwargs, openai_api_base=base_url)
             except TypeError:
                 kwargs.pop("streaming", None)
-                return ChatOpenAI(**kwargs, openai_api_base=base_url)
+                try:
+                    return ChatOpenAI(**kwargs, openai_api_base=base_url)
+                except TypeError:
+                    kwargs.pop("temperature", None)
+                    return ChatOpenAI(**kwargs, openai_api_base=base_url)
     try:
         return ChatOpenAI(**kwargs)
     except TypeError:
         kwargs.pop("streaming", None)
-        return ChatOpenAI(**kwargs)
+        try:
+            return ChatOpenAI(**kwargs)
+        except TypeError:
+            kwargs.pop("temperature", None)
+            return ChatOpenAI(**kwargs)
 
 
 def build_vision_model(model_name: str):
@@ -7498,12 +7847,18 @@ def create_agent_with_fallback(
     backend,
     max_input_tokens: Optional[int] = None,
     max_input_tokens_source: str = "none",
+    temperature: Optional[float] = None,
 ):
     max_input_tokens = max_input_tokens if max_input_tokens is not None else DEFAULT_MAX_INPUT_TOKENS
     if max_input_tokens_source == "none":
         max_input_tokens_source = DEFAULT_MAX_INPUT_TOKENS_SOURCE
     force_override = max_input_tokens_source in {"agent", "cli", "config"}
+    effective_temperature = parse_temperature(temperature)
+    if effective_temperature is None:
+        effective_temperature = parse_temperature(ACTIVE_AGENT_TEMPERATURE)
     kwargs = {"tools": tools, "system_prompt": system_prompt, "backend": backend}
+    if effective_temperature is not None:
+        kwargs["temperature"] = effective_temperature
     if model_name:
         model_value = model_name
         base_url = os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE")
@@ -7515,7 +7870,11 @@ def create_agent_with_fallback(
         elif is_openai_compat_model_name(model_name):
             use_compat = True
         if use_compat:
-            compat_model = build_openai_compat_model(model_name, streaming=STREAMING_ENABLED)
+            compat_model = build_openai_compat_model(
+                model_name,
+                streaming=STREAMING_ENABLED,
+                temperature=effective_temperature,
+            )
             if compat_model is None:
                 print(
                     "OpenAI-compatible model requested but langchain-openai is unavailable. "
@@ -7527,7 +7886,11 @@ def create_agent_with_fallback(
                 apply_model_profile_max_input_tokens(compat_model, max_input_tokens, force=force_override)
                 model_value = compat_model
         elif STREAMING_ENABLED and is_openai_model_name(model_name):
-            compat_model = build_openai_compat_model(model_name, streaming=True)
+            compat_model = build_openai_compat_model(
+                model_name,
+                streaming=True,
+                temperature=effective_temperature,
+            )
             if compat_model is not None:
                 apply_model_profile_max_input_tokens(compat_model, max_input_tokens, force=force_override)
                 model_value = compat_model
@@ -7538,7 +7901,10 @@ def create_agent_with_fallback(
                 init_chat_model = None
             if init_chat_model is not None:
                 try:
-                    model_obj = init_chat_model(model_value)
+                    if effective_temperature is not None:
+                        model_obj = init_chat_model(model_value, temperature=effective_temperature)
+                    else:
+                        model_obj = init_chat_model(model_value)
                     apply_model_profile_max_input_tokens(model_obj, max_input_tokens, force=force_override)
                     model_value = model_obj
                 except Exception:
@@ -7547,6 +7913,12 @@ def create_agent_with_fallback(
             apply_model_profile_max_input_tokens(model_value, max_input_tokens, force=force_override)
         try:
             return create_deep_agent(model=model_value, **kwargs)
+        except TypeError as exc:
+            if "temperature" in kwargs and "temperature" in str(exc).lower():
+                retry_kwargs = dict(kwargs)
+                retry_kwargs.pop("temperature", None)
+                return create_deep_agent(model=model_value, **retry_kwargs)
+            raise
         except Exception as exc:  # pragma: no cover - fallback path
             msg = str(exc).lower()
             if model_name == DEFAULT_MODEL and any(token in msg for token in ("model", "unsupported", "unknown")):
@@ -7556,7 +7928,14 @@ def create_agent_with_fallback(
                 )
             else:
                 raise
-    return create_deep_agent(**kwargs)
+    try:
+        return create_deep_agent(**kwargs)
+    except TypeError as exc:
+        if "temperature" in kwargs and "temperature" in str(exc).lower():
+            retry_kwargs = dict(kwargs)
+            retry_kwargs.pop("temperature", None)
+            return create_deep_agent(**retry_kwargs)
+        raise
 
 
 def run_pipeline(
@@ -7638,7 +8017,12 @@ def run_pipeline(
     update_prompt_path = args.prompt_file if getattr(args, "prompt_file", None) else None
 
     report = normalize_report_for_format(report, output_format)
-    author_name = resolve_author_name(args.author, report_prompt)
+    author_name, author_organization = resolve_author_identity(
+        args.author,
+        getattr(args, "organization", None),
+        report_prompt,
+        profile=profile,
+    )
     byline = build_byline(author_name)
     backend = SafeFilesystemBackend(root_dir=run_dir)
     title = extract_prompt_title(report_prompt)
@@ -7785,16 +8169,23 @@ def run_pipeline(
         "duration_seconds": round(elapsed, 2),
         "duration_hms": format_duration(elapsed),
         "model": args.model,
+        "temperature": args.temperature,
+        "temperature_level": args.temperature_level,
         "model_vision": args.model_vision,
         "quality_model": quality_model if args.quality_iterations > 0 else None,
         "quality_iterations": args.quality_iterations,
         "quality_strategy": args.quality_strategy if args.quality_iterations > 0 else "none",
         "template": template_spec.name,
+        "template_rigidity": args.template_rigidity,
+        "template_rigidity_effective": getattr(args, "template_rigidity_effective", {}),
+        "template_adjust_mode": args.template_adjust_mode,
+        "repair_mode": args.repair_mode,
         "title": title,
         "summary": report_summary,
         "output_format": output_format,
         "language": language,
         "author": author_name,
+        "organization": author_organization or None,
         "tags": tags_list,
         "free_format": args.free_format,
         "pdf_status": "enabled" if output_format == "tex" and args.pdf else "disabled",
@@ -7804,6 +8195,8 @@ def run_pipeline(
             "id": ACTIVE_AGENT_PROFILE.profile_id,
             "name": ACTIVE_AGENT_PROFILE.name,
             "tagline": ACTIVE_AGENT_PROFILE.tagline,
+            "author_name": ACTIVE_AGENT_PROFILE.author_name,
+            "organization": ACTIVE_AGENT_PROFILE.organization,
             "version": ACTIVE_AGENT_PROFILE.version,
             "apply_to": list(ACTIVE_AGENT_PROFILE.apply_to),
         }
@@ -7850,6 +8243,7 @@ def run_pipeline(
         f"Template: {template_spec.name}",
         f"Source: {template_spec.source or 'builtin/default'}",
         f"Latex: {template_spec.latex or 'default.tex'}",
+        f"Layout: {template_spec.layout or 'single_column'}",
         "Sections:",
         *([f"- {section}" for section in required_sections] if required_sections else ["- (free-form)"]),
     ]
@@ -7882,6 +8276,7 @@ def run_pipeline(
         viewer_map = build_viewer_map(report, run_dir, archive_dir, supporting_dir, report_dir, viewer_dir, args.max_chars)
         body_html = markdown_to_html(report)
         body_html = linkify_html(body_html)
+        body_html, has_mermaid = transform_mermaid_code_blocks(body_html)
         body_html = inject_viewer_links(body_html, viewer_map)
         body_html = clean_citation_labels(body_html)
         rendered = wrap_html(
@@ -7890,6 +8285,8 @@ def run_pipeline(
             template_name=template_spec.name,
             theme_css=theme_css,
             extra_body_class=extra_body_class,
+            with_mermaid=has_mermaid,
+            layout=template_spec.layout,
         )
     elif output_format == "tex":
         latex_template = load_template_latex(template_spec)
