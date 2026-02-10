@@ -1,32 +1,61 @@
 {
-  "revision": "2026-02-09T06:46:01.568438",
-  "generated_at": "2026-02-09T06:46:01.568438",
+  "revision": "2026-02-11T06:43:31.263767",
+  "generated_at": "2026-02-11T06:43:31.263767",
   "items": [
+    {
+      "id": "동영상생성AI",
+      "run": "동영상생성AI",
+      "report_stem": "report_full_2",
+      "title": "AI 동영상 생성 플랫폼 비교를 위한 1차 자료 확보 리스크 분석",
+      "author": "Federlicht Writer",
+      "summary": "AI 동영상 생성 플랫폼 비교를 위한 1차 자료 확보 리스크 분석 Default assisted and prompted by \"Federlicht Writer\" — 2026-02-11 06:43 Executive Summary 2026년 기준 “AI 동영상 생성 플랫폼” 실전 가이드를 완결형으로 쓰려면, 플랫폼 기능 설명만으로는 부족하고 가격/약관(상업적 이용·워터마크)/출력 스펙/제한사항…",
+      "lang": "Korean",
+      "template": "default",
+      "format": "html",
+      "model": "gpt-5.2-2025-12-11",
+      "tags": [
+        "플랫폼",
+        "생성",
+        "동영상",
+        "실제",
+        "비교"
+      ],
+      "date": "2026-02-11",
+      "timestamp": "2026-02-11T06:43:30.919872",
+      "source_mtime": 1770759811,
+      "source_size": 56107,
+      "paths": {
+        "report": "runs/동영상생성AI/report_full_2.html",
+        "overview": "runs/동영상생성AI/report/run_overview_report_full_2.md",
+        "workflow": "runs/동영상생성AI/report_notes/report_workflow.md",
+        "run": "runs/동영상생성AI"
+      }
+    },
     {
       "id": "agenticAI_recent",
       "run": "agenticAI_recent",
-      "report_stem": "report_full_2",
-      "title": "엔터프라이즈 AI 시그널 4축과 실행 시나리오",
+      "report_stem": "report_full_5",
+      "title": "자율 에이전트 통합 동향과 거버넌스 리스크",
       "author": "AI Governance Team",
-      "summary": "엔터프라이즈 AI 시그널 4축과 실행 시나리오 AI Governance Team assisted and prompted by \"AI Governance Team\" (AI Governance Office) — 2026-02-09 06:45 Executive Summary 지난 3–6개월간 엔터프라이즈 AI 도입의 핵심 이슈는 보안과 안전성, 신뢰성, 데이터 거버넌스, 멀티에이전트 상호작용의…",
+      "summary": "자율 에이전트 통합 동향과 거버넌스 리스크 AI Governance Team assisted and prompted by \"AI Governance Team\" (AI Governance Office) — 2026-02-09 22:21 Executive Summary 핵심 발견 - 최근 Agentic AI(자율 에이전트/멀티에이전트) 연구에서 세 가지 축—(1) 증거 기반 멀티모달 검색·추론…",
       "lang": "Korean",
-      "template": "custom_trend_scan",
+      "template": "custom_mit_tech_review",
       "format": "html",
-      "model": "gpt-5-nano",
+      "model": "gpt-5-mini",
       "tags": [
-        "데이터",
-        "신뢰성",
-        "보안",
-        "엔터프라이즈",
-        "시나리오"
+        "논문",
+        "executive",
+        "핵심",
+        "agentic",
+        "governance"
       ],
       "date": "2026-02-09",
-      "timestamp": "2026-02-09T06:46:01.164728",
-      "source_mtime": 1770587161,
-      "source_size": 66148,
+      "timestamp": "2026-02-09T22:21:25.317233",
+      "source_mtime": 1770643285,
+      "source_size": 57558,
       "paths": {
-        "report": "runs/agenticAI_recent/report_full_2.html",
-        "overview": "runs/agenticAI_recent/report/run_overview_report_full_2.md",
+        "report": "runs/agenticAI_recent/report_full_5.html",
+        "overview": "runs/agenticAI_recent/report/run_overview_report_full_5.md",
         "workflow": "runs/agenticAI_recent/report_notes/report_workflow.md",
         "run": "runs/agenticAI_recent"
       }

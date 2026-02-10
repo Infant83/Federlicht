@@ -287,7 +287,7 @@
                 </details>
 
                 <div class="actions wide">
-                  <button type="submit" class="primary">Run Feather</button>
+                  <button type="submit" class="primary" id="feather-run">Run Feather</button>
                 </div>
               </form>
             </div>
@@ -396,6 +396,10 @@
                     <span>Web Search</span>
                   </label>
                   <label class="toggle">
+                    <input type="checkbox" id="federlicht-free-format" />
+                    <span>Free Format <span class="muted">(No Template)</span></span>
+                  </label>
+                  <label class="toggle">
                     <input type="checkbox" id="federlicht-no-tags" />
                     <span>No Tags <span class="muted">(default off)</span></span>
                   </label>
@@ -462,6 +466,24 @@
                       <input id="federlicht-max-chars" type="number" min="1000" />
                     </label>
                     <label>
+                      <span>Max Tool Chars</span>
+                      <input
+                        id="federlicht-max-tool-chars"
+                        type="number"
+                        min="0"
+                        placeholder="0 (auto)"
+                      />
+                    </label>
+                    <label>
+                      <span>Progress Chars</span>
+                      <input
+                        id="federlicht-progress-chars"
+                        type="number"
+                        min="100"
+                        placeholder="800"
+                      />
+                    </label>
+                    <label>
                       <span>Max PDF Pages</span>
                       <input id="federlicht-max-pdf-pages" type="number" min="0" />
                     </label>
@@ -483,6 +505,13 @@
                     <label class="wide">
                       <span>Site Output</span>
                       <input id="federlicht-site-output" placeholder="run/report_full.html" />
+                    </label>
+                    <label class="wide">
+                      <span>Agent Config</span>
+                      <input
+                        id="federlicht-agent-config"
+                        placeholder="site/runs/<run>/instruction/agent_config.json"
+                      />
                     </label>
                     <label class="wide">
                       <span>Extra Args</span>
@@ -589,6 +618,25 @@
                   <button id="log-clear" class="ghost">Clear</button>
                   <button id="job-kill" class="danger" disabled>Stop</button>
                 </div>
+              </div>
+              <div class="workflow-strip" id="workflow-strip">
+                <div class="workflow-head">
+                  <strong>Workflow Pipeline</strong>
+                  <span id="workflow-status">Idle</span>
+                </div>
+                <div class="workflow-track" id="workflow-track" aria-live="polite"></div>
+                <div class="workflow-history-controls" id="workflow-history-controls">
+                  <span id="workflow-history-hint" class="muted">History checkpoint: -</span>
+                  <div class="workflow-history-actions">
+                    <button type="button" id="workflow-resume-apply" class="ghost" disabled>
+                      Resume from stage
+                    </button>
+                    <button type="button" id="workflow-resume-prompt" class="ghost" disabled>
+                      Draft update prompt
+                    </button>
+                  </div>
+                </div>
+                <div class="workflow-extras is-empty" id="workflow-extras" aria-live="polite"></div>
               </div>
 
               <div class="log-shell">
@@ -1122,6 +1170,10 @@
                 </li>
                 <li>
                   <code>--max-input-tokens</code>: per-agent input budget (default: unset; uses model profile).
+                </li>
+                <li>
+                  <code>--progress-chars</code>: live log snippet length before
+                  <code>[truncated]</code> is appended (default: 800).
                 </li>
               </ul>
             </section>

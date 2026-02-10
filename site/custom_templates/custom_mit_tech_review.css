@@ -1,0 +1,217 @@
+body.template-custom_mit_tech_review {
+  /* 색상 토큰: chrome(TOC, 헤더)과 content(본문) 분리 */
+  --chrome-ink: #071126; /* 다크 네이비 */
+  --chrome-muted: #6b7280; /* 은은한 회색 */
+  --chrome-surface: #f6f9fc; /* 토글/사이드바 배경 */
+  --chrome-border: #e6eaf0; /* 경계선 */
+  --chrome-hover-soft: rgba(7,17,38,0.06);
+  --chrome-hover: rgba(7,17,38,0.12);
+
+  --content-ink: #0b1220; /* 본문 텍스트 */
+  --content-muted: #475569; /* 본문 보조 텍스트 */
+  --content-bg: #ffffff;
+
+  --max-width: 1100px;
+  --sidebar-width: 280px;
+
+  font-family: 'Inter', 'Noto Sans KR', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
+  color: var(--content-ink);
+  margin: 0;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* 전체 레이아웃: 사이드바(TOC) + 본문 */
+.template-custom_mit_tech_review .container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+/* Masthead / 헤더: 짙은 박스 배경, 큰 타이틀, 얕은 데크 라인 */
+.template-custom_mit_tech_review .masthead {
+  grid-column: 1 / -1;
+  background: linear-gradient(180deg, #071126 0%, #0b1724 100%);
+  color: #fff;
+  padding: 28px 32px;
+  border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(7,17,38,0.12);
+}
+.template-custom_mit_tech_review .masthead .title {
+  font-size: 28px;
+  line-height: 1.05;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+}
+.template-custom_mit_tech_review .masthead .deck {
+  color: rgba(255,255,255,0.88);
+  font-size: 13px;
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06); /* 얕은 데크 라인 */
+}
+.template-custom_mit_tech_review .masthead .meta {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+}
+
+/* Sidebar / TOC (chrome 영역) */
+.template-custom_mit_tech_review .toc {
+  background: var(--chrome-surface);
+  border: 1px solid var(--chrome-border);
+  padding: 18px;
+  border-radius: 8px;
+  position: sticky;
+  top: 24px;
+  height: calc(100vh - 48px);
+  overflow: auto;
+}
+.template-custom_mit_tech_review .toc h3 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: var(--chrome-ink);
+  letter-spacing: 0.2px;
+}
+.template-custom_mit_tech_review .toc ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.template-custom_mit_tech_review .toc li {
+  margin: 6px 0;
+}
+.template-custom_mit_tech_review .toc a {
+  display: block;
+  text-decoration: none;
+  color: var(--chrome-ink);
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.template-custom_mit_tech_review .toc a:hover {
+  background: var(--chrome-hover-soft);
+  color: var(--chrome-ink);
+  box-shadow: inset 0 0 0 1px rgba(7,17,38,0.02);
+}
+.template-custom_mit_tech_review .toc a:active,
+.template-custom_mit_tech_review .toc a.active {
+  background: var(--chrome-ink);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(7,17,38,0.12);
+}
+/* TOC 항목의 명도 대비 확보: 버튼형 배경과 텍스트 대비는 충분히 유지 */
+
+/* Article / 본문 (content 영역) */
+.template-custom_mit_tech_review article {
+  background: var(--content-bg);
+  border: 1px solid var(--chrome-border);
+  padding: 28px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(11,18,32,0.04);
+}
+.template-custom_mit_tech_review article h1,
+.template-custom_mit_tech_review article h2,
+.template-custom_mit_tech_review article h3 {
+  color: var(--content-ink);
+  margin: 20px 0 12px 0;
+  font-weight: 700;
+  line-height: 1.18;
+}
+.template-custom_mit_tech_review article h1 { font-size: 22px; }
+.template-custom_mit_tech_review article h2 { font-size: 18px; }
+.template-custom_mit_tech_review article h3 { font-size: 15px; }
+
+.template-custom_mit_tech_review article p {
+  color: var(--content-ink);
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.template-custom_mit_tech_review article .muted {
+  color: var(--content-muted);
+  font-size: 13px;
+}
+
+/* 강조 블록 */
+.template-custom_mit_tech_review .callout {
+  border-left: 4px solid rgba(7,17,38,0.06);
+  background: linear-gradient(180deg, rgba(11,18,32,0.02), rgba(11,18,32,0.01));
+  padding: 12px 14px;
+  border-radius: 6px;
+  margin: 14px 0;
+}
+
+/* 표 스타일: 세련된 웹진 느낌 */
+.template-custom_mit_tech_review table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0 18px 0;
+  font-size: 14px;
+}
+.template-custom_mit_tech_review th,
+.template-custom_mit_tech_review td {
+  padding: 10px 12px;
+  border: 1px solid var(--chrome-border);
+  text-align: left;
+}
+.template-custom_mit_tech_review th {
+  background: linear-gradient(180deg, rgba(7,17,38,0.03), rgba(7,17,38,0.01));
+  color: var(--content-ink);
+  font-weight: 600;
+}
+.template-custom_mit_tech_review tr:nth-child(even) td {
+  background: rgba(11,18,32,0.015);
+}
+
+/* 코드/전문 지표 영역 */
+.template-custom_mit_tech_review pre, .template-custom_mit_tech_review code {
+  background: #0b1220;
+  color: #e6eef8;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Noto Sans Mono', monospace;
+  font-size: 13px;
+}
+
+/* 반응형: 작은 화면에서 사이드바를 상단으로 */
+@media (max-width: 900px) {
+  .template-custom_mit_tech_review .container {
+    grid-template-columns: 1fr;
+  }
+  .template-custom_mit_tech_review .toc {
+    position: relative;
+    height: auto;
+    top: 0;
+    margin-bottom: 12px;
+  }
+}
+
+/* 접근성: 포커스 스타일 */
+.template-custom_mit_tech_review a:focus {
+  outline: 3px solid rgba(7,17,38,0.12);
+  outline-offset: 2px;
+}
+
+/* 작은 UI 요소 */
+.template-custom_mit_tech_review .kicker {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--chrome-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+/* footer */
+.template-custom_mit_tech_review .attribution {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--content-muted);
+}

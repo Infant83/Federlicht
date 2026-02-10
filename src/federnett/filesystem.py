@@ -264,6 +264,7 @@ def summarize_run(root: Path, run_rel: str | None) -> dict[str, Any]:
         "summary_lines": summary_lines,
         "report_meta": {
             "template": report_meta.get("template"),
+            "free_format": report_meta.get("free_format"),
             "template_rigidity": report_meta.get("template_rigidity"),
             "template_adjust_mode": report_meta.get("template_adjust_mode"),
             "repair_mode": report_meta.get("repair_mode"),
@@ -271,6 +272,10 @@ def summarize_run(root: Path, run_rel: str | None) -> dict[str, Any]:
             "model": report_meta.get("model"),
             "temperature": report_meta.get("temperature"),
             "temperature_level": report_meta.get("temperature_level"),
+            "max_chars": report_meta.get("max_chars"),
+            "max_tool_chars": report_meta.get("max_tool_chars"),
+            "max_pdf_pages": report_meta.get("max_pdf_pages"),
+            "progress_chars": report_meta.get("progress_chars"),
             "quality_model": report_meta.get("quality_model"),
             "model_vision": report_meta.get("model_vision"),
             "output_format": report_meta.get("output_format"),

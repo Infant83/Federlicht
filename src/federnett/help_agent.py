@@ -409,6 +409,42 @@ def _normalize_history(history: Any) -> list[dict[str, str]]:
     return cleaned
 
 
+def _chat_completion_urls(base_url: str) -> list[str]:
+    base = (base_url or "https://api.openai.com").strip().rstrip("/")
+    candidates: list[str]
+    if base.endswith("/v1"):
+        root = base[:-3].rstrip("/")
+        candidates = [
+            f"{base}/chat/completions",
+            f"{root}/v1/chat/completions",
+            f"{root}/chat/completions",
+        ]
+    else:
+        candidates = [f"{base}/v1/chat/completions", f"{base}/chat/completions"]
+    out: list[str] = []
+    seen: set[str] = set()
+    for url in candidates:
+        normalized = url.rstrip("/")
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out
+
+
+def _payload_variants(base_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    first = dict(base_payload)
+    first["max_completion_tokens"] = 900
+    second = dict(base_payload)
+    second["max_tokens"] = 900
+    return [first, second]
+
+
+def _is_unsupported_token_error(text: str, key_name: str) -> bool:
+    lowered = (text or "").lower()
+    return "unsupported parameter" in lowered and key_name.lower() in lowered
+
+
 def _call_llm(
     question: str,
     sources: list[dict[str, Any]],
@@ -424,7 +460,7 @@ def _call_llm(
     if not chosen_model:
         raise RuntimeError("Model is not configured (set OPENAI_MODEL or pass model)")
     base_url = (os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE") or "https://api.openai.com").strip()
-    url = base_url.rstrip("/") + "/v1/chat/completions"
+    urls = _chat_completion_urls(base_url)
     context = _build_context(sources)
     system = (
         "You are Federnett usage guide assistant. "
@@ -462,24 +498,41 @@ def _call_llm(
     if history:
         messages.extend(_normalize_history(history))
     messages.append({"role": "user", "content": user})
-    payload = {
+    base_payload = {
         "model": chosen_model,
         "messages": messages,
         "temperature": 0.2,
-        "max_tokens": 900,
     }
-    resp = requests.post(
-        url,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=45,
-    )
-    if resp.status_code != 200:
-        text = resp.text.strip()
-        raise RuntimeError(f"LLM request failed: {resp.status_code} {text}")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    last_error = "LLM request failed: no endpoint attempted"
+    resp = None
+    for url in urls:
+        for payload in _payload_variants(base_payload):
+            resp = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=45,
+            )
+            if resp.status_code == 200:
+                break
+            text = resp.text.strip()
+            last_error = f"LLM request failed: {resp.status_code} {text}"
+            if resp.status_code == 404:
+                # Endpoint mismatch (common on OpenAI-compatible gateways): try next URL.
+                break
+            if _is_unsupported_token_error(text, "max_tokens"):
+                continue
+            if _is_unsupported_token_error(text, "max_completion_tokens"):
+                continue
+            # For other errors, keep trying alternates but preserve the latest detail.
+        if resp is not None and resp.status_code == 200:
+            break
+    if resp is None or resp.status_code != 200:
+        raise RuntimeError(last_error)
     body = resp.json()
     choices = body.get("choices") or []
     if not choices:

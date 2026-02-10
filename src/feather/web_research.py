@@ -11,12 +11,13 @@ import urllib.parse
 
 import requests
 
+from . import __version__
 from .tavily import TavilyClient
 from .local_ops import html_to_text
 
 
 def request_headers() -> dict[str, str]:
-    return {"User-Agent": "Feather/1.0 (+https://example.local)"}
+    return {"User-Agent": f"Feather/{__version__} (+https://example.invalid)"}
 
 
 def slugify_url(url: str, max_len: int = 80) -> str:

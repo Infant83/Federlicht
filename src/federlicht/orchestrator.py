@@ -12,8 +12,11 @@ import sys
 
 from federlicht import tools as feder_tools
 
-from . import prompts
+from . import prompts, workflow_stages
+from .agent_runtime import AgentRuntime
 from .agents import AgentRunner
+from .verification_tools import parse_verification_requests
+from .workflow_trace import write_workflow_summary
 
 
 STAGE_INFO = {
@@ -170,6 +173,13 @@ class ReportOrchestrator:
             root_dir=run_dir,
             max_read_chars=fs_read_cap,
             max_total_chars=fs_total_cap,
+        )
+        agent_runtime = AgentRuntime(
+            args=args,
+            helpers=helpers,
+            overrides=self._agent_overrides,
+            create_deep_agent=self._create_deep_agent,
+            backend=backend,
         )
         cache_dir = notes_dir / "cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -342,8 +352,13 @@ class ReportOrchestrator:
             return json.dumps(payload, indent=2, ensure_ascii=True)
 
         def read_text_file(path: Path, start: int, max_chars: int) -> str:
-            text = path.read_text(encoding="utf-8", errors="replace")
             start = max(0, start)
+            if start == 0 and max_chars > 0:
+                with path.open("r", encoding="utf-8", errors="replace") as handle:
+                    return handle.read(max_chars)
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if max_chars <= 0:
+                return text[start:]
             return text[start : start + max_chars]
 
         def normalize_rel_paths(text: str) -> str:
@@ -496,21 +511,6 @@ class ReportOrchestrator:
             tool_chars_used += len(text)
             return text
 
-        def parse_verification_requests(text: str) -> list[tuple[str, str]]:
-            if not text:
-                return []
-            artifact_dirs = re.findall(r"\\[artifact\\] Original chunks: ([^\\s]+)", text)
-            latest_artifact = artifact_dirs[-1] if artifact_dirs else ""
-            requests: list[tuple[str, str]] = []
-            for line in text.splitlines():
-                if "NEEDS_VERIFICATION" not in line:
-                    continue
-                for chunk in re.findall(r"\\[chunk_(\\d{3})\\]", line):
-                    chunk_name = f"chunk_{chunk}.txt"
-                    if latest_artifact:
-                        requests.append((latest_artifact, chunk_name))
-            return requests
-
         def read_verification_chunks(requests: list[tuple[str, str]], max_chars: int) -> str:
             if not requests:
                 return ""
@@ -619,123 +619,65 @@ class ReportOrchestrator:
 
         tools = [list_archive_files, list_supporting_files, read_document]
 
-        def parse_stage_list(raw: Optional[str]) -> set[str]:
-            if not raw:
-                return set()
-            tokens = []
-            for part in raw.replace(";", ",").replace("|", ",").split(","):
-                cleaned = part.strip().lower()
-                if cleaned:
-                    tokens.append(cleaned)
-            return set(tokens)
-
         all_stages = set(STAGE_INFO)
-        stage_set = parse_stage_list(getattr(args, "stages", None))
-        skip_set = parse_stage_list(getattr(args, "skip_stages", None))
-        if stage_set:
-            stage_set = {stage for stage in stage_set if stage in all_stages}
-            if skip_set:
-                stage_set -= skip_set
-        elif skip_set:
-            stage_set = {stage for stage in all_stages if stage not in skip_set}
-        else:
-            stage_set = set()
+        workflow_stage_order = workflow_stages.resolve_stage_order(
+            all_stages=all_stages,
+            default_stage_order=STAGE_ORDER,
+            stages_raw=getattr(args, "stages", None),
+        )
+        stage_set = workflow_stages.resolve_stage_set(
+            all_stages=all_stages,
+            stages_raw=getattr(args, "stages", None),
+            skip_stages_raw=getattr(args, "skip_stages", None),
+        )
+        auto_added_stages: dict[str, list[str]] = {}
+        if not bool(getattr(args, "_disable_stage_dependency_expansion", False)):
+            stage_set, auto_added_stages = workflow_stages.expand_stage_dependencies(
+                stage_set=stage_set,
+                all_stages=all_stages,
+            )
 
         def stage_enabled(name: str) -> bool:
-            return True if not stage_set else name in stage_set
+            return workflow_stages.stage_enabled(stage_set, name)
 
-        stage_status: dict[str, dict[str, str]] = {}
-        for name in STAGE_ORDER:
-            if stage_enabled(name):
-                stage_status[name] = {"status": "pending", "detail": ""}
-            else:
-                stage_status[name] = {"status": "disabled", "detail": ""}
+        stage_status = workflow_stages.initialize_stage_status(
+            stage_order=workflow_stage_order,
+            stage_set=stage_set,
+        )
 
         def record_stage(name: str, status: str, detail: str = "") -> None:
-            if name not in stage_status:
-                return
-            stage_status[name]["status"] = status
-            if detail:
-                stage_status[name]["detail"] = detail
+            workflow_stages.record_stage(stage_status, name=name, status=status, detail=detail)
+            detail_text = str(detail or "").strip()
+            if detail_text:
+                print(f"[workflow] stage={name} status={status} detail={detail_text}")
+            else:
+                print(f"[workflow] stage={name} status={status}")
 
-        def write_workflow_summary() -> tuple[list[str], Path]:
-            workflow_summary: list[str] = []
-            for idx, name in enumerate(STAGE_ORDER, start=1):
-                entry = stage_status.get(name, {})
-                status = entry.get("status", "unknown")
-                detail = entry.get("detail", "")
-                line = f"{idx}. {name}: {status}"
-                if detail:
-                    line = f"{line} ({detail})"
-                workflow_summary.append(line)
-            workflow_path = notes_dir / "report_workflow.md"
-            workflow_lines = ["# Report Workflow", "", "## Stages", *workflow_summary, ""]
-            artifact_sections: dict[str, list[tuple[str, Path]]] = {
-                "scout": [("Scout notes", notes_dir / "scout_notes.md")],
-                "plan": [("Plan update", notes_dir / "report_plan.md")],
-                "evidence": [
-                    ("Evidence notes", notes_dir / "evidence_notes.md"),
-                    ("Source triage", notes_dir / "source_triage.md"),
-                    ("Source index", notes_dir / "source_index.jsonl"),
-                    ("Claim map", notes_dir / "claim_map.md"),
-                    ("Gap report", notes_dir / "gap_finder.md"),
-                ],
-                "alignment": [
-                    ("Alignment (scout)", notes_dir / "alignment_scout.md"),
-                    ("Alignment (plan)", notes_dir / "alignment_plan.md"),
-                    ("Alignment (evidence)", notes_dir / "alignment_evidence.md"),
-                    ("Alignment (draft)", notes_dir / "alignment_draft.md"),
-                    ("Alignment (final)", notes_dir / "alignment_final.md"),
-                ],
-                "quality": [
-                    ("Quality evaluations", notes_dir / "quality_evals.jsonl"),
-                    ("Quality pairwise", notes_dir / "quality_pairwise.jsonl"),
-                ],
-                "template_adjust": [],
-            }
-            if template_adjustment_path:
-                artifact_sections["template_adjust"].append(("Template adjustment", template_adjustment_path))
+        if auto_added_stages:
+            order_index = {name: idx for idx, name in enumerate(workflow_stage_order)}
+            for stage_name in sorted(
+                auto_added_stages,
+                key=lambda name: order_index.get(name, len(workflow_stage_order)),
+            ):
+                required_by = sorted(
+                    set(auto_added_stages.get(stage_name, [])),
+                    key=lambda name: order_index.get(name, len(workflow_stage_order)),
+                )
+                detail = (
+                    f"auto_required_by={','.join(required_by)}"
+                    if required_by
+                    else "auto_required"
+                )
+                record_stage(stage_name, "pending", detail)
 
-            artifact_lines: list[str] = []
-            for stage_name in STAGE_ORDER:
-                items = artifact_sections.get(stage_name) or []
-                existing = [
-                    (label, path)
-                    for label, path in items
-                    if isinstance(path, Path) and path.exists()
-                ]
-                if not existing:
-                    continue
-                artifact_lines.append(f"### {stage_name}")
-                for label, path in existing:
-                    try:
-                        rel = f"./{path.relative_to(run_dir).as_posix()}"
-                    except Exception:
-                        rel = path.as_posix()
-                    artifact_lines.append(f"- {label}: {rel}")
-                artifact_lines.append("")
-            if artifact_lines:
-                workflow_lines.extend(["## Artifacts", *artifact_lines])
-            workflow_path.write_text("\n".join(workflow_lines).strip() + "\n", encoding="utf-8")
-            workflow_json_path = notes_dir / "report_workflow.json"
-            workflow_payload = {
-                "created_at": dt.datetime.now().isoformat(),
-                "stages": stage_status,
-                "order": list(STAGE_ORDER),
-            }
-            workflow_json_path.write_text(
-                json.dumps(workflow_payload, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-            return workflow_summary, workflow_path
-
-        alignment_enabled = helpers.resolve_agent_enabled("alignment", bool(args.alignment_check), self._agent_overrides)
-        web_search_enabled = helpers.resolve_agent_enabled("web_query", bool(args.web_search), self._agent_overrides)
-        template_adjust_enabled = helpers.resolve_agent_enabled(
+        alignment_enabled = agent_runtime.enabled("alignment", bool(args.alignment_check), self._agent_overrides)
+        web_search_enabled = agent_runtime.enabled("web_query", bool(args.web_search), self._agent_overrides)
+        template_adjust_enabled = agent_runtime.enabled(
             "template_adjuster",
             bool(args.template_adjust),
             self._agent_overrides,
         )
-        clarifier_enabled = helpers.resolve_agent_enabled("clarifier", True, self._agent_overrides)
+        clarifier_enabled = agent_runtime.enabled("clarifier", True, self._agent_overrides)
         if args.free_format:
             template_adjust_enabled = False
         if not stage_enabled("template_adjust"):
@@ -746,21 +688,20 @@ class ReportOrchestrator:
             record_stage("template_adjust", "skipped", "disabled")
         if not clarifier_enabled:
             record_stage("clarifier", "skipped", "disabled")
-        args.alignment_check = alignment_enabled
         args.web_search = web_search_enabled
-        args.template_adjust = template_adjust_enabled
-        vision_override = helpers.resolve_agent_model("image_analyst", args.model_vision or "", self._agent_overrides)
+        vision_override = agent_runtime.model("image_analyst", args.model_vision or "", self._agent_overrides)
         if vision_override:
             args.model_vision = vision_override
-        alignment_prompt = helpers.resolve_agent_prompt(
+        alignment_prompt = agent_runtime.prompt(
             "alignment",
             prompts.build_alignment_prompt(helpers.normalize_lang(args.lang)),
             self._agent_overrides,
         )
-        alignment_model = helpers.resolve_agent_model("alignment", check_model, self._agent_overrides)
+        alignment_model = agent_runtime.model("alignment", check_model, self._agent_overrides)
+        alignment_agent = None
 
         def agent_max_tokens(name: str) -> tuple[Optional[int], str]:
-            return helpers.resolve_agent_max_input_tokens(name, args, self._agent_overrides)
+            return agent_runtime.max_input_tokens(name, self._agent_overrides)
 
         def normalize_depth(value: Optional[str]) -> Optional[str]:
             if not value:
@@ -965,7 +906,17 @@ class ReportOrchestrator:
 
         def is_context_overflow(exc: Exception) -> bool:
             message = str(exc).lower()
-            return "context_length_exceeded" in message or "maximum context length" in message
+            return any(
+                token in message
+                for token in (
+                    "context_length_exceeded",
+                    "maximum context length",
+                    "context window",
+                    "prompt is too long",
+                    "input is too long",
+                    "too many tokens",
+                )
+            )
 
         def trim_to_sections(text: str) -> str:
             if not text:
@@ -1055,7 +1006,7 @@ class ReportOrchestrator:
                 missing_sections if repair_mode == "append" else required_sections,
                 output_format,
             )
-            repair_prompt = helpers.resolve_agent_prompt(
+            repair_prompt = agent_runtime.prompt(
                 "structural_editor",
                 prompts.build_repair_prompt(
                     format_instructions,
@@ -1067,7 +1018,7 @@ class ReportOrchestrator:
                 ),
                 self._agent_overrides,
             )
-            repair_model = helpers.resolve_agent_model("structural_editor", args.model, self._agent_overrides)
+            repair_model = agent_runtime.model("structural_editor", args.model, self._agent_overrides)
             repair_max, repair_max_source = agent_max_tokens("structural_editor")
             repair_agent = helpers.create_agent_with_fallback(
                 self._create_deep_agent,
@@ -1147,7 +1098,7 @@ class ReportOrchestrator:
             secondary_eval: Optional[dict] = None,
             pairwise_notes: Optional[list[dict]] = None,
         ) -> str:
-            finalizer_prompt = helpers.resolve_agent_prompt(
+            finalizer_prompt = agent_runtime.prompt(
                 "writer",
                 prompts.build_writer_finalizer_prompt(
                     format_instructions,
@@ -1163,7 +1114,7 @@ class ReportOrchestrator:
                 ),
                 self._agent_overrides,
             )
-            finalizer_model = helpers.resolve_agent_model("writer", args.model, self._agent_overrides)
+            finalizer_model = agent_runtime.model("writer", args.model, self._agent_overrides)
             finalizer_max, finalizer_max_source = agent_max_tokens("writer")
             finalizer_agent = helpers.create_agent_with_fallback(
                 self._create_deep_agent,
@@ -1243,18 +1194,20 @@ class ReportOrchestrator:
             return final_text
 
         def run_alignment_check(stage: str, content: str) -> Optional[str]:
+            nonlocal alignment_agent
             if not alignment_enabled:
                 return None
-            align_max, align_max_source = agent_max_tokens("alignment")
-            align_agent = helpers.create_agent_with_fallback(
-                self._create_deep_agent,
-                alignment_model,
-                tools,
-                alignment_prompt,
-                backend,
-                max_input_tokens=align_max,
-                max_input_tokens_source=align_max_source,
-            )
+            if alignment_agent is None:
+                align_max, align_max_source = agent_max_tokens("alignment")
+                alignment_agent = helpers.create_agent_with_fallback(
+                    self._create_deep_agent,
+                    alignment_model,
+                    tools,
+                    alignment_prompt,
+                    backend,
+                    max_input_tokens=align_max,
+                    max_input_tokens_source=align_max_source,
+                )
             align_input = [
                 f"Stage: {stage}",
                 "",
@@ -1275,7 +1228,7 @@ class ReportOrchestrator:
                 align_payload,
                 lambda: self._runner.run(
                     f"Alignment Check ({stage})",
-                    align_agent,
+                    alignment_agent,
                     {"messages": [{"role": "user", "content": align_payload}]},
                     show_progress=True,
                 ),
@@ -1332,7 +1285,11 @@ class ReportOrchestrator:
         is_deep = depth in {"deep", "exhaustive"}
         if depth == "brief":
             alignment_enabled = False
-            template_adjust_enabled = False
+            if template_adjust_enabled:
+                template_adjust_enabled = False
+                record_stage("template_adjust", "skipped", "depth=brief")
+        args.alignment_check = alignment_enabled
+        args.template_adjust = template_adjust_enabled
         use_web_search = bool(args.web_search and wants_web and stage_enabled("web"))
         use_evidence = depth != "brief" and stage_enabled("evidence")
         if args.quality_iterations <= 0:
@@ -1346,47 +1303,60 @@ class ReportOrchestrator:
         if state and state.style_hint:
             style_hint = state.style_hint
 
-        reducer_prompt = helpers.resolve_agent_prompt(
+        reducer_prompt = agent_runtime.prompt(
             "reducer",
             prompts.build_reducer_prompt(language),
             self._agent_overrides,
         )
-        reducer_model = helpers.resolve_agent_model("reducer", check_model or args.model, self._agent_overrides)
+        reducer_model = agent_runtime.model("reducer", check_model or args.model, self._agent_overrides)
         reducer_max, reducer_max_source = agent_max_tokens("reducer")
-        reducer_agent = helpers.create_agent_with_fallback(
-            self._create_deep_agent,
-            reducer_model,
-            [],
-            reducer_prompt,
-            backend,
-            max_input_tokens=reducer_max,
-            max_input_tokens_source=reducer_max_source,
-        )
+        reducer_agent = None
+
+        def ensure_reducer_agent():
+            nonlocal reducer_agent
+            if reducer_agent is None:
+                reducer_agent = helpers.create_agent_with_fallback(
+                    self._create_deep_agent,
+                    reducer_model,
+                    [],
+                    reducer_prompt,
+                    backend,
+                    max_input_tokens=reducer_max,
+                    max_input_tokens_source=reducer_max_source,
+                )
+            return reducer_agent
 
         def run_reducer(prompt_text: str, source_label: str, max_chars: int) -> str:
             target = max(200, max_chars)
             payload = "\n".join([prompt_text, "", f"Target max chars: {target}"])
             return self._runner.run(
                 "Reducer",
-                reducer_agent,
+                ensure_reducer_agent(),
                 {"messages": [{"role": "user", "content": payload}]},
                 show_progress=False,
             )
 
         reducer_runner = run_reducer
 
-        source_index = feder_tools.build_source_index(archive_dir, run_dir, supporting_dir)
+        source_index: list[dict] = []
+        source_triage: list[dict] = []
+        source_triage_text = state.source_triage_text if state and state.source_triage_text else ""
         source_index_path = notes_dir / "source_index.jsonl"
-        feder_tools.write_jsonl(source_index_path, source_index)
-        source_triage = feder_tools.rank_sources(source_index, report_prompt or query_id, top_k=12)
-        source_triage_text = feder_tools.format_source_triage(source_triage)
-        if state and state.source_triage_text:
-            source_triage_text = state.source_triage_text
         source_triage_path = notes_dir / "source_triage.md"
-        source_triage_path.write_text(source_triage_text, encoding="utf-8")
+        needs_source_scan = bool(stage_enabled("scout") or stage_enabled("web") or stage_enabled("evidence"))
+        if needs_source_scan or not source_triage_text:
+            source_index = feder_tools.build_source_index(archive_dir, run_dir, supporting_dir)
+            feder_tools.write_jsonl(source_index_path, source_index)
+            source_triage = feder_tools.rank_sources(source_index, report_prompt or query_id, top_k=12)
+            source_triage_text = feder_tools.format_source_triage(source_triage)
+            source_triage_path.write_text(source_triage_text, encoding="utf-8")
+        elif source_triage_text and not source_triage_path.exists():
+            source_triage_path.write_text(source_triage_text, encoding="utf-8")
         try:
             cache_scope_signature = cache_key(
-                source_index_path.read_text(encoding="utf-8", errors="ignore"),
+                source_index_path.read_text(encoding="utf-8", errors="ignore")
+                if source_index_path.exists()
+                else "",
                 source_triage_text,
                 bool(getattr(args, "web_search", False)),
                 bool(getattr(args, "agentic_search", False)),
@@ -1427,12 +1397,12 @@ class ReportOrchestrator:
             except Exception:
                 context_lines.append(f"Source triage: {source_triage_path.as_posix()}")
 
-        scout_prompt = helpers.resolve_agent_prompt(
+        scout_prompt = agent_runtime.prompt(
             "scout",
             prompts.build_scout_prompt(language),
             self._agent_overrides,
         )
-        scout_model = helpers.resolve_agent_model("scout", args.model, self._agent_overrides)
+        scout_model = agent_runtime.model("scout", args.model, self._agent_overrides)
         scout_max, scout_max_source = agent_max_tokens("scout")
         scout_agent = helpers.create_agent_with_fallback(
             self._create_deep_agent,
@@ -1599,12 +1569,12 @@ class ReportOrchestrator:
         clarification_questions: Optional[str] = None
         clarification_answers = helpers.load_user_answers(args.answers, args.answers_file)
         if clarifier_enabled and (args.interactive or clarification_answers):
-            clarifier_prompt = helpers.resolve_agent_prompt(
+            clarifier_prompt = agent_runtime.prompt(
                 "clarifier",
                 prompts.build_clarifier_prompt(language),
                 self._agent_overrides,
             )
-            clarifier_model = helpers.resolve_agent_model("clarifier", args.model, self._agent_overrides)
+            clarifier_model = agent_runtime.model("clarifier", args.model, self._agent_overrides)
             clarifier_max, clarifier_max_source = agent_max_tokens("clarifier")
             clarifier_agent = helpers.create_agent_with_fallback(
                 self._create_deep_agent,
@@ -1748,12 +1718,12 @@ class ReportOrchestrator:
         if state and state.template_guidance_text:
             template_guidance_text = state.template_guidance_text
 
-        plan_prompt = helpers.resolve_agent_prompt(
+        plan_prompt = agent_runtime.prompt(
             "planner",
             prompts.build_plan_prompt(language),
             self._agent_overrides,
         )
-        plan_model = helpers.resolve_agent_model("planner", args.model, self._agent_overrides)
+        plan_model = agent_runtime.model("planner", args.model, self._agent_overrides)
         plan_max, plan_max_source = agent_max_tokens("planner")
         plan_agent = helpers.create_agent_with_fallback(
             self._create_deep_agent,
@@ -1902,12 +1872,12 @@ class ReportOrchestrator:
             supporting_dir = state.supporting_dir
         if use_web_search:
             supporting_dir = helpers.resolve_supporting_dir(run_dir, args.supporting_dir)
-            web_prompt = helpers.resolve_agent_prompt(
+            web_prompt = agent_runtime.prompt(
                 "web_query",
                 prompts.build_web_prompt(),
                 self._agent_overrides,
             )
-            web_model = helpers.resolve_agent_model("web_query", args.model, self._agent_overrides)
+            web_model = agent_runtime.model("web_query", args.model, self._agent_overrides)
             web_max, web_max_source = agent_max_tokens("web_query")
             web_agent = helpers.create_agent_with_fallback(
                 self._create_deep_agent,
@@ -2041,12 +2011,12 @@ class ReportOrchestrator:
         condensed = ""
         evidence_for_writer = evidence_notes
         if use_evidence:
-            evidence_prompt = helpers.resolve_agent_prompt(
+            evidence_prompt = agent_runtime.prompt(
                 "evidence",
                 prompts.build_evidence_prompt(language),
                 self._agent_overrides,
             )
-            evidence_model = helpers.resolve_agent_model("evidence", args.model, self._agent_overrides)
+            evidence_model = agent_runtime.model("evidence", args.model, self._agent_overrides)
             evidence_max, evidence_max_source = agent_max_tokens("evidence")
             evidence_agent = helpers.create_agent_with_fallback(
                 self._create_deep_agent,
@@ -2239,12 +2209,12 @@ class ReportOrchestrator:
                     (notes_dir / "evidence_notes.md").write_text(evidence_notes, encoding="utf-8")
 
             if stage_enabled("plan_check"):
-                plan_check_prompt = helpers.resolve_agent_prompt(
+                plan_check_prompt = agent_runtime.prompt(
                     "plan_check",
                     prompts.build_plan_check_prompt(language),
                     self._agent_overrides,
                 )
-                plan_check_model = helpers.resolve_agent_model("plan_check", check_model, self._agent_overrides)
+                plan_check_model = agent_runtime.model("plan_check", check_model, self._agent_overrides)
                 plan_check_max, plan_check_max_source = agent_max_tokens("plan_check")
                 plan_check_agent = helpers.create_agent_with_fallback(
                     self._create_deep_agent,
@@ -2289,8 +2259,6 @@ class ReportOrchestrator:
                     )
                 (notes_dir / "report_plan.md").write_text(plan_text, encoding="utf-8")
                 plan_context = plan_text if len(plan_text) <= pack_limit else pack_text(plan_text)
-            elif stage_enabled("plan_check"):
-                record_stage("plan_check", "skipped", "disabled")
         elif stage_enabled("plan_check"):
             record_stage("plan_check", "skipped", "missing_evidence")
 
@@ -2329,13 +2297,26 @@ class ReportOrchestrator:
                 evidence_for_writer = condensed
             elif not evidence_for_writer:
                 evidence_for_writer = evidence_notes
-        if stage_set and "writer" not in stage_set:
+        reuse_state_report_for_quality = bool(
+            stage_set
+            and "writer" not in stage_set
+            and stage_enabled("quality")
+            and state
+            and str(getattr(state, "report", "")).strip()
+        )
+        if stage_set and "writer" not in stage_set and not reuse_state_report_for_quality:
             if not allow_partial:
                 raise ValueError("Writer stage is required for report generation. Include 'writer' in --stages.")
             quality_model = args.quality_model or check_model or args.model
             record_stage("writer", "skipped", "state_only")
             record_stage("quality", "skipped", "state_only")
-            workflow_summary, workflow_path = write_workflow_summary()
+            workflow_summary, workflow_path = write_workflow_summary(
+                stage_status=stage_status,
+                stage_order=workflow_stage_order,
+                notes_dir=notes_dir,
+                run_dir=run_dir,
+                template_adjustment_path=template_adjustment_path,
+            )
             return PipelineResult(
                 report="",
                 scout_notes=scout_notes,
@@ -2376,7 +2357,7 @@ class ReportOrchestrator:
                 workflow_path=workflow_path,
             )
         plan_for_writer = plan_text if is_deep else plan_context
-        writer_prompt = helpers.resolve_agent_prompt(
+        writer_prompt = agent_runtime.prompt(
             "writer",
             prompts.build_writer_prompt(
                 format_instructions,
@@ -2392,7 +2373,7 @@ class ReportOrchestrator:
             ),
             self._agent_overrides,
         )
-        writer_model = helpers.resolve_agent_model("writer", args.model, self._agent_overrides)
+        writer_model = agent_runtime.model("writer", args.model, self._agent_overrides)
         writer_max, writer_max_source = agent_max_tokens("writer")
         writer_agent = helpers.create_agent_with_fallback(
             self._create_deep_agent,
@@ -2543,55 +2524,63 @@ class ReportOrchestrator:
 
         condensed_evidence = condensed or helpers.truncate_text_middle(evidence_notes, pack_limit)
         writer_budget = resolve_writer_budget(writer_max)
-        condensed_ready = bool(condensed_evidence and evidence_for_writer == condensed_evidence)
-        writer_sections = build_writer_sections(evidence_for_writer)
-        writer_input, _, fallback_used = build_stage_payload(
-            writer_sections,
-            writer_budget,
-            fallback_map={"evidence": condensed_evidence} if condensed_evidence else None,
-        )
-        condensed_applied = fallback_used or condensed_ready
-        try:
-            report = self._runner.run(
-                "Writer Draft",
-                writer_agent,
-                {"messages": [{"role": "user", "content": writer_input}]},
-                show_progress=False,
+        if reuse_state_report_for_quality:
+            report = helpers.normalize_report_paths(state.report, run_dir)
+            report = coerce_required_headings(report, required_sections)
+            missing_sections = helpers.find_missing_sections(report, required_sections, output_format)
+            report = run_structural_repair(report, missing_sections, "Structural Repair")
+            record_stage("writer", "skipped", "state_report")
+            align_draft = run_alignment_check("draft", report)
+        else:
+            condensed_ready = bool(condensed_evidence and evidence_for_writer == condensed_evidence)
+            writer_sections = build_writer_sections(evidence_for_writer)
+            writer_input, _, fallback_used = build_stage_payload(
+                writer_sections,
+                writer_budget,
+                fallback_map={"evidence": condensed_evidence} if condensed_evidence else None,
             )
-        except Exception as exc:
-            if not condensed_applied and is_context_overflow(exc):
-                writer_sections = build_writer_sections(condensed_evidence or evidence_for_writer)
-                writer_input, _, _ = build_stage_payload(
-                    writer_sections,
-                    writer_budget,
-                    fallback_map={"evidence": condensed_evidence} if condensed_evidence else None,
-                    force_fallback=True,
-                )
+            condensed_applied = fallback_used or condensed_ready
+            try:
                 report = self._runner.run(
                     "Writer Draft",
                     writer_agent,
                     {"messages": [{"role": "user", "content": writer_input}]},
                     show_progress=False,
                 )
-            else:
-                raise
-        record_stage("writer", "ran")
-        report = helpers.normalize_report_paths(report, run_dir)
-        report = coerce_required_headings(report, required_sections)
-        retry_needed, retry_reason = report_needs_retry(report)
-        if retry_needed:
-            retry_input = "\n".join([build_writer_retry_guardrail(retry_reason), "", writer_input])
-            report = self._runner.run(
-                "Writer Draft (retry)",
-                writer_agent,
-                {"messages": [{"role": "user", "content": retry_input}]},
-                show_progress=False,
-            )
+            except Exception as exc:
+                if not condensed_applied and is_context_overflow(exc):
+                    writer_sections = build_writer_sections(condensed_evidence or evidence_for_writer)
+                    writer_input, _, _ = build_stage_payload(
+                        writer_sections,
+                        writer_budget,
+                        fallback_map={"evidence": condensed_evidence} if condensed_evidence else None,
+                        force_fallback=True,
+                    )
+                    report = self._runner.run(
+                        "Writer Draft",
+                        writer_agent,
+                        {"messages": [{"role": "user", "content": writer_input}]},
+                        show_progress=False,
+                    )
+                else:
+                    raise
+            record_stage("writer", "ran")
             report = helpers.normalize_report_paths(report, run_dir)
             report = coerce_required_headings(report, required_sections)
-        missing_sections = helpers.find_missing_sections(report, required_sections, output_format)
-        report = run_structural_repair(report, missing_sections, "Structural Repair")
-        align_draft = run_alignment_check("draft", report)
+            retry_needed, retry_reason = report_needs_retry(report)
+            if retry_needed:
+                retry_input = "\n".join([build_writer_retry_guardrail(retry_reason), "", writer_input])
+                report = self._runner.run(
+                    "Writer Draft (retry)",
+                    writer_agent,
+                    {"messages": [{"role": "user", "content": retry_input}]},
+                    show_progress=False,
+                )
+                report = helpers.normalize_report_paths(report, run_dir)
+                report = coerce_required_headings(report, required_sections)
+            missing_sections = helpers.find_missing_sections(report, required_sections, output_format)
+            report = run_structural_repair(report, missing_sections, "Structural Repair")
+            align_draft = run_alignment_check("draft", report)
         candidates = [{"label": "draft", "text": report}]
         selected_label = "draft"
         selected_report = report
@@ -2603,12 +2592,12 @@ class ReportOrchestrator:
         quality_model = args.quality_model or check_model or args.model
         if quality_iterations > 0:
             for idx in range(quality_iterations):
-                critic_prompt = helpers.resolve_agent_prompt(
+                critic_prompt = agent_runtime.prompt(
                     "critic",
                     prompts.build_critic_prompt(language, required_sections),
                     self._agent_overrides,
                 )
-                critic_model = helpers.resolve_agent_model("critic", quality_model, self._agent_overrides)
+                critic_model = agent_runtime.model("critic", quality_model, self._agent_overrides)
                 critic_max, critic_max_source = agent_max_tokens("critic")
                 critic_agent = helpers.create_agent_with_fallback(
                     self._create_deep_agent,
@@ -2643,12 +2632,12 @@ class ReportOrchestrator:
                 if "no_changes" in critique.lower():
                     break
 
-                revise_prompt = helpers.resolve_agent_prompt(
+                revise_prompt = agent_runtime.prompt(
                     "reviser",
                     prompts.build_revise_prompt(format_instructions, output_format, language),
                     self._agent_overrides,
                 )
-                revise_model = helpers.resolve_agent_model("reviser", quality_model, self._agent_overrides)
+                revise_model = agent_runtime.model("reviser", quality_model, self._agent_overrides)
                 revise_max, revise_max_source = agent_max_tokens("reviser")
                 revise_agent = helpers.create_agent_with_fallback(
                     self._create_deep_agent,
@@ -2691,7 +2680,7 @@ class ReportOrchestrator:
             eval_path = notes_dir / "quality_evals.jsonl"
             pairwise_path = notes_dir / "quality_pairwise.jsonl"
             evaluations: list[dict] = []
-            evaluator_model = helpers.resolve_agent_model("evaluator", quality_model, self._agent_overrides)
+            evaluator_model = agent_runtime.model("evaluator", quality_model, self._agent_overrides)
             for idx, candidate in enumerate(candidates):
                 eval_max, eval_max_source = agent_max_tokens("evaluator")
                 evaluation = helpers.evaluate_report(
@@ -2716,7 +2705,7 @@ class ReportOrchestrator:
                 helpers.append_jsonl(eval_path, evaluation)
             if args.quality_strategy == "pairwise":
                 wins = {idx: 0.0 for idx in range(len(candidates))}
-                compare_model = helpers.resolve_agent_model("pairwise_compare", quality_model, self._agent_overrides)
+                compare_model = agent_runtime.model("pairwise_compare", quality_model, self._agent_overrides)
                 for i in range(len(candidates)):
                     for j in range(i + 1, len(candidates)):
                         compare_max, compare_max_source = agent_max_tokens("pairwise_compare")
@@ -2788,7 +2777,13 @@ class ReportOrchestrator:
         report = run_structural_repair(report, missing_sections, "Structural Repair (final)")
         align_final = run_alignment_check("final", report)
 
-        workflow_summary, workflow_path = write_workflow_summary()
+        workflow_summary, workflow_path = write_workflow_summary(
+            stage_status=stage_status,
+            stage_order=workflow_stage_order,
+            notes_dir=notes_dir,
+            run_dir=run_dir,
+            template_adjustment_path=template_adjustment_path,
+        )
 
         return PipelineResult(
             report=report,
@@ -2829,3 +2824,4 @@ class ReportOrchestrator:
             workflow_summary=workflow_summary,
             workflow_path=workflow_path,
         )
+

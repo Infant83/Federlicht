@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.5.0
+- Federnett workflow pipeline upgraded from a static status strip to an interactive runtime map:
+  - stage selection/toggle and drag-reorder reflected in the Live Logs workflow track
+  - automatic dependency stage visibility (`auto`) and loop-back feedback cues for quality iterations
+  - per-pass runtime telemetry surfaced from Federlicht (`elapsed_ms`, estimated tokens, cache hits, runtime bundle)
+- Prompt/template generation and other ad-hoc background tasks are now shown as transient workflow “extra process” spots, improving live observability of non-core pipeline work.
+- Live log UX improvements:
+  - path-like tokens in raw logs are clickable and open directly in File Preview
+  - result node path now follows the actual final output filename (for example `report_full_1.html` when suffixing occurs)
+  - primary run buttons now show `Running...` and stay disabled while jobs are active
+- Historical run workflow restoration and resume:
+  - opening a history log now reconstructs pipeline progress from `report_workflow.json` (with `report_workflow.md` fallback) plus log signals
+  - users can select a resume checkpoint stage directly on the workflow track and apply a resume stage preset to Federlicht (`--stages`)
+  - one-click draft generation of a resume/update prompt file is wired back into `Prompt File` for iterative reruns
+- Version management cleanup across components:
+  - package version bumped to `1.5.0`
+  - add shared version resolver (`federlicht.versioning`) that prefers local `pyproject.toml` version and falls back safely
+  - Feather `__version__` and Federnett HTTP `server_version` now use the shared resolver instead of stale hardcoded strings
+  - web research User-Agent now uses Feather version dynamically to prevent drift
+
+## 1.4.1
+- Expose Federlicht live log truncation controls in Federnett Advanced:
+  - `Progress Chars` -> wires to `--progress-chars`
+  - `Max Tool Chars` -> wires to `--max-tool-chars`
+- Persist and restore these runtime controls via `report_notes/report_meta.json` so reopening a run restores `max_chars`, `max_tool_chars`, `max_pdf_pages`, and `progress_chars`.
+- Add help text update in Federnett modal to document `--progress-chars` behavior and default.
+
 ## 1.4.0
 - Add Federnett Guide Agent panel (`질문하기`) with repo-aware answers, source citations, and line-focused source preview links.
 - Add Feather agentic search mode controls across CLI/UI (`--agentic-search`, `--model`, `--max-iter`) and stream trace visibility in logs.

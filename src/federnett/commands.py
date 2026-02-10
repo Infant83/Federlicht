@@ -78,8 +78,11 @@ def _build_federlicht_cmd(cfg: FedernettConfig, payload: dict[str, Any]) -> list
     if output_path:
         resolved_output = resolve_under_root(cfg.root, str(output_path))
         cmd.extend(["--output", str(resolved_output)])
+    free_format = parse_bool(payload, "free_format")
+    if free_format:
+        cmd.append("--free-format")
     template = payload.get("template")
-    if template:
+    if template and not free_format:
         cmd.extend(["--template", str(template)])
     lang = payload.get("lang")
     if lang:
@@ -88,7 +91,7 @@ def _build_federlicht_cmd(cfg: FedernettConfig, payload: dict[str, Any]) -> list
     if depth:
         cmd.extend(["--depth", str(depth)])
     template_rigidity = payload.get("template_rigidity")
-    if template_rigidity:
+    if template_rigidity and not free_format:
         cmd.extend(["--template-rigidity", str(template_rigidity)])
     prompt = payload.get("prompt")
     if prompt:
@@ -130,6 +133,9 @@ def _build_federlicht_cmd(cfg: FedernettConfig, payload: dict[str, Any]) -> list
     max_tool_chars = payload.get("max_tool_chars")
     if max_tool_chars is not None and str(max_tool_chars) != "":
         cmd.extend(["--max-tool-chars", str(max_tool_chars)])
+    progress_chars = payload.get("progress_chars")
+    if progress_chars is not None and str(progress_chars) != "":
+        cmd.extend(["--progress-chars", str(progress_chars)])
     max_pdf_pages = payload.get("max_pdf_pages")
     if max_pdf_pages is not None and str(max_pdf_pages) != "":
         cmd.extend(["--max-pdf-pages", str(max_pdf_pages)])
@@ -158,6 +164,10 @@ def _build_federlicht_cmd(cfg: FedernettConfig, payload: dict[str, Any]) -> list
     if agent_profile_dir:
         resolved_dir = resolve_under_root(cfg.root, str(agent_profile_dir))
         cmd.extend(["--agent-profile-dir", str(resolved_dir)])
+    agent_config = payload.get("agent_config")
+    if agent_config:
+        resolved_config = resolve_under_root(cfg.root, str(agent_config))
+        cmd.extend(["--agent-config", str(resolved_config)])
     site_output = payload.get("site_output")
     if site_output:
         resolved_site = resolve_under_root(cfg.root, str(site_output))
@@ -185,8 +195,11 @@ def _build_generate_prompt_cmd(cfg: FedernettConfig, payload: dict[str, Any]) ->
     if output_path:
         resolved_output = resolve_under_root(cfg.root, str(output_path))
         cmd.extend(["--output", str(resolved_output)])
+    free_format = parse_bool(payload, "free_format")
+    if free_format:
+        cmd.append("--free-format")
     template = payload.get("template")
-    if template:
+    if template and not free_format:
         cmd.extend(["--template", str(template)])
     lang = payload.get("lang")
     if lang:
@@ -195,7 +208,7 @@ def _build_generate_prompt_cmd(cfg: FedernettConfig, payload: dict[str, Any]) ->
     if depth:
         cmd.extend(["--depth", str(depth)])
     template_rigidity = payload.get("template_rigidity")
-    if template_rigidity:
+    if template_rigidity and not free_format:
         cmd.extend(["--template-rigidity", str(template_rigidity)])
     model = expand_env_reference(payload.get("model"))
     if model:
@@ -203,6 +216,10 @@ def _build_generate_prompt_cmd(cfg: FedernettConfig, payload: dict[str, Any]) ->
     check_model = expand_env_reference(payload.get("check_model"))
     if check_model:
         cmd.extend(["--check-model", str(check_model)])
+    agent_config = payload.get("agent_config")
+    if agent_config:
+        resolved_config = resolve_under_root(cfg.root, str(agent_config))
+        cmd.extend(["--agent-config", str(resolved_config)])
     temperature_level = payload.get("temperature_level")
     if temperature_level:
         cmd.extend(["--temperature-level", str(temperature_level)])

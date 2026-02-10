@@ -8,7 +8,7 @@ import shutil
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
 
@@ -69,6 +69,8 @@ AGENTIC_TRACE_JSONL = "agentic_trace.jsonl"
 AGENTIC_TRACE_MD = "agentic_trace.md"
 AGENTIC_DEFAULT_MODEL = "gpt-4o-mini"
 AGENTIC_DEFAULT_MAX_ITER = 3
+AGENTIC_FALLBACK_MODEL_ENV = "FEATHER_AGENTIC_FALLBACK_MODEL"
+AGENTIC_PLANNER_TOKEN_BUDGET = 900
 
 
 def is_instruction_file(path: Path) -> bool:
@@ -777,7 +779,28 @@ def select_youtube_queries(job: Job) -> List[str]:
     explicit = [spec.text for spec in job.query_specs if is_explicit_youtube_query(spec.text)]
     if explicit:
         return explicit
-    return [spec.text for spec in job.query_specs if "youtube" in spec.hints]
+    hinted = [spec.text for spec in job.query_specs if "youtube" in spec.hints]
+    if hinted:
+        return hinted
+    if not job.youtube_enabled:
+        return []
+    fallback: List[str] = []
+    seen: set[str] = set()
+    for spec in job.query_specs:
+        text = str(spec.text or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        fallback.append(text)
+    if fallback:
+        return fallback[:6]
+    for text in job.queries:
+        normalized = str(text or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        fallback.append(normalized)
+    return fallback[:6]
 
 
 def run_tavily_extract(job: Job, tavily: TavilyClient, logger: JobLogger) -> None:
@@ -2152,13 +2175,34 @@ def _resolve_agentic_model(model_name: Optional[str]) -> str:
     return AGENTIC_DEFAULT_MODEL
 
 
-def _agentic_endpoint() -> str:
-    base = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").strip().rstrip("/")
-    if base.endswith("/chat/completions"):
-        return base
+def _agentic_endpoints() -> List[Tuple[str, str]]:
+    base = (os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE") or "https://api.openai.com/v1").strip()
+    base = base.rstrip("/")
+    candidates: List[Tuple[str, str]]
     if base.endswith("/v1"):
-        return f"{base}/chat/completions"
-    return f"{base}/chat/completions"
+        root = base[:-3].rstrip("/")
+        candidates = [
+            ("responses", f"{base}/responses"),
+            ("responses", f"{root}/responses"),
+            ("chat", f"{base}/chat/completions"),
+            ("chat", f"{root}/chat/completions"),
+        ]
+    else:
+        candidates = [
+            ("responses", f"{base}/responses"),
+            ("responses", f"{base}/v1/responses"),
+            ("chat", f"{base}/chat/completions"),
+            ("chat", f"{base}/v1/chat/completions"),
+        ]
+    out: List[Tuple[str, str]] = []
+    seen: set[Tuple[str, str]] = set()
+    for kind, endpoint in candidates:
+        pair = (kind, endpoint.rstrip("/"))
+        if pair in seen:
+            continue
+        seen.add(pair)
+        out.append(pair)
+    return out
 
 
 def _parse_json_object(text: str) -> Optional[Dict[str, Any]]:
@@ -2181,8 +2225,154 @@ def _parse_json_object(text: str) -> Optional[Dict[str, Any]]:
     return data if isinstance(data, dict) else None
 
 
+def _agentic_error_text(response: requests.Response, max_chars: int = 320) -> str:
+    text = (response.text or "").strip()
+    if not text:
+        return f"HTTP {response.status_code}"
+    try:
+        payload = response.json()
+    except Exception:
+        payload = None
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            msg = error.get("message")
+            if isinstance(msg, str) and msg.strip():
+                text = msg.strip()
+        elif isinstance(error, str) and error.strip():
+            text = error.strip()
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) > max_chars:
+        return text[: max_chars - 3] + "..."
+    return text
+
+
+def _planner_chat_request(
+    endpoint: str,
+    model_name: str,
+    system_prompt: str,
+    user_prompt: str,
+    headers: Dict[str, str],
+    logger: JobLogger,
+) -> Dict[str, Any]:
+    base_request: Dict[str, Any] = {
+        "model": model_name,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.1,
+    }
+    attempts: List[Tuple[str, bool]] = [
+        ("max_completion_tokens", True),
+        ("max_tokens", True),
+        ("", True),
+        ("max_completion_tokens", False),
+        ("max_tokens", False),
+        ("", False),
+    ]
+    last_detail = ""
+    for idx, (token_mode, use_response_format) in enumerate(attempts):
+        request_body = dict(base_request)
+        if use_response_format:
+            request_body["response_format"] = {"type": "json_object"}
+        if token_mode:
+            request_body[token_mode] = AGENTIC_PLANNER_TOKEN_BUDGET
+        response = requests.post(endpoint, json=request_body, headers=headers, timeout=120)
+        if response.status_code < 400:
+            try:
+                return response.json()
+            except Exception as exc:
+                raise RuntimeError(f"non-JSON response at {endpoint}: {repr(exc)}") from exc
+        detail = _agentic_error_text(response)
+        last_detail = detail
+        if response.status_code == 400 and idx < len(attempts) - 1:
+            next_token_mode, next_use_response_format = attempts[idx + 1]
+            if use_response_format and not next_use_response_format:
+                logger.log("AGENTIC planner fallback: retry without response_format")
+            elif token_mode != next_token_mode:
+                if next_token_mode == "max_tokens":
+                    logger.log("AGENTIC planner fallback: retry with max_tokens")
+                elif next_token_mode == "max_completion_tokens":
+                    logger.log("AGENTIC planner fallback: retry with max_completion_tokens")
+                else:
+                    logger.log("AGENTIC planner fallback: retry without token budget")
+            continue
+        raise RuntimeError(f"HTTP {response.status_code} at {endpoint} ({detail})")
+    raise RuntimeError(f"HTTP 400 at {endpoint} ({last_detail or 'planner request failed'})")
+
+
+def _planner_responses_request(
+    endpoint: str,
+    model_name: str,
+    system_prompt: str,
+    user_prompt: str,
+    headers: Dict[str, str],
+) -> Dict[str, Any]:
+    request_body: Dict[str, Any] = {
+        "model": model_name,
+        "instructions": system_prompt,
+        "input": user_prompt,
+        "temperature": 0.1,
+    }
+    response = requests.post(endpoint, json=request_body, headers=headers, timeout=120)
+    if response.status_code >= 400:
+        detail = _agentic_error_text(response)
+        raise RuntimeError(f"HTTP {response.status_code} at {endpoint} ({detail})")
+    try:
+        return response.json()
+    except Exception as exc:
+        raise RuntimeError(f"non-JSON response at {endpoint}: {repr(exc)}") from exc
+
+
+def _planner_content_from_chat_response(data: Dict[str, Any]) -> str:
+    content = ""
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return content
+    first = choices[0] if isinstance(choices[0], dict) else None
+    if not isinstance(first, dict):
+        return content
+    message = first.get("message")
+    if not isinstance(message, dict):
+        return content
+    message_content = message.get("content")
+    if isinstance(message_content, str):
+        return message_content
+    if isinstance(message_content, list):
+        parts: List[str] = []
+        for chunk in message_content:
+            if isinstance(chunk, dict) and isinstance(chunk.get("text"), str):
+                parts.append(chunk["text"])
+        content = "\n".join(parts).strip()
+    return content
+
+
+def _planner_content_from_responses_payload(data: Dict[str, Any]) -> str:
+    output_text = data.get("output_text")
+    if isinstance(output_text, str) and output_text.strip():
+        return output_text
+    output = data.get("output")
+    if isinstance(output, list):
+        parts: List[str] = []
+        for item in output:
+            if not isinstance(item, dict):
+                continue
+            content = item.get("content")
+            if not isinstance(content, list):
+                continue
+            for chunk in content:
+                if not isinstance(chunk, dict):
+                    continue
+                text = chunk.get("text")
+                if isinstance(text, str) and text.strip():
+                    parts.append(text.strip())
+        if parts:
+            return "\n".join(parts).strip()
+    return ""
+
+
 def _call_agentic_planner(model_name: str, payload: Dict[str, Any], logger: JobLogger) -> Dict[str, Any]:
-    endpoint = _agentic_endpoint()
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     headers = {"Content-Type": "application/json"}
     if api_key:
@@ -2196,45 +2386,26 @@ def _call_agentic_planner(model_name: str, payload: Dict[str, Any], logger: JobL
         "Allowed types: tavily_search, tavily_extract, arxiv_recent, openalex_search, youtube_search, stop."
     )
     user_prompt = json.dumps(payload, ensure_ascii=False, indent=2)
-    request_body: Dict[str, Any] = {
-        "model": model_name,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.1,
-        "response_format": {"type": "json_object"},
-    }
-    try:
-        response = requests.post(endpoint, json=request_body, headers=headers, timeout=120)
-        if response.status_code >= 400 and "response_format" in request_body:
-            logger.log("AGENTIC planner fallback: retry without response_format")
-            request_body.pop("response_format", None)
-            response = requests.post(endpoint, json=request_body, headers=headers, timeout=120)
-        response.raise_for_status()
-    except Exception as exc:
-        raise RuntimeError(f"agentic planner request failed: {repr(exc)}") from exc
-    try:
-        data = response.json()
-    except Exception as exc:
-        raise RuntimeError(f"agentic planner returned non-JSON response: {repr(exc)}") from exc
-    content = ""
-    choices = data.get("choices")
-    if isinstance(choices, list) and choices:
-        message = choices[0].get("message") if isinstance(choices[0], dict) else None
-        if isinstance(message, dict):
-            message_content = message.get("content")
-            if isinstance(message_content, str):
-                content = message_content
-            elif isinstance(message_content, list):
-                parts: List[str] = []
-                for chunk in message_content:
-                    if isinstance(chunk, dict) and isinstance(chunk.get("text"), str):
-                        parts.append(chunk["text"])
-                content = "\n".join(parts).strip()
-    parsed = _parse_json_object(content)
+    endpoint_errors: List[str] = []
+    parsed: Optional[Dict[str, Any]] = None
+    for kind, endpoint in _agentic_endpoints():
+        try:
+            if kind == "responses":
+                data = _planner_responses_request(endpoint, model_name, system_prompt, user_prompt, headers)
+                content = _planner_content_from_responses_payload(data)
+            else:
+                data = _planner_chat_request(endpoint, model_name, system_prompt, user_prompt, headers, logger)
+                content = _planner_content_from_chat_response(data)
+            parsed = _parse_json_object(content)
+            if parsed:
+                break
+            endpoint_errors.append(f"{kind}@{endpoint}: unparseable output")
+        except Exception as exc:
+            endpoint_errors.append(f"{kind}@{endpoint}: {str(exc)}")
+            continue
     if not parsed:
-        raise RuntimeError("agentic planner produced unparseable output")
+        detail = " | ".join(endpoint_errors[-4:]) if endpoint_errors else "no planner endpoint succeeded"
+        raise RuntimeError(f"agentic planner request failed: {detail}")
     if not isinstance(parsed.get("actions"), list):
         parsed["actions"] = []
     parsed["done"] = bool(parsed.get("done", False))
@@ -2364,6 +2535,103 @@ def _normalize_actions(plan: Dict[str, Any]) -> List[Dict[str, Any]]:
     return normalized
 
 
+def _planner_fallback_model(primary_model: str) -> Optional[str]:
+    candidate = (os.getenv(AGENTIC_FALLBACK_MODEL_ENV) or AGENTIC_DEFAULT_MODEL).strip()
+    if not candidate:
+        return None
+    if candidate == primary_model:
+        return None
+    return candidate
+
+
+def _build_heuristic_agentic_actions(job: Job, metrics: Dict[str, Any]) -> List[Dict[str, Any]]:
+    actions: List[Dict[str, Any]] = []
+    seen: set[Tuple[str, str, str]] = set()
+
+    def add_action(action_type: str, query: str = "", url: str = "", max_results: Optional[int] = None, why: str = "") -> None:
+        normalized_query = str(query or "").strip()
+        normalized_url = str(url or "").strip()
+        key = (action_type, normalized_query, normalized_url)
+        if key in seen:
+            return
+        seen.add(key)
+        payload: Dict[str, Any] = {
+            "type": action_type,
+            "query": normalized_query,
+            "url": normalized_url,
+            "max_results": max_results,
+            "why": why,
+        }
+        actions.append(payload)
+
+    base_queries: List[str] = []
+    for spec in job.query_specs:
+        text = str(spec.text or "").strip()
+        if text and text not in base_queries:
+            base_queries.append(text)
+    if not base_queries:
+        for text in job.queries:
+            normalized = str(text or "").strip()
+            if normalized and normalized not in base_queries:
+                base_queries.append(normalized)
+
+    search_entries = int(metrics.get("tavily_search_entries") or 0)
+    minimum_search = max(2, min(4, len(base_queries))) if base_queries else 2
+    if search_entries < minimum_search:
+        for query in base_queries[:3]:
+            add_action(
+                "tavily_search",
+                query=query,
+                max_results=job.max_results,
+                why="Planner unavailable; expand web coverage.",
+            )
+
+    extract_files = int(metrics.get("tavily_extract_files") or 0)
+    candidate_urls = metrics.get("candidate_urls")
+    if extract_files < 2 and isinstance(candidate_urls, list):
+        for raw_url in candidate_urls[:2]:
+            url = str(raw_url or "").strip()
+            if not URL_RE.match(url):
+                continue
+            add_action(
+                "tavily_extract",
+                url=url,
+                why="Planner unavailable; extract high-signal candidate URL.",
+            )
+
+    if job.youtube_enabled and int(metrics.get("youtube_videos") or 0) == 0 and base_queries:
+        youtube_query = base_queries[0]
+        if not is_explicit_youtube_query(youtube_query):
+            youtube_query = f"{youtube_query} site:youtube.com"
+        add_action(
+            "youtube_search",
+            query=youtube_query,
+            max_results=job.youtube_max_results or job.max_results,
+            why="YouTube enabled but no videos collected yet.",
+        )
+
+    if job.openalex_enabled and int(metrics.get("openalex_works") or 0) == 0 and base_queries:
+        add_action(
+            "openalex_search",
+            query=base_queries[0],
+            max_results=job.openalex_max_results or job.max_results,
+            why="OpenAlex enabled but no works collected yet.",
+        )
+
+    if not actions and base_queries:
+        lang = str(job.lang_pref or "").strip().lower()
+        suffix = "latest updates" if not lang.startswith("ko") else "최신 동향"
+        for query in base_queries[:2]:
+            add_action(
+                "tavily_search",
+                query=f"{query} {suffix}".strip(),
+                max_results=job.max_results,
+                why="Planner unavailable; keep collection moving with refined recency query.",
+            )
+
+    return actions[:6]
+
+
 def _render_agentic_trace_md(trace_path: Path, out_path: Path, query_id: str) -> None:
     if not trace_path.exists():
         return
@@ -2384,6 +2652,9 @@ def _render_agentic_trace_md(trace_path: Path, out_path: Path, query_id: str) ->
         iteration = row.get("iter")
         lines.append(f"## Iter {iteration} / {phase}")
         if phase == "plan":
+            planner_source = str(row.get("planner_source") or "").strip()
+            if planner_source:
+                lines.append(f"- Planner: {planner_source}")
             reason = str(row.get("reason") or "").strip()
             if reason:
                 lines.append(f"- Decision: {reason}")
@@ -2558,15 +2829,43 @@ def run_job_agentic(
                 "If evidence coverage is sufficient for the instruction, set done=true."
             ),
         }
+        planner_source = f"llm:{resolved_model}"
+        plan: Optional[Dict[str, Any]] = None
         try:
             plan = _call_agentic_planner(resolved_model, plan_payload, logger)
         except Exception as exc:
             logger.log(f"AGENTIC planner error iter={iter_idx}: {repr(exc)}")
+            fallback_model = _planner_fallback_model(resolved_model)
+            if fallback_model:
+                try:
+                    logger.log(f"AGENTIC planner fallback: retry with model={fallback_model}")
+                    plan = _call_agentic_planner(fallback_model, plan_payload, logger)
+                    planner_source = f"llm:{fallback_model}"
+                except Exception as fallback_exc:
+                    logger.log(f"AGENTIC planner fallback error iter={iter_idx}: {repr(fallback_exc)}")
+            if plan is None:
+                heuristic_actions = _build_heuristic_agentic_actions(job, metrics_before)
+                if heuristic_actions:
+                    planner_source = "heuristic"
+                    plan = {
+                        "done": False,
+                        "reason": "planner unavailable; heuristic fallback actions selected",
+                        "actions": heuristic_actions,
+                    }
+                    logger.log(
+                        f"AGENTIC planner fallback (heuristic) iter={iter_idx}: actions={len(heuristic_actions)}"
+                    )
+                else:
+                    logger.log(f"AGENTIC stop iter={iter_idx}: planner failed and no fallback actions")
+                    break
+        if plan is None:
+            logger.log(f"AGENTIC stop iter={iter_idx}: planner failed with empty plan")
             break
         actions = _normalize_actions(plan)
         plan_entry = {
             "iter": iter_idx,
             "phase": "plan",
+            "planner_source": planner_source,
             "done": bool(plan.get("done", False)),
             "reason": str(plan.get("reason") or ""),
             "actions": actions,

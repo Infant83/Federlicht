@@ -2,7 +2,7 @@
 
 Author: Hyun-Jung Kim (angpangmokjang@gmail.com, Infant@kias.re.kr)
 
-Version: 1.4.0
+Version: 1.5.0
 
 ## Core Idea
 Federlicht is an agentic research and reporting platform designed around one principle:

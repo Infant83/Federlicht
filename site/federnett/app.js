@@ -60,6 +60,33 @@ const state = {
     draggingId: null,
     activeStageId: null,
   },
+  workflow: {
+    kind: "",
+    running: false,
+    historyMode: false,
+    historySourcePath: "",
+    resumeStage: "",
+    historyStageStatus: {},
+    selectedStages: new Set(),
+    stageOrder: [],
+    autoStages: new Set(),
+    autoStageReasons: {},
+    passMetrics: [],
+    activeStep: "",
+    completedSteps: new Set(),
+    hasError: false,
+    statusText: "Idle",
+    mainStatusText: "Idle",
+    runRel: "",
+    resultPath: "",
+    spots: [],
+    spotSeq: 0,
+    spotTimers: {},
+    lastMainStageIndex: -1,
+    loopbackCount: 0,
+    loopbackPulse: false,
+    loopbackTimer: null,
+  },
   templateGen: {
     log: "",
     active: false,
@@ -130,6 +157,51 @@ const STAGE_DEFS = [
 ];
 
 const STAGE_INDEX = Object.fromEntries(STAGE_DEFS.map((s, i) => [s.id, i]));
+const WORKFLOW_STAGE_ORDER = STAGE_DEFS.map((s) => s.id);
+const WORKFLOW_NODE_ORDER = ["feather", ...WORKFLOW_STAGE_ORDER, "result"];
+const WORKFLOW_LABELS = {
+  feather: "Feather",
+  scout: "Scout",
+  plan: "Plan",
+  evidence: "Evidence",
+  writer: "Writer",
+  quality: "Quality",
+  result: "Result",
+};
+const WORKFLOW_SPOT_LABELS = {
+  prompt: "Prompt Generate",
+  template: "Template Generate",
+  generate_prompt: "Prompt Generate",
+  job: "Extra Process",
+};
+const WORKFLOW_SPOT_TTL_MS = 7000;
+const WORKFLOW_LOOPBACK_PULSE_MS = 1200;
+const RUN_SCOPED_DIR_PREFIXES = [
+  "archive/",
+  "instruction/",
+  "report_notes/",
+  "report/",
+  "output/",
+  "tmp/",
+  "final_report/",
+  "large_tool_results/",
+  "supporting/",
+];
+const WORKFLOW_EVENT_RE =
+  /\[workflow\]\s+stage=([a-z_]+)\s+status=([a-z_]+)(?:\s+detail=([^\n]+))?/i;
+const WORKFLOW_STATUS_PRIORITY = {
+  ran: 60,
+  cached: 55,
+  skipped: 50,
+  pending: 40,
+  running: 40,
+  in_progress: 40,
+  complete: 35,
+  done: 35,
+  disabled: 10,
+  error: -20,
+  failed: -20,
+};
 
 const FIELD_HELP = {
   "feather-download-pdf": "Download arXiv/web PDFs when available and extract text for archive indexing.",
@@ -147,11 +219,19 @@ const FIELD_HELP = {
   "feather-max-iter": "Maximum planning iterations in agentic mode.",
   "federlicht-template-rigidity":
     "How strongly the writer follows template structure and style guidance.",
+  "federlicht-free-format":
+    "Write without template scaffolding. When enabled, template and rigidity controls are ignored.",
   "federlicht-temperature-level": "Preset creativity/variance level for report agents.",
   "federlicht-temperature": "Explicit temperature override (takes precedence over level when set).",
   "federlicht-quality-iterations": "Number of quality loop passes (critic/reviser/evaluator).",
   "federlicht-max-chars": "Per-document read limit used during report ingestion.",
+  "federlicht-max-tool-chars":
+    "Cumulative read_document budget across the run (0 keeps automatic safety cap).",
+  "federlicht-progress-chars":
+    "Live-log snippet length per stage message before appending [truncated].",
   "federlicht-max-pdf-pages": "Maximum PDF pages to read per document.",
+  "federlicht-agent-config":
+    "Agent override JSON path. Lets Federnett control per-agent model/prompt/enabled/max_input_tokens centrally.",
 };
 
 function isFederlichtActive() {
@@ -1781,8 +1861,33 @@ function renderRunFiles(summary) {
   });
 }
 
+function syncWorkflowResultPathFromSummary(summary) {
+  if (!summary || state.workflow.kind !== "federlicht") return false;
+  const latest = normalizePathString(summary.latest_report_rel || "");
+  if (!latest) return false;
+  const summaryRun = normalizePathString(summary.run_rel || "");
+  const workflowRun = normalizePathString(state.workflow.runRel || "");
+  const sameRun =
+    !workflowRun
+    || !summaryRun
+    || workflowRun === summaryRun
+    || summaryRun.endsWith(`/${workflowRun}`)
+    || workflowRun.endsWith(`/${summaryRun}`);
+  if (!sameRun) return false;
+  if (workflowRun && !summaryRun && !latest.startsWith(`${workflowRun}/`)) return false;
+  if (normalizePathString(state.workflow.resultPath || "") === latest) return false;
+  state.workflow.resultPath = latest;
+  if (!workflowRun && summaryRun) {
+    state.workflow.runRel = summaryRun;
+  }
+  return true;
+}
+
 function renderRunSummary(summary) {
   state.runSummary = summary;
+  if (syncWorkflowResultPathFromSummary(summary)) {
+    renderWorkflow();
+  }
   setStudioMeta(summary?.run_rel, summary?.updated_at);
   const trashBtn = $("#run-trash");
   if (trashBtn) {
@@ -2822,6 +2927,22 @@ function selectedStagesInOrder() {
   return state.pipeline.order.filter((id) => state.pipeline.selected.has(id));
 }
 
+function currentPipelineStageOrder() {
+  const canonical = STAGE_DEFS.map((s) => s.id);
+  const ordered = [];
+  const seen = new Set();
+  for (const id of state.pipeline.order || []) {
+    if (!STAGE_INDEX[id] && STAGE_INDEX[id] !== 0) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ordered.push(id);
+  }
+  for (const id of canonical) {
+    if (!seen.has(id)) ordered.push(id);
+  }
+  return ordered;
+}
+
 function updatePipelineOutputs() {
   const selected = selectedStagesInOrder();
   const skipped = STAGE_DEFS.map((s) => s.id).filter((id) => !state.pipeline.selected.has(id));
@@ -2833,6 +2954,1212 @@ function updatePipelineOutputs() {
   if (skipInput) skipInput.value = skipCsv;
   setText("#pipeline-stages-value", stagesCsv || "-");
   setText("#pipeline-skip-value", skipCsv || "-");
+  syncWorkflowStageSelection(selected);
+}
+
+function workflowLabel(stepId) {
+  return WORKFLOW_LABELS[stepId] || stepId || "-";
+}
+
+function workflowSpotLabel(kind) {
+  return WORKFLOW_SPOT_LABELS[kind] || WORKFLOW_SPOT_LABELS.job;
+}
+
+function clearWorkflowLoopbackTimer() {
+  if (state.workflow.loopbackTimer) {
+    window.clearTimeout(state.workflow.loopbackTimer);
+    state.workflow.loopbackTimer = null;
+  }
+}
+
+function clearWorkflowSpotTimer(spotId) {
+  const timer = state.workflow.spotTimers?.[spotId];
+  if (!timer) return;
+  window.clearTimeout(timer);
+  delete state.workflow.spotTimers[spotId];
+}
+
+function removeWorkflowSpot(spotId) {
+  clearWorkflowSpotTimer(spotId);
+  state.workflow.spots = (state.workflow.spots || []).filter((spot) => spot.id !== spotId);
+  if (!state.workflow.running) {
+    const anyRunningSpot = state.workflow.spots.some((spot) => spot.running);
+    if (!anyRunningSpot) {
+      state.workflow.statusText = state.workflow.mainStatusText || "Idle";
+    }
+  }
+  renderWorkflow();
+}
+
+function scheduleWorkflowSpotRemoval(spotId, ttlMs = WORKFLOW_SPOT_TTL_MS) {
+  clearWorkflowSpotTimer(spotId);
+  const timer = window.setTimeout(() => {
+    removeWorkflowSpot(spotId);
+  }, ttlMs);
+  state.workflow.spotTimers[spotId] = timer;
+}
+
+function findRunningWorkflowSpot(kind) {
+  const spots = state.workflow.spots || [];
+  for (let i = spots.length - 1; i >= 0; i -= 1) {
+    const spot = spots[i];
+    if (spot.kind === kind && spot.running) return spot;
+  }
+  return null;
+}
+
+function beginWorkflowSpot(kind, payload = {}) {
+  const id = `spot-${kind}-${Date.now()}-${state.workflow.spotSeq++}`;
+  const path = normalizePathString(payload._spot_path || payload.output || "");
+  const spot = {
+    id,
+    kind,
+    label: String(payload._spot_label || "").trim() || workflowSpotLabel(kind),
+    running: true,
+    status: "running",
+    hasError: false,
+    path,
+    startedAt: Date.now(),
+  };
+  state.workflow.spots.push(spot);
+  if (state.workflow.spots.length > 6) {
+    const trimmed = state.workflow.spots.shift();
+    if (trimmed?.id) clearWorkflowSpotTimer(trimmed.id);
+  }
+  if (!state.workflow.running) {
+    state.workflow.activeStep = "";
+    state.workflow.statusText = `Extra · ${spot.label}`;
+  }
+  renderWorkflow();
+  return spot;
+}
+
+function completeWorkflowSpot(kind, returnCode, status = "") {
+  const spot = findRunningWorkflowSpot(kind);
+  if (!spot) return;
+  const statusLower = String(status || "").toLowerCase();
+  const failedByStatus = ["fail", "error", "killed", "cancel", "abort"].some((token) =>
+    statusLower.includes(token),
+  );
+  let success = Number(returnCode) === 0;
+  if (!Number.isFinite(Number(returnCode)) && statusLower) {
+    success = !failedByStatus;
+  }
+  if (failedByStatus) success = false;
+  spot.running = false;
+  spot.status = success ? "done" : "error";
+  spot.hasError = !success;
+  if (!state.workflow.running) {
+    state.workflow.statusText = success ? `Extra done · ${spot.label}` : `Extra failed · ${spot.label}`;
+  }
+  scheduleWorkflowSpotRemoval(spot.id);
+  renderWorkflow();
+}
+
+function triggerWorkflowLoopback() {
+  state.workflow.loopbackCount = Number(state.workflow.loopbackCount || 0) + 1;
+  state.workflow.loopbackPulse = true;
+  clearWorkflowLoopbackTimer();
+  state.workflow.loopbackTimer = window.setTimeout(() => {
+    state.workflow.loopbackPulse = false;
+    state.workflow.loopbackTimer = null;
+    renderWorkflow();
+  }, WORKFLOW_LOOPBACK_PULSE_MS);
+}
+
+function resetWorkflowState() {
+  state.workflow.kind = "";
+  state.workflow.running = false;
+  state.workflow.historyMode = false;
+  state.workflow.historySourcePath = "";
+  state.workflow.resumeStage = "";
+  state.workflow.historyStageStatus = {};
+  state.workflow.selectedStages = new Set(selectedStagesInOrder());
+  state.workflow.stageOrder = currentPipelineStageOrder();
+  state.workflow.autoStages = new Set();
+  state.workflow.autoStageReasons = {};
+  state.workflow.passMetrics = [];
+  state.workflow.activeStep = "";
+  state.workflow.completedSteps = new Set();
+  state.workflow.hasError = false;
+  state.workflow.statusText = "Idle";
+  state.workflow.mainStatusText = "Idle";
+  state.workflow.runRel = "";
+  state.workflow.resultPath = "";
+  clearWorkflowLoopbackTimer();
+  state.workflow.lastMainStageIndex = -1;
+  state.workflow.loopbackCount = 0;
+  state.workflow.loopbackPulse = false;
+  (state.workflow.spots || []).forEach((spot) => {
+    if (spot?.id) clearWorkflowSpotTimer(spot.id);
+  });
+  state.workflow.spots = [];
+  state.workflow.spotTimers = {};
+  state.workflow.spotSeq = 0;
+}
+
+function syncWorkflowStageSelection(selected = selectedStagesInOrder()) {
+  if (state.workflow.running && state.workflow.kind === "federlicht") return;
+  if (state.workflow.historyMode && state.workflow.kind === "federlicht") {
+    state.workflow.selectedStages = new Set(selected);
+    state.workflow.stageOrder = currentPipelineStageOrder();
+    if (!state.workflow.selectedStages.has(state.workflow.resumeStage || "")) {
+      const ordered = workflowStageOrder().filter((id) => state.workflow.selectedStages.has(id));
+      state.workflow.resumeStage = ordered[0] || "";
+    }
+    renderWorkflow();
+    return;
+  }
+  state.workflow.selectedStages = new Set(selected);
+  state.workflow.stageOrder = currentPipelineStageOrder();
+  state.workflow.autoStages = new Set();
+  state.workflow.autoStageReasons = {};
+  state.workflow.passMetrics = [];
+  renderWorkflow();
+}
+
+function workflowStageOrder() {
+  const raw = Array.isArray(state.workflow.stageOrder) ? state.workflow.stageOrder : [];
+  const ordered = [];
+  const seen = new Set();
+  for (const id of raw) {
+    if (!WORKFLOW_STAGE_ORDER.includes(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ordered.push(id);
+  }
+  for (const id of WORKFLOW_STAGE_ORDER) {
+    if (!seen.has(id)) ordered.push(id);
+  }
+  return ordered;
+}
+
+function workflowNodeOrder() {
+  return ["feather", ...workflowStageOrder(), "result"];
+}
+
+function nextSelectedWorkflowStage(afterStageId) {
+  const ordered = workflowStageOrder().filter((id) => state.workflow.selectedStages.has(id));
+  const idx = ordered.indexOf(afterStageId);
+  if (idx < 0) return afterStageId;
+  for (let i = idx + 1; i < ordered.length; i += 1) {
+    const candidate = ordered[i];
+    if (!state.workflow.completedSteps.has(candidate)) {
+      return candidate;
+    }
+  }
+  return afterStageId;
+}
+
+function workflowIsStageSelected(stepId) {
+  if (stepId === "feather" || stepId === "result") return true;
+  if (state.workflow.kind !== "federlicht" && !state.workflow.running) {
+    return state.workflow.selectedStages.has(stepId);
+  }
+  if (state.workflow.kind !== "federlicht") return false;
+  return state.workflow.selectedStages.has(stepId);
+}
+
+function stageOrderIndex(stageId) {
+  return workflowStageOrder().indexOf(stageId);
+}
+
+function markWorkflowCompletedThroughStage(stageId) {
+  const selected = workflowStageOrder().filter((id) => state.workflow.selectedStages.has(id));
+  const stopIdx = selected.indexOf(stageId);
+  selected.forEach((id, idx) => {
+    if (stopIdx >= 0 && idx < stopIdx) {
+      state.workflow.completedSteps.add(id);
+    }
+  });
+}
+
+function beginWorkflow(kind, payload = {}) {
+  const selected = selectedStagesInOrder();
+  if (kind === "federlicht") {
+    const workflowRun = normalizePathString(selectedRunRel() || inferRunRelFromPayload(payload) || "");
+    state.workflow.kind = "federlicht";
+    state.workflow.running = true;
+    state.workflow.historyMode = false;
+    state.workflow.historySourcePath = "";
+    state.workflow.resumeStage = "";
+    state.workflow.historyStageStatus = {};
+    state.workflow.runRel = workflowRun;
+    state.workflow.selectedStages = new Set(selected);
+    state.workflow.stageOrder = currentPipelineStageOrder();
+    state.workflow.autoStages = new Set();
+    state.workflow.autoStageReasons = {};
+    state.workflow.passMetrics = [];
+    state.workflow.completedSteps = new Set(["feather"]);
+    state.workflow.activeStep = selected[0] || "scout";
+    state.workflow.hasError = false;
+    state.workflow.statusText = `Streaming · ${workflowLabel(state.workflow.activeStep)}`;
+    state.workflow.mainStatusText = state.workflow.statusText;
+    state.workflow.resultPath = normalizeWorkflowResultPath(payload.output || "");
+    state.workflow.lastMainStageIndex = stageOrderIndex(state.workflow.activeStep);
+    state.workflow.loopbackCount = 0;
+    state.workflow.loopbackPulse = false;
+    clearWorkflowLoopbackTimer();
+    renderWorkflow();
+    return;
+  }
+  if (kind === "feather") {
+    state.workflow.runRel = "";
+    state.workflow.kind = "feather";
+    state.workflow.running = true;
+    state.workflow.historyMode = false;
+    state.workflow.historySourcePath = "";
+    state.workflow.resumeStage = "";
+    state.workflow.historyStageStatus = {};
+    state.workflow.selectedStages = new Set();
+    state.workflow.stageOrder = currentPipelineStageOrder();
+    state.workflow.autoStages = new Set();
+    state.workflow.autoStageReasons = {};
+    state.workflow.passMetrics = [];
+    state.workflow.completedSteps = new Set();
+    state.workflow.activeStep = "feather";
+    state.workflow.hasError = false;
+    state.workflow.statusText = "Streaming · Feather";
+    state.workflow.mainStatusText = state.workflow.statusText;
+    state.workflow.resultPath = "";
+    state.workflow.lastMainStageIndex = -1;
+    state.workflow.loopbackCount = 0;
+    state.workflow.loopbackPulse = false;
+    clearWorkflowLoopbackTimer();
+    renderWorkflow();
+    return;
+  }
+  beginWorkflowSpot(kind, payload);
+}
+
+function detectFederlichtStageFromLog(text) {
+  const lowered = String(text || "").toLowerCase();
+  if (!lowered.trim()) return "";
+  if (lowered.includes("job end") || lowered.includes("[done] done") || lowered.includes("job failed")) {
+    return "result";
+  }
+  if (
+    lowered.includes("scout notes")
+    || lowered.includes("alignment check (scout)")
+    || lowered.includes("stage: scout")
+  ) {
+    return "scout";
+  }
+  if (
+    lowered.includes("\nplan:")
+    || lowered.startsWith("plan:")
+    || /(^|[\s\]])plan:/.test(lowered)
+    || lowered.includes("alignment plan")
+    || lowered.includes("report plan")
+  ) {
+    return "plan";
+  }
+  if (
+    lowered.includes("evidence notes")
+    || lowered.includes("alignment check (evidence)")
+    || lowered.includes("stage: evidence")
+  ) {
+    return "evidence";
+  }
+  if (
+    lowered.includes("quality")
+    || lowered.includes("critic")
+    || lowered.includes("reviser")
+    || lowered.includes("pairwise compare")
+  ) {
+    return "quality";
+  }
+  if (
+    lowered.includes("report preview")
+    || lowered.includes("stage: writer")
+    || lowered.includes("writer")
+  ) {
+    return "writer";
+  }
+  return "";
+}
+
+function normalizeWorkflowEventStage(stageName) {
+  const raw = String(stageName || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (raw === "clarifier" || raw === "template_adjust") return "scout";
+  if (raw === "plan_check") return "plan";
+  if (raw === "web" || raw === "alignment" || raw === "reducer") return "evidence";
+  if (
+    raw === "critic"
+    || raw === "reviser"
+    || raw === "evaluator"
+    || raw === "pairwise_compare"
+    || raw === "synthesizer"
+  ) {
+    return "quality";
+  }
+  if (WORKFLOW_STAGE_ORDER.includes(raw) || raw === "result") return raw;
+  return "";
+}
+
+function parseWorkflowEvent(text) {
+  const match = String(text || "").match(WORKFLOW_EVENT_RE);
+  if (!match) return null;
+  const stageId = normalizeWorkflowEventStage(match[1]);
+  if (!stageId) return null;
+  return {
+    stageId,
+    status: String(match[2] || "").toLowerCase(),
+    detail: String(match[3] || "").trim(),
+  };
+}
+
+function parseWorkflowDetailMeta(detail) {
+  const payload = {
+    autoRequiredBy: [],
+    autoRequired: false,
+    passMetric: null,
+  };
+  const text = String(detail || "").trim();
+  if (!text) return payload;
+  if (/\bauto_required\b/i.test(text)) {
+    payload.autoRequired = true;
+  }
+  const autoMatch = text.match(/auto_required_by=([a-z_,]+)/i);
+  if (autoMatch && autoMatch[1]) {
+    const seen = new Set();
+    const requiredBy = [];
+    autoMatch[1]
+      .split(",")
+      .map((token) => String(token || "").trim().toLowerCase())
+      .forEach((token) => {
+        if (!token || !WORKFLOW_STAGE_ORDER.includes(token) || seen.has(token)) return;
+        seen.add(token);
+        requiredBy.push(token);
+      });
+    payload.autoRequiredBy = requiredBy;
+  }
+  const passMatch = text.match(/(?:^|[,\s])pass=(\d+)(?:[,]|$)/i);
+  const elapsedMatch = text.match(/(?:^|[,\s])elapsed_ms=(\d+)(?:[,]|$)/i);
+  const tokenMatch = text.match(/(?:^|[,\s])est_tokens=(\d+)(?:[,]|$)/i);
+  const cacheMatch = text.match(/(?:^|[,\s])cache_hits=(\d+)(?:[,]|$)/i);
+  const runtimeMatch = text.match(/(?:^|[,\s])runtime=([a-z_|]+)(?:[,]|$)/i);
+  if (passMatch || elapsedMatch || tokenMatch || cacheMatch) {
+    payload.passMetric = {
+      pass: passMatch ? Number(passMatch[1]) : 0,
+      elapsedMs: elapsedMatch ? Number(elapsedMatch[1]) : 0,
+      estTokens: tokenMatch ? Number(tokenMatch[1]) : 0,
+      cacheHits: cacheMatch ? Number(cacheMatch[1]) : 0,
+      runtime: runtimeMatch ? String(runtimeMatch[1] || "").trim() : "",
+    };
+  }
+  return payload;
+}
+
+function normalizeWorkflowStatusToken(rawStatus) {
+  const token = String(rawStatus || "").trim().toLowerCase().replace("-", "_");
+  if (!token) return "";
+  if (token === "ok" || token === "success") return "ran";
+  if (token === "complete") return "done";
+  if (token === "inprogress") return "in_progress";
+  return token;
+}
+
+function workflowStatusPriority(status) {
+  const token = normalizeWorkflowStatusToken(status);
+  if (Object.prototype.hasOwnProperty.call(WORKFLOW_STATUS_PRIORITY, token)) {
+    return Number(WORKFLOW_STATUS_PRIORITY[token]);
+  }
+  return 0;
+}
+
+function mergeWorkflowStageStatus(stageStore, stageId, status, detail = "") {
+  if (!stageId || !WORKFLOW_STAGE_ORDER.includes(stageId)) return;
+  const nextStatus = normalizeWorkflowStatusToken(status || "");
+  if (!nextStatus) return;
+  const nextDetail = String(detail || "").trim();
+  const prev = stageStore[stageId];
+  if (!prev) {
+    stageStore[stageId] = { status: nextStatus, detail: nextDetail };
+    return;
+  }
+  const prevScore = workflowStatusPriority(prev.status);
+  const nextScore = workflowStatusPriority(nextStatus);
+  if (nextScore > prevScore) {
+    stageStore[stageId] = { status: nextStatus, detail: nextDetail };
+    return;
+  }
+  if (nextScore === prevScore && nextDetail && !String(prev.detail || "").trim()) {
+    stageStore[stageId] = { status: nextStatus, detail: nextDetail };
+  }
+}
+
+function parseWorkflowDoneEvent(line) {
+  const match = String(line || "").match(/\[done\]\s*([^\(\n]+?)?(?:\s*\(rc=(-?\d+)\))?\s*$/i);
+  if (!match) return null;
+  const status = normalizeWorkflowStatusToken(match[1] || "done");
+  const rcRaw = match[2];
+  const returnCode = rcRaw !== undefined && rcRaw !== null && rcRaw !== ""
+    ? Number.parseInt(rcRaw, 10)
+    : null;
+  return {
+    status,
+    returnCode: Number.isFinite(returnCode) ? Number(returnCode) : null,
+  };
+}
+
+function parseWorkflowHistoryFromLog(logText) {
+  const stageStore = {};
+  let hasEnd = false;
+  let hasError = false;
+  let resultPath = "";
+  const lines = String(logText || "").split(/\r?\n/);
+  lines.forEach((rawLine) => {
+    const line = String(rawLine || "");
+    const workflowEvent = parseWorkflowEvent(line);
+    if (workflowEvent && workflowEvent.stageId !== "result") {
+      mergeWorkflowStageStatus(
+        stageStore,
+        workflowEvent.stageId,
+        workflowEvent.status,
+        workflowEvent.detail,
+      );
+      if (["error", "failed"].includes(normalizeWorkflowStatusToken(workflowEvent.status))) {
+        hasError = true;
+      }
+    }
+    const stageHint = detectFederlichtStageFromLog(line);
+    if (stageHint && stageHint !== "result") {
+      mergeWorkflowStageStatus(stageStore, stageHint, "ran", "history_detected");
+    } else if (stageHint === "result") {
+      hasEnd = true;
+    }
+    const doneEvent = parseWorkflowDoneEvent(line);
+    if (doneEvent) {
+      hasEnd = true;
+      if ((doneEvent.returnCode ?? 0) !== 0) {
+        hasError = true;
+      }
+      if (["error", "failed"].includes(doneEvent.status)) {
+        hasError = true;
+      }
+    }
+    if (/\bjob failed\b/i.test(line) || /\btraceback \(most recent call last\):/i.test(line)) {
+      hasError = true;
+      hasEnd = true;
+    }
+    if (/\bjob end\b/i.test(line)) {
+      hasEnd = true;
+    }
+    const path = parseWorkflowResultPathFromLog(line);
+    if (path) resultPath = path;
+  });
+  return { stageStore, hasEnd, hasError, resultPath };
+}
+
+function parseWorkflowHistoryFromSummary(summaryData) {
+  const stageStore = {};
+  const stageOrder = [];
+  if (!summaryData || typeof summaryData !== "object") {
+    return { stageStore, stageOrder };
+  }
+  const stages = summaryData.stages && typeof summaryData.stages === "object"
+    ? summaryData.stages
+    : {};
+  const runtimeOrder = Array.isArray(summaryData.order) ? summaryData.order : [];
+  const seenTop = new Set();
+  const ingest = (runtimeName) => {
+    const runtime = String(runtimeName || "").trim();
+    if (!runtime) return;
+    const topStage = normalizeWorkflowEventStage(runtime);
+    if (!WORKFLOW_STAGE_ORDER.includes(topStage)) return;
+    const runtimePayload = stages[runtime] && typeof stages[runtime] === "object"
+      ? stages[runtime]
+      : {};
+    mergeWorkflowStageStatus(
+      stageStore,
+      topStage,
+      runtimePayload.status || "disabled",
+      runtimePayload.detail || "",
+    );
+    if (!seenTop.has(topStage)) {
+      seenTop.add(topStage);
+      stageOrder.push(topStage);
+    }
+  };
+  runtimeOrder.forEach(ingest);
+  Object.keys(stages).forEach(ingest);
+  return { stageStore, stageOrder };
+}
+
+async function loadRunWorkflowHistorySummary(runRel) {
+  const normalizedRun = normalizePathString(runRel);
+  if (!normalizedRun) return null;
+  const workflowJsonPath = joinPath(normalizedRun, "report_notes/report_workflow.json");
+  try {
+    const payload = await fetchJSON(`/api/files?path=${encodeURIComponent(workflowJsonPath)}`);
+    const content = String(payload?.content || "").trim();
+    if (!content) return null;
+    const parsed = JSON.parse(content);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch (err) {
+    const workflowMdPath = joinPath(normalizedRun, "report_notes/report_workflow.md");
+    try {
+      const payload = await fetchJSON(`/api/files?path=${encodeURIComponent(workflowMdPath)}`);
+      const content = String(payload?.content || "");
+      const lines = content.split(/\r?\n/);
+      const stages = {};
+      const order = [];
+      lines.forEach((line) => {
+        const match = line.match(/^\s*\d+\.\s*([a-z_]+)\s*:\s*([a-z_]+)(?:\s*\(([^)]*)\))?\s*$/i);
+        if (!match) return;
+        const stageName = String(match[1] || "").trim();
+        const status = String(match[2] || "").trim();
+        const detail = String(match[3] || "").trim();
+        if (!stageName || !status) return;
+        stages[stageName] = { status, detail };
+        order.push(stageName);
+      });
+      if (!order.length) return null;
+      return { stages, order };
+    } catch (mdErr) {
+      return null;
+    }
+  }
+}
+
+function findWorkflowResumeStage() {
+  const ordered = workflowStageOrder().filter((id) => state.workflow.selectedStages.has(id));
+  const nextPending = ordered.find((id) => !state.workflow.completedSteps.has(id));
+  if (nextPending) return nextPending;
+  if (ordered.includes("writer")) return "writer";
+  return ordered[0] || "";
+}
+
+function syncWorkflowHistoryControls() {
+  const controls = $("#workflow-history-controls");
+  const hintEl = $("#workflow-history-hint");
+  const resumeBtn = $("#workflow-resume-apply");
+  const promptBtn = $("#workflow-resume-prompt");
+  if (!controls || !hintEl || !resumeBtn || !promptBtn) return;
+  const active =
+    state.workflow.historyMode
+    && state.workflow.kind === "federlicht"
+    && !state.workflow.running;
+  controls.classList.toggle("is-active", active);
+  if (!active) {
+    hintEl.textContent = "History checkpoint: -";
+    resumeBtn.disabled = true;
+    resumeBtn.textContent = "Resume from stage";
+    promptBtn.disabled = true;
+    return;
+  }
+  const ordered = workflowStageOrder().filter((id) => WORKFLOW_STAGE_ORDER.includes(id));
+  const completedTop = ordered.filter((id) => state.workflow.completedSteps.has(id));
+  const lastCompleted = completedTop.length ? completedTop[completedTop.length - 1] : "";
+  const resumeStage = state.workflow.resumeStage || "";
+  const lastLabel = lastCompleted ? workflowLabel(lastCompleted) : "Start";
+  const resumeLabel = resumeStage ? workflowLabel(resumeStage) : "-";
+  const sourceName = state.workflow.historySourcePath
+    ? state.workflow.historySourcePath.split("/").pop()
+    : "";
+  hintEl.textContent = sourceName
+    ? `History checkpoint: ${lastLabel} -> resume ${resumeLabel} (${sourceName})`
+    : `History checkpoint: ${lastLabel} -> resume ${resumeLabel}`;
+  resumeBtn.disabled = !resumeStage;
+  resumeBtn.textContent = resumeStage
+    ? `Resume from ${workflowLabel(resumeStage)}`
+    : "Resume from stage";
+  promptBtn.disabled = !normalizePathString(state.workflow.runRel || "");
+}
+
+function applyResumeStagesFromStage(stageId) {
+  const target = String(stageId || "").trim().toLowerCase();
+  if (!WORKFLOW_STAGE_ORDER.includes(target)) return false;
+  const ordered = workflowStageOrder();
+  const activeSet = new Set(state.workflow.selectedStages);
+  activeSet.add(target);
+  const selectedOrdered = ordered.filter((id) => activeSet.has(id));
+  const startIdx = selectedOrdered.indexOf(target);
+  if (startIdx < 0) return false;
+  const resumeStages = selectedOrdered.slice(startIdx);
+  if (!resumeStages.length) return false;
+  const stagesCsv = resumeStages.join(",");
+  const stageInput = $("#federlicht-stages");
+  const skipInput = $("#federlicht-skip-stages");
+  if (stageInput) stageInput.value = stagesCsv;
+  if (skipInput) skipInput.value = "";
+  state.pipeline.selected = new Set(resumeStages);
+  state.pipeline.activeStageId = target;
+  state.workflow.kind = "federlicht";
+  state.workflow.running = false;
+  state.workflow.resumeStage = target;
+  state.workflow.historyMode = false;
+  state.workflow.historySourcePath = "";
+  state.workflow.completedSteps = new Set(["feather"]);
+  state.workflow.activeStep = target;
+  state.workflow.hasError = false;
+  state.workflow.statusText = `Resume preset · ${workflowLabel(target)}`;
+  state.workflow.mainStatusText = state.workflow.statusText;
+  state.workflow.autoStages = new Set();
+  state.workflow.autoStageReasons = {};
+  state.workflow.passMetrics = [];
+  renderPipelineChips();
+  renderPipelineSelected();
+  updatePipelineOutputs();
+  renderStageDetail(target);
+  appendLog(`[workflow] resume preset staged=${stagesCsv}\n`);
+  return true;
+}
+
+async function draftWorkflowResumePrompt() {
+  const runRel = normalizePathString(state.workflow.runRel || selectedRunRel() || "");
+  if (!runRel) {
+    appendLog("[workflow] resume prompt failed: run folder not resolved.\n");
+    return;
+  }
+  const resumeStage = state.workflow.resumeStage || findWorkflowResumeStage();
+  const latestReport = normalizePathString(state.workflow.resultPath || state.runSummary?.latest_report_rel || "");
+  const updatePath = await nextUpdateRequestPath(runRel);
+  if (!updatePath) {
+    appendLog("[workflow] resume prompt failed: update prompt path not available.\n");
+    return;
+  }
+  const lines = [
+    "Resume update request:",
+    `- Resume stage: ${resumeStage || "writer"}`,
+    "- Goal: improve and continue from the latest run artifacts without losing validated context.",
+    latestReport ? `- Base report: ${stripRunPrefix(latestReport, runRel) || latestReport}` : "- Base report: (none)",
+    "",
+    "Change requests (edit before run):",
+    "1) [필수] 이번 재실행에서 강화할 관점/요구사항을 구체적으로 작성하세요.",
+    "2) [선택] 제외하거나 축소할 섹션/주장을 적으세요.",
+    "3) [선택] 반드시 추가할 근거 소스 유형(공식문서/최신자료/사례)을 적으세요.",
+    "",
+    "Execution guardrails:",
+    "- Keep useful prior evidence; replace only stale or weak claims.",
+    "- Preserve citation traceability and explicitly mark newly added evidence.",
+    "- If quality issues remain, iterate with concrete edits (not full rewrite).",
+  ];
+  await saveInstructionContent(updatePath, lines.join("\n"));
+  const promptFileInput = $("#federlicht-prompt-file");
+  if (promptFileInput) {
+    promptFileInput.value = updatePath;
+  }
+  promptFileTouched = true;
+  await syncPromptFromFile(true).catch((err) => {
+    appendLog(`[workflow] resume prompt load warning: ${err}\n`);
+  });
+  appendLog(`[workflow] resume prompt ready: ${updatePath}\n`);
+}
+
+function inferHistoryJobKind(path, kindHint = "") {
+  const hinted = String(kindHint || "").trim().toLowerCase();
+  if (hinted) return hinted;
+  const lowered = normalizePathString(path || "").toLowerCase();
+  if (lowered.includes("federlicht")) return "federlicht";
+  if (lowered.includes("feather") || lowered.endsWith("_log.txt")) return "feather";
+  return "log";
+}
+
+async function hydrateWorkflowFromHistory({ logPath, runRel, kind, logText }) {
+  const historyKind = inferHistoryJobKind(logPath, kind);
+  const normalizedRun = normalizePathString(runRel || selectedRunRel() || "");
+  const text = String(logText || "");
+  resetWorkflowState();
+  state.workflow.kind = historyKind;
+  state.workflow.running = false;
+  state.workflow.historyMode = true;
+  state.workflow.historySourcePath = normalizePathString(logPath || "");
+  state.workflow.runRel = normalizedRun;
+  state.workflow.stageOrder = currentPipelineStageOrder();
+  state.workflow.statusText = "History";
+  state.workflow.mainStatusText = state.workflow.statusText;
+  if (historyKind === "federlicht") {
+    const parsedFromLog = parseWorkflowHistoryFromLog(text);
+    const stageStore = { ...parsedFromLog.stageStore };
+    const summary = await loadRunWorkflowHistorySummary(normalizedRun);
+    const parsedFromSummary = parseWorkflowHistoryFromSummary(summary);
+    Object.entries(parsedFromSummary.stageStore).forEach(([stageId, payload]) => {
+      mergeWorkflowStageStatus(stageStore, stageId, payload.status, payload.detail);
+    });
+    const mergedOrder = [];
+    const seenOrder = new Set();
+    parsedFromSummary.stageOrder.forEach((stageId) => {
+      if (WORKFLOW_STAGE_ORDER.includes(stageId) && !seenOrder.has(stageId)) {
+        seenOrder.add(stageId);
+        mergedOrder.push(stageId);
+      }
+    });
+    currentPipelineStageOrder().forEach((stageId) => {
+      if (WORKFLOW_STAGE_ORDER.includes(stageId) && !seenOrder.has(stageId)) {
+        seenOrder.add(stageId);
+        mergedOrder.push(stageId);
+      }
+    });
+    state.workflow.stageOrder = mergedOrder.length ? mergedOrder : currentPipelineStageOrder();
+    state.workflow.selectedStages = new Set();
+    state.workflow.completedSteps = new Set(["feather"]);
+    state.workflow.historyStageStatus = {};
+    state.workflow.autoStages = new Set();
+    state.workflow.autoStageReasons = {};
+    WORKFLOW_STAGE_ORDER.forEach((stageId) => {
+      const snapshot = stageStore[stageId];
+      const status = normalizeWorkflowStatusToken(snapshot?.status || "");
+      const detail = String(snapshot?.detail || "").trim();
+      if (!status) return;
+      state.workflow.historyStageStatus[stageId] = status;
+      if (status !== "disabled") {
+        state.workflow.selectedStages.add(stageId);
+      }
+      if (["ran", "cached", "skipped", "done", "complete"].includes(status)) {
+        state.workflow.completedSteps.add(stageId);
+      }
+      if (["error", "failed"].includes(status)) {
+        state.workflow.hasError = true;
+      }
+      const detailMeta = parseWorkflowDetailMeta(detail);
+      if (detailMeta.autoRequired || detailMeta.autoRequiredBy.length) {
+        state.workflow.autoStages.add(stageId);
+        state.workflow.autoStageReasons[stageId] = detailMeta.autoRequiredBy.join(", ");
+      }
+    });
+    if (!state.workflow.selectedStages.size) {
+      selectedStagesInOrder().forEach((stageId) => state.workflow.selectedStages.add(stageId));
+    }
+    if (parsedFromLog.resultPath) {
+      state.workflow.resultPath = normalizePathString(parsedFromLog.resultPath);
+    } else {
+      const latest = normalizePathString(state.runSummary?.latest_report_rel || "");
+      if (latest) state.workflow.resultPath = latest;
+    }
+    if (parsedFromLog.hasError) {
+      state.workflow.hasError = true;
+    }
+    const orderedSelected = workflowStageOrder().filter((id) => state.workflow.selectedStages.has(id));
+    const nextPending = orderedSelected.find((id) => !state.workflow.completedSteps.has(id));
+    if (nextPending) {
+      state.workflow.resumeStage = nextPending;
+      state.workflow.activeStep = nextPending;
+      state.workflow.statusText = state.workflow.hasError
+        ? `History · Failed near ${workflowLabel(nextPending)}`
+        : `History · Resume ${workflowLabel(nextPending)}`;
+    } else {
+      state.workflow.resumeStage = orderedSelected.includes("writer")
+        ? "writer"
+        : (orderedSelected[0] || "");
+      state.workflow.activeStep = "result";
+      state.workflow.completedSteps.add("result");
+      state.workflow.statusText = state.workflow.hasError
+        ? "History · Failed"
+        : "History · Finished";
+    }
+    state.workflow.mainStatusText = state.workflow.statusText;
+    state.workflow.lastMainStageIndex = stageOrderIndex(state.workflow.activeStep);
+    renderWorkflow();
+    return;
+  }
+  const endDetected = /\bjob end\b/i.test(text) || /\[done\]/i.test(text);
+  const failedDetected = /\bjob failed\b/i.test(text);
+  if (historyKind === "feather") {
+    state.workflow.completedSteps = endDetected ? new Set(["feather", "result"]) : new Set(["feather"]);
+    state.workflow.activeStep = endDetected ? "result" : "feather";
+    state.workflow.hasError = failedDetected;
+    state.workflow.statusText = failedDetected ? "History · Feather failed" : "History · Feather";
+    state.workflow.mainStatusText = state.workflow.statusText;
+    renderWorkflow();
+    return;
+  }
+  state.workflow.statusText = "History";
+  state.workflow.mainStatusText = state.workflow.statusText;
+  renderWorkflow();
+}
+
+function normalizeWorkflowResultPath(rawPath) {
+  const candidate = normalizeLogPathCandidate(rawPath) || normalizePathString(rawPath);
+  const normalized = normalizePathString(candidate);
+  if (!normalized) return "";
+  const workflowRun = normalizePathString(state.workflow.runRel || "");
+  if (!workflowRun) return normalized;
+  if (normalized.startsWith(`${workflowRun}/`)) return normalized;
+  if (isRunScopedPath(normalized)) return `${workflowRun}/${normalized}`;
+  return normalized;
+}
+
+function parseWorkflowResultPathFromLog(text) {
+  const line = String(text || "").trim();
+  if (!line) return "";
+  const wroteMatch = line.match(/\bWrote report:\s*(.+)$/i);
+  if (wroteMatch && wroteMatch[1]) {
+    return normalizeWorkflowResultPath(wroteMatch[1]);
+  }
+  if (/\[workflow\]\s+stage=result\s+/i.test(line)) {
+    const detailMatch = line.match(/\boutput(?:_path)?=([^,]+)(?:,|$)/i);
+    if (detailMatch && detailMatch[1]) {
+      return normalizeWorkflowResultPath(detailMatch[1]);
+    }
+  }
+  return "";
+}
+
+function syncWorkflowResultPathFromLog(text) {
+  const nextPath = parseWorkflowResultPathFromLog(text);
+  if (!nextPath) return false;
+  const currentPath = normalizePathString(state.workflow.resultPath || "");
+  if (currentPath === nextPath) return false;
+  state.workflow.resultPath = nextPath;
+  return true;
+}
+
+function upsertWorkflowPassMetric(stageId, metric) {
+  if (!metric || !Number.isFinite(Number(metric.pass))) return;
+  const pass = Number(metric.pass);
+  const items = Array.isArray(state.workflow.passMetrics) ? [...state.workflow.passMetrics] : [];
+  const next = {
+    stageId: stageId || "",
+    pass,
+    elapsedMs: Math.max(0, Number(metric.elapsedMs || 0)),
+    estTokens: Math.max(0, Number(metric.estTokens || 0)),
+    cacheHits: Math.max(0, Number(metric.cacheHits || 0)),
+    runtime: String(metric.runtime || "").trim(),
+  };
+  const idx = items.findIndex((entry) => Number(entry.pass) === pass);
+  if (idx >= 0) {
+    items[idx] = { ...items[idx], ...next };
+  } else {
+    items.push(next);
+  }
+  items.sort((a, b) => Number(a.pass) - Number(b.pass));
+  state.workflow.passMetrics = items.slice(-8);
+}
+
+function updateWorkflowFromLog(text) {
+  if (!state.workflow.running || state.workflow.kind !== "federlicht") return;
+  const resultPathChanged = syncWorkflowResultPathFromLog(text);
+  const workflowEvent = parseWorkflowEvent(text);
+  if (workflowEvent) {
+    const { stageId, status } = workflowEvent;
+    const detailMeta = parseWorkflowDetailMeta(workflowEvent.detail);
+    if (detailMeta.passMetric) {
+      upsertWorkflowPassMetric(stageId, detailMeta.passMetric);
+    }
+    if (detailMeta.autoRequired || detailMeta.autoRequiredBy.length) {
+      state.workflow.autoStages.add(stageId);
+      state.workflow.selectedStages.add(stageId);
+      state.workflow.autoStageReasons[stageId] = detailMeta.autoRequiredBy.join(", ");
+    }
+    if (stageId === "result") {
+      state.workflow.completedSteps = new Set([
+        "feather",
+        ...workflowStageOrder().filter((id) => state.workflow.selectedStages.has(id)),
+      ]);
+      state.workflow.activeStep = "result";
+      state.workflow.statusText = "Streaming · Result";
+      state.workflow.mainStatusText = state.workflow.statusText;
+      state.workflow.lastMainStageIndex = -1;
+      renderWorkflow();
+      return;
+    }
+    if (!state.workflow.selectedStages.has(stageId) && status === "disabled") {
+      renderWorkflow();
+      return;
+    }
+    const nextIdx = stageOrderIndex(stageId);
+    if (nextIdx >= 0) {
+      const prevIdx = Number(state.workflow.lastMainStageIndex);
+      if (Number.isFinite(prevIdx) && prevIdx >= 0 && nextIdx < prevIdx) {
+        triggerWorkflowLoopback();
+      }
+      markWorkflowCompletedThroughStage(stageId);
+      if (["ran", "cached", "skipped", "disabled"].includes(status)) {
+        state.workflow.completedSteps.add(stageId);
+        state.workflow.activeStep = nextSelectedWorkflowStage(stageId);
+      } else {
+        state.workflow.activeStep = stageId;
+      }
+      const statusStage = state.workflow.activeStep || stageId;
+      state.workflow.statusText = `Streaming · ${workflowLabel(statusStage)}`;
+      state.workflow.mainStatusText = state.workflow.statusText;
+      state.workflow.lastMainStageIndex = nextIdx;
+      renderWorkflow();
+      return;
+    }
+  }
+  const stageId = detectFederlichtStageFromLog(text);
+  if (!stageId) {
+    if (resultPathChanged) renderWorkflow();
+    return;
+  }
+  if (stageId === "result") {
+    state.workflow.completedSteps = new Set([
+      "feather",
+      ...workflowStageOrder().filter((id) => state.workflow.selectedStages.has(id)),
+    ]);
+    state.workflow.activeStep = "result";
+    state.workflow.statusText = "Streaming · Result";
+    state.workflow.mainStatusText = state.workflow.statusText;
+    state.workflow.lastMainStageIndex = -1;
+    renderWorkflow();
+    return;
+  }
+  const nextIdx = stageOrderIndex(stageId);
+  if (nextIdx < 0) return;
+  const prevIdx = Number(state.workflow.lastMainStageIndex);
+  if (Number.isFinite(prevIdx) && prevIdx >= 0 && nextIdx < prevIdx) {
+    triggerWorkflowLoopback();
+  }
+  markWorkflowCompletedThroughStage(stageId);
+  state.workflow.activeStep = stageId;
+  state.workflow.statusText = `Streaming · ${workflowLabel(stageId)}`;
+  state.workflow.mainStatusText = state.workflow.statusText;
+  state.workflow.lastMainStageIndex = nextIdx;
+  renderWorkflow();
+}
+
+function completeWorkflow(kind, returnCode, status = "") {
+  const statusLower = String(status || "").toLowerCase();
+  const failedByStatus = ["fail", "error", "killed", "cancel", "abort"].some((token) =>
+    statusLower.includes(token),
+  );
+  let success = Number(returnCode) === 0;
+  if (!Number.isFinite(Number(returnCode)) && statusLower) {
+    success = !failedByStatus;
+  }
+  if (failedByStatus) {
+    success = false;
+  }
+  if (kind === "federlicht" && state.workflow.kind === "federlicht") {
+    const selected = workflowStageOrder().filter((id) => state.workflow.selectedStages.has(id));
+    state.workflow.running = false;
+    state.workflow.activeStep = "result";
+    state.workflow.completedSteps = new Set(["feather", ...selected, "result"]);
+    state.workflow.hasError = !success;
+    state.workflow.statusText = success ? "Finished" : `Failed (rc=${returnCode ?? "?"})`;
+    state.workflow.mainStatusText = state.workflow.statusText;
+    state.workflow.lastMainStageIndex = -1;
+    renderWorkflow();
+    return;
+  }
+  if (kind === "feather" && state.workflow.kind === "feather") {
+    state.workflow.running = false;
+    state.workflow.activeStep = success ? "result" : "feather";
+    state.workflow.completedSteps = success ? new Set(["feather", "result"]) : new Set();
+    state.workflow.hasError = !success;
+    state.workflow.statusText = success ? "Finished" : `Failed (rc=${returnCode ?? "?"})`;
+    state.workflow.mainStatusText = state.workflow.statusText;
+    state.workflow.lastMainStageIndex = -1;
+    renderWorkflow();
+    return;
+  }
+  completeWorkflowSpot(kind, returnCode, status);
+}
+
+function clearWorkflowIfIdle() {
+  if (state.activeJobId) return;
+  if ((state.workflow.spots || []).some((spot) => spot.running)) return;
+  resetWorkflowState();
+  renderWorkflow();
+}
+
+function renderWorkflow() {
+  const host = $("#workflow-track");
+  const status = $("#workflow-status");
+  const extrasHost = $("#workflow-extras");
+  if (!host || !status || !extrasHost) return;
+  status.textContent = state.workflow.statusText || "Idle";
+  host.classList.toggle("is-running", !!state.workflow.running);
+  const nodeOrder = workflowNodeOrder();
+  host.innerHTML = nodeOrder.map((stepId, idx) => {
+    const classes = ["workflow-node"];
+    const selected = workflowIsStageSelected(stepId);
+    const isAuto = state.workflow.autoStages.has(stepId);
+    const isActive = state.workflow.activeStep === stepId;
+    const isComplete = state.workflow.completedSteps.has(stepId);
+    const isResumeTarget =
+      state.workflow.historyMode
+      && !state.workflow.running
+      && state.workflow.kind === "federlicht"
+      && state.workflow.resumeStage === stepId;
+    if (!selected) classes.push("is-skipped");
+    if (isAuto) classes.push("is-auto");
+    if (isActive) classes.push("is-active");
+    if (isComplete) classes.push("is-complete");
+    if (isResumeTarget) classes.push("is-resume-target");
+    if (!isActive && !isComplete) classes.push("is-pending");
+    if (stepId === "result" && state.workflow.hasError) classes.push("is-error");
+    const isResult = stepId === "result";
+    const isMainStage = WORKFLOW_STAGE_ORDER.includes(stepId);
+    const canEdit = !state.workflow.running && isMainStage;
+    const previewPath = isResult ? normalizePathString(state.workflow.resultPath || "") : "";
+    const openAttr = previewPath ? `data-workflow-open="${escapeHtml(previewPath)}"` : "";
+    const stageAttr = isMainStage ? `data-workflow-stage="${stepId}"` : "";
+    const dragAttr = canEdit ? 'draggable="true"' : "";
+    const autoReason = String(state.workflow.autoStageReasons?.[stepId] || "").trim();
+    const autoTitle = autoReason
+      ? `Auto-enabled by dependency (${autoReason})`
+      : "Auto-enabled by dependency";
+    const autoBadge = isAuto
+      ? `<span class="workflow-node-auto" title="${escapeHtml(autoTitle)}">auto</span>`
+      : "";
+    const pathLabel = previewPath
+      ? `<span class="workflow-node-path">${escapeHtml(stripSiteRunsPrefix(previewPath) || previewPath)}</span>`
+      : "";
+    const isQualityNode = stepId === "quality";
+    const showLoop =
+      isQualityNode
+      && (state.workflow.kind === "federlicht" || workflowIsStageSelected("quality"))
+      && workflowIsStageSelected("writer");
+    const loopClasses = [
+      "workflow-loop-arrow",
+      state.workflow.loopbackPulse ? "is-pulse" : "",
+      state.workflow.loopbackCount > 0 ? "is-seen" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const loopBadge =
+      state.workflow.loopbackCount > 0
+        ? `<span class="workflow-loop-count">${escapeHtml(String(state.workflow.loopbackCount))}</span>`
+        : "";
+    const loopHtml = showLoop
+      ? `<span class="${loopClasses}" title="Quality feedback loop-back">
+          <span class="workflow-loop-symbol">↺</span>
+          ${loopBadge}
+        </span>`
+      : "";
+    const arrow = idx < nodeOrder.length - 1 ? '<span class="workflow-arrow">→</span>' : "";
+    return `
+      <span class="workflow-node-wrap">
+        <button
+          type="button"
+          class="${classes.join(" ")}"
+          data-workflow-node="${stepId}"
+          ${stageAttr}
+          ${openAttr}
+          ${dragAttr}
+        >
+          <span class="workflow-node-label">${escapeHtml(workflowLabel(stepId))}</span>
+          ${autoBadge}
+          ${isResult ? pathLabel : ""}
+        </button>
+        ${loopHtml}
+        ${arrow}
+      </span>
+    `;
+  }).join("");
+  const spots = state.workflow.spots || [];
+  const metrics = Array.isArray(state.workflow.passMetrics) ? state.workflow.passMetrics : [];
+  const metricHtml = metrics
+    .map((item) => {
+      const pass = Number(item.pass || 0);
+      const elapsedMs = Number(item.elapsedMs || 0);
+      const estTokens = Number(item.estTokens || 0);
+      const cacheHits = Number(item.cacheHits || 0);
+      const stageText = workflowLabel(item.stageId || "");
+      const runtimeText = String(item.runtime || "").replaceAll("|", " > ");
+      const elapsedLabel = elapsedMs >= 1000
+        ? `${(elapsedMs / 1000).toFixed(1)}s`
+        : `${elapsedMs}ms`;
+      const tokenLabel = estTokens >= 1000
+        ? `${(estTokens / 1000).toFixed(1)}k`
+        : `${estTokens}`;
+      const title = runtimeText
+        ? `Runtime bundle: ${runtimeText}`
+        : "Runtime bundle";
+      return `
+        <span class="workflow-metric" title="${escapeHtml(title)}">
+          <span class="workflow-metric-pass">P${escapeHtml(String(pass))}</span>
+          <span class="workflow-metric-stage">${escapeHtml(stageText)}</span>
+          <span class="workflow-metric-stat">${escapeHtml(elapsedLabel)}</span>
+          <span class="workflow-metric-stat">${escapeHtml(tokenLabel)} tok</span>
+          <span class="workflow-metric-stat">cache ${escapeHtml(String(cacheHits))}</span>
+        </span>
+      `;
+    })
+    .join("");
+  const spotHtml = spots
+    .map((spot) => {
+      const classes = [
+        "workflow-spot",
+        spot.running ? "is-running" : "",
+        !spot.running && !spot.hasError ? "is-done" : "",
+        spot.hasError ? "is-error" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const label = spot.label || workflowSpotLabel(spot.kind);
+      const path = normalizePathString(spot.path || "");
+      const openAttr = path ? `data-workflow-open="${escapeHtml(path)}"` : "";
+      const statusText = spot.running ? "running" : spot.hasError ? "failed" : "done";
+      const pathLabel = path
+        ? `<span class="workflow-spot-path">${escapeHtml(stripSiteRunsPrefix(path) || path)}</span>`
+        : "";
+      return `
+        <button type="button" class="${classes}" data-workflow-spot="${escapeHtml(spot.id)}" ${openAttr}>
+          <span class="workflow-spot-label">${escapeHtml(label)}</span>
+          <span class="workflow-spot-state">${escapeHtml(statusText)}</span>
+          ${pathLabel}
+        </button>
+      `;
+    })
+    .join("");
+  extrasHost.innerHTML = `${metricHtml}${spotHtml}`;
+  extrasHost.classList.toggle("is-empty", spots.length === 0 && metrics.length === 0);
+  host.querySelectorAll("[data-workflow-open]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const relPath = btn.getAttribute("data-workflow-open") || "";
+      if (!relPath) return;
+      await loadFilePreview(relPath);
+    });
+  });
+  host.querySelectorAll("[data-workflow-stage]").forEach((btn) => {
+    const stageId = btn.getAttribute("data-workflow-stage") || "";
+    if (!stageId) return;
+    btn.addEventListener("click", () => {
+      if (state.workflow.running) return;
+      if (!STAGE_INDEX[stageId] && STAGE_INDEX[stageId] !== 0) return;
+      if (state.workflow.historyMode && state.workflow.kind === "federlicht") {
+        state.workflow.resumeStage = stageId;
+        state.workflow.selectedStages.add(stageId);
+        state.workflow.statusText = `History · Resume ${workflowLabel(stageId)}`;
+        state.workflow.mainStatusText = state.workflow.statusText;
+        state.pipeline.activeStageId = stageId;
+        renderStageDetail(stageId);
+        renderWorkflow();
+        return;
+      }
+      toggleStage(stageId);
+      state.pipeline.activeStageId = stageId;
+      renderStageDetail(stageId);
+      renderWorkflow();
+    });
+    btn.addEventListener("dragstart", (ev) => {
+      if (state.workflow.running) return;
+      state.pipeline.draggingId = stageId;
+      btn.classList.add("dragging");
+      ev.dataTransfer?.setData("text/plain", stageId);
+      ev.dataTransfer?.setDragImage(btn, 12, 12);
+    });
+    btn.addEventListener("dragend", () => {
+      state.pipeline.draggingId = null;
+      btn.classList.remove("dragging");
+    });
+    btn.addEventListener("dragover", (ev) => {
+      if (state.workflow.running) return;
+      ev.preventDefault();
+      const draggingId = state.pipeline.draggingId;
+      if (!draggingId || draggingId === stageId) return;
+      if ((!STAGE_INDEX[draggingId] && STAGE_INDEX[draggingId] !== 0)) return;
+      state.pipeline.order = moveStageBefore(state.pipeline.order, draggingId, stageId);
+      renderPipelineSelected();
+      updatePipelineOutputs();
+      renderWorkflow();
+    });
+  });
+  extrasHost.querySelectorAll("[data-workflow-open]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const relPath = btn.getAttribute("data-workflow-open") || "";
+      if (!relPath) return;
+      await loadFilePreview(relPath);
+    });
+  });
+  syncWorkflowHistoryControls();
 }
 
 function renderStageDetail(stageId) {
@@ -2941,7 +4268,7 @@ function toggleStage(id) {
 }
 
 function initPipelineFromInputs() {
-  state.pipeline.order = STAGE_DEFS.map((s) => s.id);
+  const canonicalOrder = STAGE_DEFS.map((s) => s.id);
   const stagesCsv = $("#federlicht-stages")?.value;
   const skipCsv = $("#federlicht-skip-stages")?.value;
   const explicitStages = parseStageCsv(stagesCsv);
@@ -2952,8 +4279,15 @@ function initPipelineFromInputs() {
   const defaultStages = explicitStages.length
     ? explicitStages
     : explicitSkip.size
-      ? STAGE_DEFS.map((s) => s.id).filter((id) => !explicitSkip.has(id))
+      ? canonicalOrder.filter((id) => !explicitSkip.has(id))
       : preferredDefault;
+  if (explicitStages.length) {
+    const seen = new Set(explicitStages);
+    const remaining = canonicalOrder.filter((id) => !seen.has(id));
+    state.pipeline.order = [...explicitStages, ...remaining];
+  } else {
+    state.pipeline.order = [...canonicalOrder];
+  }
   state.pipeline.selected = new Set(defaultStages);
   defaultStages.forEach((id) => insertStageInOrder(id));
   state.pipeline.activeStageId = defaultStages[0] || STAGE_DEFS[0]?.id || null;
@@ -3003,6 +4337,108 @@ function activeLogElement() {
   return state.logMode === "markdown" ? $("#log-output-md") : $("#log-output");
 }
 
+function stripLogTokenWrapping(value) {
+  let token = String(value || "").trim();
+  if (!token) return "";
+  token = token.replace(/^[`"'(<\[{]+/, "");
+  token = token.replace(/[>"'`)\]}.,;!?]+$/, "");
+  return token;
+}
+
+function isRunScopedPath(pathValue) {
+  const lowered = String(pathValue || "").toLowerCase();
+  return RUN_SCOPED_DIR_PREFIXES.some((prefix) => lowered.startsWith(prefix));
+}
+
+function normalizeLogPathCandidate(rawToken) {
+  let token = stripLogTokenWrapping(rawToken);
+  if (!token) return "";
+  if (token.includes("://")) return "";
+  token = token.replaceAll("\\", "/");
+  token = token.replace(/^\.\/+/, "");
+  if (token.startsWith("file:///")) {
+    token = token.slice("file:///".length);
+  }
+  const rootAbs = normalizePathString(state.info?.root_abs || "");
+  const normalizedToken = normalizePathString(token);
+  if (/^[a-z]:\//i.test(normalizedToken)) {
+    if (rootAbs && normalizedToken.startsWith(`${rootAbs}/`)) {
+      return normalizedToken.slice(rootAbs.length + 1);
+    }
+    const siteRunsPos = normalizedToken.toLowerCase().indexOf("/site/runs/");
+    if (siteRunsPos >= 0) {
+      return normalizedToken.slice(siteRunsPos + 1);
+    }
+    return normalizedToken;
+  }
+  const sanitized = normalizedToken.replace(/:(\d+)(:\d+)?$/, "");
+  if (token.startsWith("/")) {
+    const trimmed = normalizePathString(sanitized.replace(/^\/+/, ""));
+    if (!trimmed) return "";
+    if (isRunScopedPath(trimmed)) {
+      const workflowRunRel =
+        state.workflow.running && state.workflow.kind === "federlicht"
+          ? state.workflow.runRel
+          : "";
+      const runRel = normalizePathString(workflowRunRel || selectedRunRel() || state.runSummary?.run_rel || "");
+      if (runRel) return `${normalizePathString(runRel)}/${trimmed}`;
+    }
+    return trimmed;
+  }
+  if (sanitized.startsWith("site/") || sanitized.startsWith("examples/")) {
+    return sanitized;
+  }
+  if (isRunScopedPath(sanitized)) {
+    const workflowRunRel =
+      state.workflow.running && state.workflow.kind === "federlicht"
+        ? state.workflow.runRel
+        : "";
+    const runRel = normalizePathString(workflowRunRel || selectedRunRel() || state.runSummary?.run_rel || "");
+    if (runRel) {
+      return `${normalizePathString(runRel)}/${sanitized}`;
+    }
+  }
+  return sanitized;
+}
+
+function isLikelyPreviewFilePath(pathValue) {
+  const normalized = normalizePathString(pathValue);
+  if (!normalized || normalized.endsWith("/")) return false;
+  const name = normalized.split("/").pop() || "";
+  if (!name || !name.includes(".")) return false;
+  if (normalized.includes("://")) return false;
+  return true;
+}
+
+function renderRawLogWithLinks(rawText) {
+  const lines = String(rawText || "").split("\n");
+  const tokenRe =
+    /(?:[A-Za-z]:[\\/][^\s"'`<>()\[\]{}]+|(?:\.{0,2}\/)?[^\s"'`<>()\[\]{}]+\/[^\s"'`<>()\[\]{}]+(?:\/[^\s"'`<>()\[\]{}]+)*)/g;
+  return lines
+    .map((line) => {
+      let cursor = 0;
+      let html = "";
+      for (const match of line.matchAll(tokenRe)) {
+        const index = match.index ?? -1;
+        const rawToken = match[0] || "";
+        if (index < 0 || !rawToken) continue;
+        html += escapeHtml(line.slice(cursor, index));
+        const normalizedPath = normalizeLogPathCandidate(rawToken);
+        if (isLikelyPreviewFilePath(normalizedPath)) {
+          html += `<a href="#" class="log-link" data-log-path="${escapeHtml(
+            normalizedPath,
+          )}" title="Open in File Preview">${escapeHtml(rawToken)}</a>`;
+        } else {
+          html += escapeHtml(rawToken);
+        }
+        cursor = index + rawToken.length;
+      }
+      html += escapeHtml(line.slice(cursor));
+      return html;
+    })
+    .join("\n");
+}
+
 function renderLogs(autoScroll = false) {
   const out = $("#log-output");
   const mdOut = $("#log-output-md");
@@ -3011,7 +4447,7 @@ function renderLogs(autoScroll = false) {
   const raw = state.logBuffer.join("");
   const shouldStickRaw = autoScroll || isNearBottom(out);
   const shouldStickMd = autoScroll || isNearBottom(mdOut);
-  out.textContent = raw;
+  out.innerHTML = renderRawLogWithLinks(raw);
   if (state.logMode === "markdown") {
     let mdSource = raw;
     let notice = "";
@@ -3074,23 +4510,31 @@ function shortId(id) {
   return id ? id.slice(0, 8) : "";
 }
 
-async function loadHistoryLog(relPath, runRel) {
+async function loadHistoryLog(relPath, runRel, kind = "") {
   try {
+    const resolvedRunRel = normalizePathString(runRel || inferRunRelFromPath(relPath) || "");
     closeActiveSource();
     setKillEnabled(false);
     setJobStatus(`History log: ${relPath.split("/").pop() || relPath}`, false);
-    if (runRel) {
-      if ($("#run-select")) $("#run-select").value = runRel;
-      if ($("#prompt-run-select")) $("#prompt-run-select").value = runRel;
-      if ($("#instruction-run-select")) $("#instruction-run-select").value = runRel;
+    if (resolvedRunRel) {
+      if ($("#run-select")) $("#run-select").value = resolvedRunRel;
+      if ($("#prompt-run-select")) $("#prompt-run-select").value = resolvedRunRel;
+      if ($("#instruction-run-select")) $("#instruction-run-select").value = resolvedRunRel;
       refreshRunDependentFields();
-      await updateRunStudio(runRel).catch((err) => {
+      await updateRunStudio(resolvedRunRel).catch((err) => {
         appendLog(`[studio] failed to refresh run studio: ${err}\n`);
       });
-      applyRunFolderSelection(runRel);
+      applyRunFolderSelection(resolvedRunRel);
     }
     const payload = await fetchJSON(`/api/files?path=${encodeURIComponent(relPath)}`);
-    setLogBufferFromText(payload.content || "");
+    const content = payload.content || "";
+    setLogBufferFromText(content);
+    await hydrateWorkflowFromHistory({
+      logPath: relPath,
+      runRel: resolvedRunRel,
+      kind,
+      logText: content,
+    });
     focusPanel("#logs-wrap .logs-block");
   } catch (err) {
     appendLog(`[logs] failed to load history: ${err}\n`);
@@ -3148,7 +4592,9 @@ function renderJobs() {
             </div>
             <button class="ghost" data-job-open="${job.job_id}" data-job-source="${job.source}" data-job-path="${escapeHtml(
               job.log_path || "",
-            )}" data-job-run="${escapeHtml(job.run_rel || "")}">Open</button>
+            )}" data-job-run="${escapeHtml(job.run_rel || "")}" data-job-kind="${escapeHtml(
+              job.kind || "",
+            )}">Open</button>
           </div>
         `;
       })
@@ -3171,12 +4617,14 @@ function renderJobs() {
       if (source === "history") {
         const path = btn.getAttribute("data-job-path");
         const runRel = btn.getAttribute("data-job-run");
+        const kind = btn.getAttribute("data-job-kind") || "";
         if (path) {
-          loadHistoryLog(path, runRel || "");
+          loadHistoryLog(path, runRel || "", kind);
         }
         return;
       }
-      attachToJob(jobId);
+      const kind = btn.getAttribute("data-job-kind") || "job";
+      attachToJob(jobId, { kind });
     });
   });
   updateRecentJobsSummary();
@@ -3253,8 +4701,31 @@ function normalizeLanguage(value) {
   return lowered;
 }
 
+function applyFreeFormatMode() {
+  const enabled = !!$("#federlicht-free-format")?.checked;
+  const templateSelect = $("#template-select");
+  if (templateSelect) {
+    templateSelect.disabled = enabled;
+    templateSelect.classList.toggle("is-disabled", enabled);
+    templateSelect.setAttribute("aria-disabled", enabled ? "true" : "false");
+  }
+  const rigiditySelect = $("#federlicht-template-rigidity");
+  if (rigiditySelect) {
+    rigiditySelect.disabled = enabled;
+    rigiditySelect.classList.toggle("is-disabled", enabled);
+    rigiditySelect.setAttribute("aria-disabled", enabled ? "true" : "false");
+  }
+}
+
 function applyRunSettings(summary) {
   const meta = summary?.report_meta || {};
+  const freeFormatToggle = $("#federlicht-free-format");
+  if (
+    freeFormatToggle
+    && Object.prototype.hasOwnProperty.call(meta, "free_format")
+  ) {
+    freeFormatToggle.checked = !!meta.free_format;
+  }
   const template = meta.template;
   if (template) {
     const templateSelect = $("#template-select");
@@ -3307,6 +4778,26 @@ function applyRunSettings(summary) {
     const temperatureInput = $("#federlicht-temperature");
     if (temperatureInput) temperatureInput.value = String(meta.temperature);
   }
+  if (meta.max_chars !== undefined && meta.max_chars !== null) {
+    const maxCharsInput = $("#federlicht-max-chars");
+    if (maxCharsInput) maxCharsInput.value = String(meta.max_chars);
+  }
+  if (meta.max_tool_chars !== undefined && meta.max_tool_chars !== null) {
+    const maxToolCharsInput = $("#federlicht-max-tool-chars");
+    if (maxToolCharsInput) maxToolCharsInput.value = String(meta.max_tool_chars);
+  }
+  if (meta.max_pdf_pages !== undefined && meta.max_pdf_pages !== null) {
+    const maxPdfPagesInput = $("#federlicht-max-pdf-pages");
+    if (maxPdfPagesInput) maxPdfPagesInput.value = String(meta.max_pdf_pages);
+  }
+  if (meta.agent_config) {
+    const agentConfigInput = $("#federlicht-agent-config");
+    if (agentConfigInput) agentConfigInput.value = String(meta.agent_config);
+  }
+  if (meta.progress_chars !== undefined && meta.progress_chars !== null) {
+    const progressCharsInput = $("#federlicht-progress-chars");
+    if (progressCharsInput) progressCharsInput.value = String(meta.progress_chars);
+  }
   if (meta.agent_profile) {
     const profileId =
       typeof meta.agent_profile === "string" ? meta.agent_profile : meta.agent_profile.id;
@@ -3318,6 +4809,7 @@ function applyRunSettings(summary) {
       }
     }
   }
+  applyFreeFormatMode();
 }
 
 function setKillEnabled(enabled) {
@@ -3325,14 +4817,36 @@ function setKillEnabled(enabled) {
   if (kill) kill.disabled = !enabled;
 }
 
+function setPrimaryRunButtonState(selector, enabled, idleLabel, runningLabel) {
+  const button = $(selector);
+  if (!button) return;
+  button.disabled = !enabled;
+  button.classList.toggle("is-running", !enabled);
+  button.textContent = enabled ? idleLabel : runningLabel;
+}
+
 function setFederlichtRunEnabled(enabled) {
-  const runBtn = $("#federlicht-run");
-  if (runBtn) runBtn.disabled = !enabled;
+  setPrimaryRunButtonState("#federlicht-run", enabled, "Run Federlicht", "Running...");
 }
 
 function setFeatherRunEnabled(enabled) {
-  const runBtn = $("#feather-run");
-  if (runBtn) runBtn.disabled = !enabled;
+  setPrimaryRunButtonState("#feather-run", enabled, "Run Feather", "Running...");
+}
+
+function describeJobKind(kind) {
+  switch (kind) {
+    case "federlicht":
+      return "Federlicht 리포트";
+    case "feather":
+      return "Feather 수집";
+    case "prompt":
+    case "generate_prompt":
+      return "프롬프트 생성";
+    case "template":
+      return "템플릿 생성";
+    default:
+      return "작업";
+  }
 }
 
 function closeActiveSource() {
@@ -3352,21 +4866,25 @@ function attachToJob(jobId, opts = {}) {
     setFeatherRunEnabled(false);
   }
   setKillEnabled(true);
-  setJobStatus(`Streaming job ${shortId(jobId)} ...`, true);
+  const label = opts.jobLabel || describeJobKind(state.activeJobKind);
+  setJobStatus(`${label} 실행 중 (${shortId(jobId)})`, true);
   const source = new EventSource(`/api/jobs/${jobId}/events`);
   state.activeSource = source;
   source.addEventListener("log", (ev) => {
     try {
       const payload = JSON.parse(ev.data);
-      appendLog(payload.text || "");
+      const text = payload.text || "";
+      appendLog(text);
+      updateWorkflowFromLog(text);
       if (state.activeJobKind === "template") {
-        appendTemplateGenLog(payload.text || "");
+        appendTemplateGenLog(text);
       }
     } catch (err) {
       appendLog(`[log] failed to parse event: ${err}\n`);
     }
   });
   source.addEventListener("done", (ev) => {
+    const finishedKind = state.activeJobKind;
     try {
       const payload = JSON.parse(ev.data);
       const status = payload.status || "done";
@@ -3381,56 +4899,107 @@ function attachToJob(jobId, opts = {}) {
       });
       if (opts.onDone) opts.onDone(payload);
       if (payload.returncode === 0 && opts.onSuccess) opts.onSuccess(payload);
+      completeWorkflow(finishedKind, payload.returncode, status);
       setJobStatus(`Job ${shortId(jobId)} ${status}${code}`, false);
     } catch (err) {
       appendLog(`[done] failed to parse event: ${err}\n`);
     } finally {
       setKillEnabled(false);
-      if (state.activeJobKind === "federlicht") {
+      if (finishedKind === "federlicht") {
         setFederlichtRunEnabled(true);
-      } else if (state.activeJobKind === "feather") {
+      } else if (finishedKind === "feather") {
         setFeatherRunEnabled(true);
       }
       if (opts.runRel) {
         loadRunLogs(opts.runRel).catch(() => {});
       }
+      state.activeJobId = null;
       state.activeJobKind = null;
       closeActiveSource();
     }
   });
   source.onerror = () => {
+    const failedKind = state.activeJobKind;
     appendLog("[error] event stream closed unexpectedly\n");
     setJobStatus("Stream closed unexpectedly.", false);
     setKillEnabled(false);
-    if (state.activeJobKind === "federlicht") {
+    if (failedKind === "federlicht") {
       setFederlichtRunEnabled(true);
-    } else if (state.activeJobKind === "feather") {
+    } else if (failedKind === "feather") {
       setFeatherRunEnabled(true);
     }
+    if (failedKind) {
+      completeWorkflow(failedKind, -1, "stream_error");
+    }
+    state.activeJobId = null;
     state.activeJobKind = null;
     closeActiveSource();
   };
 }
 
 async function startJob(endpoint, payload, meta = {}) {
+  const kind = meta.kind || "job";
+  if (kind === "federlicht") {
+    setFederlichtRunEnabled(false);
+  } else if (kind === "feather") {
+    setFeatherRunEnabled(false);
+  }
   const body = JSON.stringify(payload || {});
   appendLog(`\n[start] POST ${endpoint}\n`);
-  const res = await fetchJSON(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body,
-  });
+  let res;
+  try {
+    res = await fetchJSON(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+  } catch (err) {
+    if (kind === "federlicht") {
+      setFederlichtRunEnabled(true);
+      state.workflow.hasError = true;
+      state.workflow.running = false;
+      state.workflow.statusText = "Start failed";
+      state.workflow.mainStatusText = state.workflow.statusText;
+      renderWorkflow();
+    } else if (kind === "feather") {
+      setFeatherRunEnabled(true);
+      state.workflow.hasError = true;
+      state.workflow.running = false;
+      state.workflow.statusText = "Start failed";
+      state.workflow.mainStatusText = state.workflow.statusText;
+      renderWorkflow();
+    } else {
+      beginWorkflowSpot(kind, {
+        ...(payload || {}),
+        _spot_label: meta.spotLabel || "",
+        _spot_path: meta.spotPath || "",
+      });
+      completeWorkflowSpot(kind, -1, "start_failed");
+    }
+    throw err;
+  }
   const jobId = res.job_id;
   const inferredRunRel = inferRunRelFromPayload(payload);
   upsertJob({
     job_id: jobId,
     status: "running",
-    kind: meta.kind || "job",
+    kind,
     run_rel: meta.runRel || inferredRunRel || "",
   });
-  setJobStatus(`Job ${shortId(jobId)} running…`, true);
+  const jobLabel = meta.jobLabel || describeJobKind(kind);
+  if (state.logsCollapsed) setLogsCollapsed(false);
+  setJobStatus(`${jobLabel} 실행 중 (${shortId(jobId)})`, true);
+  beginWorkflow(kind, {
+    ...(payload || {}),
+    _spot_label: meta.spotLabel || "",
+    _spot_path: meta.spotPath || "",
+  });
   focusPanel("#logs-wrap .logs-block");
-  attachToJob(jobId, { ...meta, runRel: meta.runRel || inferredRunRel || "" });
+  attachToJob(jobId, {
+    ...meta,
+    jobLabel,
+    runRel: meta.runRel || inferredRunRel || "",
+  });
   return jobId;
 }
 
@@ -3485,6 +5054,7 @@ function buildFeatherPayload() {
 function buildFederlichtPayload() {
   const figuresEnabled = $("#federlicht-figures")?.checked;
   const noTags = $("#federlicht-no-tags")?.checked;
+  const freeFormat = $("#federlicht-free-format")?.checked;
   const agentSelect = $("#federlicht-agent-profile");
   const agentProfile = agentSelect?.value;
   const agentSource =
@@ -3497,7 +5067,8 @@ function buildFederlichtPayload() {
   const payload = {
     run: $("#run-select")?.value,
     output: expandSiteRunsPath($("#federlicht-output")?.value),
-    template: $("#template-select")?.value,
+    template: freeFormat ? undefined : $("#template-select")?.value,
+    free_format: freeFormat ? true : undefined,
     lang: $("#federlicht-lang")?.value,
     depth: $("#federlicht-depth")?.value,
     prompt: includeInlinePrompt ? promptValue : undefined,
@@ -3505,7 +5076,7 @@ function buildFederlichtPayload() {
     model: $("#federlicht-model")?.value,
     check_model: $("#federlicht-check-model")?.value,
     model_vision: $("#federlicht-model-vision")?.value,
-    template_rigidity: $("#federlicht-template-rigidity")?.value,
+    template_rigidity: freeFormat ? undefined : $("#federlicht-template-rigidity")?.value,
     temperature_level: $("#federlicht-temperature-level")?.value,
     temperature: Number.parseFloat($("#federlicht-temperature")?.value || ""),
     stages: $("#federlicht-stages")?.value,
@@ -3516,6 +5087,14 @@ function buildFederlichtPayload() {
     ),
     quality_strategy: $("#federlicht-quality-strategy")?.value,
     max_chars: Number.parseInt($("#federlicht-max-chars")?.value || "", 10),
+    max_tool_chars: Number.parseInt(
+      $("#federlicht-max-tool-chars")?.value || "",
+      10,
+    ),
+    progress_chars: Number.parseInt(
+      $("#federlicht-progress-chars")?.value || "",
+      10,
+    ),
     max_pdf_pages: Number.parseInt(
       $("#federlicht-max-pdf-pages")?.value || "",
       10,
@@ -3530,6 +5109,7 @@ function buildFederlichtPayload() {
     site_output: $("#federlicht-site-output")?.value,
     agent_profile: agentProfile,
     agent_profile_dir: agentProfileDir,
+    agent_config: $("#federlicht-agent-config")?.value,
     extra_args: $("#federlicht-extra-args")?.value,
   };
   if (!payload.run) {
@@ -3541,6 +5121,8 @@ function buildFederlichtPayload() {
   if (!Number.isFinite(payload.quality_iterations)) delete payload.quality_iterations;
   if (!Number.isFinite(payload.temperature)) delete payload.temperature;
   if (!Number.isFinite(payload.max_chars)) delete payload.max_chars;
+  if (!Number.isFinite(payload.max_tool_chars)) delete payload.max_tool_chars;
+  if (!Number.isFinite(payload.progress_chars)) delete payload.progress_chars;
   if (!Number.isFinite(payload.max_pdf_pages)) delete payload.max_pdf_pages;
   return pruneEmpty(payload);
 }
@@ -3568,6 +5150,7 @@ function buildPromptPayload() {
 function buildPromptPayloadFromFederlicht() {
   const run = $("#run-select")?.value;
   if (!run) throw new Error("Run folder is required.");
+  const freeFormat = $("#federlicht-free-format")?.checked;
   let output = $("#federlicht-prompt-file")?.value;
   if (!output) {
     output = defaultPromptPath(run);
@@ -3577,10 +5160,12 @@ function buildPromptPayloadFromFederlicht() {
   const payload = {
     run,
     output: expandSiteRunsPath(output),
-    template: $("#template-select")?.value,
+    template: freeFormat ? undefined : $("#template-select")?.value,
+    free_format: freeFormat ? true : undefined,
     depth: $("#federlicht-depth")?.value,
     model: $("#federlicht-model")?.value,
-    template_rigidity: $("#federlicht-template-rigidity")?.value,
+    agent_config: $("#federlicht-agent-config")?.value,
+    template_rigidity: freeFormat ? undefined : $("#federlicht-template-rigidity")?.value,
     temperature_level: $("#federlicht-temperature-level")?.value,
     temperature: Number.parseFloat($("#federlicht-temperature")?.value || ""),
   };
@@ -4209,6 +5794,8 @@ function handleFederlichtPromptPicker() {
       promptFileTouched = true;
       await startJob("/api/federlicht/generate_prompt", payload, {
         kind: "prompt",
+        spotLabel: "Prompt Generate",
+        spotPath: payload.output,
         onSuccess: () => {
           if (payload.output) {
             const field = $("#federlicht-prompt-file");
@@ -4372,6 +5959,30 @@ function bindHelpModal() {
   });
 }
 
+function handleWorkflowHistoryControls() {
+  $("#workflow-resume-apply")?.addEventListener("click", () => {
+    const targetStage = state.workflow.resumeStage || findWorkflowResumeStage();
+    if (!targetStage) {
+      appendLog("[workflow] resume preset failed: choose a stage first.\n");
+      return;
+    }
+    const ok = applyResumeStagesFromStage(targetStage);
+    if (!ok) {
+      appendLog(`[workflow] resume preset failed: invalid stage ${targetStage}.\n`);
+      return;
+    }
+    setJobStatus(`Resume preset ready from ${workflowLabel(targetStage)}.`, false);
+  });
+  $("#workflow-resume-prompt")?.addEventListener("click", async () => {
+    try {
+      await draftWorkflowResumePrompt();
+    } catch (err) {
+      appendLog(`[workflow] resume prompt failed: ${err}\n`);
+    }
+  });
+  syncWorkflowHistoryControls();
+}
+
 function handleLogControls() {
   const saved = localStorage.getItem("federnett-logs-collapsed");
   if (saved === "true" || saved === "false") {
@@ -4389,6 +6000,18 @@ function handleLogControls() {
   });
   $("#log-clear")?.addEventListener("click", () => {
     clearLogs();
+  });
+  $("#log-output")?.addEventListener("click", (ev) => {
+    const target = ev.target;
+    if (!(target instanceof Element)) return;
+    const link = target.closest("[data-log-path]");
+    if (!link) return;
+    ev.preventDefault();
+    const relPath = link.getAttribute("data-log-path") || "";
+    if (!relPath) return;
+    loadFilePreview(relPath).catch((err) => {
+      appendLog(`[preview] failed to open from log: ${err}\n`);
+    });
   });
   $("#job-kill")?.addEventListener("click", async () => {
     const jobId = state.activeJobId;
@@ -4413,6 +6036,18 @@ function handleTemplateSync() {
     }
     renderTemplatesPanel();
   });
+}
+
+function handleFreeFormatToggle() {
+  const checkbox = $("#federlicht-free-format");
+  if (!checkbox) return;
+  checkbox.addEventListener("change", () => {
+    applyFreeFormatMode();
+    if (checkbox.checked) {
+      appendLog("[federlicht] free format enabled: template guidance disabled.\n");
+    }
+  });
+  applyFreeFormatMode();
 }
 
 function handleTemplateEditor() {
@@ -4497,6 +6132,8 @@ function handleTemplateGenerator() {
     const targetPath = templateEditorTargetPath(normalized);
     await startJob("/api/templates/generate", payload, {
       kind: "template",
+      spotLabel: "Template Generate",
+      spotPath: targetPath,
       onSuccess: async () => {
         await loadTemplates();
         const baseSelect = $("#template-editor-base");
@@ -4971,6 +6608,8 @@ function bindForms() {
       const outputPath = payload.output;
       await startJob("/api/federlicht/generate_prompt", payload, {
         kind: "prompt",
+        spotLabel: "Prompt Generate",
+        spotPath: outputPath,
         onSuccess: () => {
           if (outputPath) {
             $("#federlicht-prompt-file").value = outputPath;
@@ -5058,7 +6697,9 @@ async function bootstrap() {
   handleJobsModal();
   handleReloadRuns();
   handleLogControls();
+  handleWorkflowHistoryControls();
   handleTemplateSync();
+  handleFreeFormatToggle();
   handleTemplateEditor();
   handleTemplateGenerator();
   handleTemplatesPanelToggle();
@@ -5070,7 +6711,10 @@ async function bootstrap() {
   handleTelemetrySplitter();
   bindForms();
   setFederlichtRunEnabled(true);
+  setFeatherRunEnabled(true);
   renderJobs();
+  resetWorkflowState();
+  renderWorkflow();
 
   try {
     await loadInfo();

@@ -346,7 +346,12 @@ async function startUpdate() {
     output: outputRel,
     prompt_file: updateRel,
   };
-  if (state.reportMeta?.template) payload.template = state.reportMeta.template;
+  const freeFormat = !!state.reportMeta?.free_format;
+  if (freeFormat) {
+    payload.free_format = true;
+  } else if (state.reportMeta?.template) {
+    payload.template = state.reportMeta.template;
+  }
   if (state.reportMeta?.language) payload.lang = state.reportMeta.language;
   if (state.reportMeta?.model) payload.model = state.reportMeta.model;
   if (state.reportMeta?.quality_model) payload.check_model = state.reportMeta.quality_model;

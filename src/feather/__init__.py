@@ -1,3 +1,6 @@
 """Feather collector package."""
 
-__version__ = "1.3.0"
+from federlicht.versioning import VERSION
+
+__version__ = VERSION
+__all__ = ["__version__"]

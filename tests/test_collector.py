@@ -1,7 +1,12 @@
 import datetime as dt
+import json
 from pathlib import Path
 
+import feather.collector as collector
 from feather.collector import (
+    _agentic_endpoints,
+    _build_heuristic_agentic_actions,
+    _planner_chat_request,
     build_query_id,
     collect_instruction_files,
     is_explicit_youtube_query,
@@ -148,6 +153,190 @@ def test_select_youtube_queries() -> None:
     assert select_youtube_queries(job) == ["site:youtube.com quantum ai"]
     job.query_specs = [QuerySpec(text="plain query", hints=["youtube"])]
     assert select_youtube_queries(job) == ["plain query"]
+    job.query_specs = [
+        QuerySpec(text="video gen ai", hints=[]),
+        QuerySpec(text="가격 비교", hints=[]),
+    ]
+    assert select_youtube_queries(job) == ["video gen ai", "가격 비교"]
+
+
+def test_agentic_endpoints_builds_chat_and_responses(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    endpoints = _agentic_endpoints()
+    assert ("chat", "https://api.openai.com/v1/chat/completions") in endpoints
+    assert ("responses", "https://api.openai.com/v1/responses") in endpoints
+    assert endpoints[0][0] == "responses"
+
+
+def test_build_heuristic_agentic_actions_prefers_missing_coverage() -> None:
+    job = Job(
+        date=dt.date(2026, 1, 4),
+        src_file=Path("x.txt"),
+        root_dir=Path("out"),
+        out_dir=Path("out/archive"),
+        query_id="20260104_test",
+        lang_pref="ko",
+        openalex_enabled=False,
+        openalex_max_results=5,
+        youtube_enabled=True,
+        youtube_max_results=4,
+        youtube_transcript=False,
+        youtube_order="relevance",
+        days=30,
+        max_results=6,
+        download_pdf=False,
+        arxiv_source=False,
+        update_run=True,
+        citations_enabled=True,
+        queries=["동영상 생성 ai"],
+        query_specs=[QuerySpec(text="동영상 생성 ai", hints=[])],
+        local_paths=[],
+        urls=[],
+        arxiv_ids=[],
+        site_hints=[],
+        raw_lines=[],
+    )
+    metrics = {
+        "tavily_search_entries": 0,
+        "tavily_extract_files": 0,
+        "openalex_works": 0,
+        "arxiv_papers": 0,
+        "youtube_videos": 0,
+        "candidate_urls": ["https://example.com/a", "https://example.com/b"],
+    }
+    actions = _build_heuristic_agentic_actions(job, metrics)
+    types = [a.get("type") for a in actions]
+    assert "tavily_search" in types
+    assert "tavily_extract" in types
+    assert "youtube_search" in types
+
+
+def test_build_heuristic_agentic_actions_guarantees_search_fallback() -> None:
+    job = Job(
+        date=dt.date(2026, 1, 4),
+        src_file=Path("x.txt"),
+        root_dir=Path("out"),
+        out_dir=Path("out/archive"),
+        query_id="20260104_test",
+        lang_pref="ko",
+        openalex_enabled=False,
+        openalex_max_results=5,
+        youtube_enabled=False,
+        youtube_max_results=5,
+        youtube_transcript=False,
+        youtube_order="relevance",
+        days=30,
+        max_results=6,
+        download_pdf=False,
+        arxiv_source=False,
+        update_run=True,
+        citations_enabled=True,
+        queries=["동영상 생성 ai"],
+        query_specs=[QuerySpec(text="동영상 생성 ai", hints=[])],
+        local_paths=[],
+        urls=[],
+        arxiv_ids=[],
+        site_hints=[],
+        raw_lines=[],
+    )
+    metrics = {
+        "tavily_search_entries": 12,
+        "tavily_extract_files": 4,
+        "openalex_works": 0,
+        "arxiv_papers": 0,
+        "youtube_videos": 0,
+        "candidate_urls": [],
+    }
+    actions = _build_heuristic_agentic_actions(job, metrics)
+    assert actions
+    assert actions[0]["type"] == "tavily_search"
+    assert "최신 동향" in str(actions[0]["query"])
+
+
+def test_planner_chat_request_retries_payload_variants(monkeypatch) -> None:
+    class StubResponse:
+        def __init__(self, status_code: int, payload: dict):
+            self.status_code = status_code
+            self._payload = payload
+            self.text = json.dumps(payload, ensure_ascii=False)
+
+        def json(self) -> dict:
+            return self._payload
+
+    class StubLogger:
+        def __init__(self):
+            self.lines: list[str] = []
+
+        def log(self, msg: str) -> None:
+            self.lines.append(msg)
+
+    responses = [
+        StubResponse(
+            400,
+            {
+                "error": {
+                    "message": "Unsupported parameter: 'max_completion_tokens'",
+                }
+            },
+        ),
+        StubResponse(
+            400,
+            {
+                "error": {
+                    "message": "Unsupported parameter: 'max_tokens'",
+                }
+            },
+        ),
+        StubResponse(
+            400,
+            {
+                "error": {
+                    "message": "Unsupported parameter: 'response_format'",
+                }
+            },
+        ),
+        StubResponse(
+            200,
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "{\"done\": false, \"actions\": []}",
+                        }
+                    }
+                ]
+            },
+        ),
+    ]
+    captured_calls: list[dict] = []
+
+    def fake_post(_endpoint: str, json: dict, headers: dict, timeout: int):  # type: ignore[override]
+        captured_calls.append(dict(json))
+        return responses.pop(0)
+
+    monkeypatch.setattr(collector.requests, "post", fake_post)
+    logger = StubLogger()
+
+    payload = _planner_chat_request(
+        "https://api.openai.com/v1/chat/completions",
+        "gpt-5-nano",
+        "sys",
+        "user",
+        {"Content-Type": "application/json"},
+        logger,
+    )
+
+    assert "choices" in payload
+    assert len(captured_calls) == 4
+    assert "max_completion_tokens" in captured_calls[0]
+    assert "max_tokens" in captured_calls[1]
+    assert "response_format" in captured_calls[2]
+    assert "max_completion_tokens" not in captured_calls[2]
+    assert "max_tokens" not in captured_calls[2]
+    assert "response_format" not in captured_calls[3]
+    assert any("retry with max_tokens" in line for line in logger.lines)
+    assert any("retry without token budget" in line for line in logger.lines)
+    assert any("retry without response_format" in line for line in logger.lines)
 
 
 def test_normalize_youtube_query() -> None:

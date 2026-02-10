@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-__all__ = ["Reporter", "create_reporter", "PipelineState"]
+from .versioning import VERSION as __version__
+
+__all__ = ["Reporter", "create_reporter", "PipelineState", "__version__"]
 
 
 def __getattr__(name: str):

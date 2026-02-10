@@ -761,6 +761,12 @@ body[data-tab="feather"] #run-studio-wrap {
   padding: 3px 10px;
   font-size: 11px;
   font-weight: 600;
+  color-scheme: dark;
+}
+
+.file-preview-size select option {
+  background: #0c111a;
+  color: #eaf6ff;
 }
 
 #file-preview-path {
@@ -2327,6 +2333,18 @@ button.primary:hover {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
+button.primary:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+button.primary.is-running {
+  background: linear-gradient(120deg, #51baff, #89f5ff);
+  color: #041a26;
+}
+
 button.ghost {
   background: rgba(255, 255, 255, 0.05);
   color: var(--ink);
@@ -2443,6 +2461,369 @@ body[data-logs-collapsed="true"] .preview-block {
   flex-shrink: 0;
 }
 
+.workflow-strip {
+  margin-top: 8px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    rgba(7, 12, 18, 0.62);
+  display: grid;
+  gap: 8px;
+}
+
+.workflow-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.workflow-head strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.workflow-history-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workflow-history-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workflow-history-actions .ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.workflow-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.workflow-node-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.workflow-arrow {
+  color: rgba(255, 255, 255, 0.36);
+  font-size: 12px;
+  user-select: none;
+}
+
+.workflow-node {
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.workflow-node[data-workflow-open] {
+  cursor: pointer;
+}
+
+.workflow-node[data-workflow-stage] {
+  cursor: pointer;
+}
+
+.workflow-node[data-workflow-open]:hover {
+  border-color: #79d9ff;
+}
+
+.workflow-node[data-workflow-stage]:hover {
+  border-color: rgba(121, 217, 255, 0.8);
+}
+
+.workflow-node.dragging {
+  opacity: 0.56;
+  border-style: dashed;
+}
+
+.workflow-node.is-auto {
+  border-color: rgba(112, 243, 255, 0.72);
+  box-shadow:
+    0 0 0 1px rgba(112, 243, 255, 0.24),
+    0 0 14px rgba(66, 224, 255, 0.22);
+}
+
+.workflow-node.is-pending {
+  opacity: 0.74;
+}
+
+.workflow-node.is-complete {
+  border-color: var(--accent);
+  background: var(--accent-soft-bg);
+  color: var(--ink);
+}
+
+.workflow-node.is-skipped {
+  opacity: 0.34;
+  filter: grayscale(0.24);
+}
+
+.workflow-node.is-active {
+  border-color: #78daff;
+  background: rgba(120, 218, 255, 0.18);
+  color: #ecf7ff;
+  box-shadow:
+    0 0 0 1px rgba(120, 218, 255, 0.42),
+    0 0 18px rgba(120, 218, 255, 0.34);
+  animation: workflow-pulse 1.05s ease-in-out infinite;
+}
+
+.workflow-node.is-error {
+  border-color: var(--danger);
+  background: rgba(255, 107, 129, 0.18);
+  color: #ffe6ec;
+}
+
+.workflow-node.is-resume-target {
+  border-color: #7bffda;
+  box-shadow:
+    0 0 0 1px rgba(123, 255, 218, 0.5),
+    0 0 18px rgba(123, 255, 218, 0.3);
+}
+
+.workflow-track.is-running .workflow-node.is-pending:not(.is-skipped) {
+  opacity: 0.54;
+}
+
+.workflow-node-label {
+  letter-spacing: 0.01em;
+}
+
+.workflow-node-auto {
+  border: 1px solid rgba(112, 243, 255, 0.82);
+  border-radius: 999px;
+  padding: 1px 5px;
+  font-size: 9px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: #bff8ff;
+  background: rgba(66, 224, 255, 0.18);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.workflow-node-path {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: rgba(235, 246, 255, 0.82);
+}
+
+.workflow-loop-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px dashed rgba(255, 255, 255, 0.26);
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 10px;
+  line-height: 1;
+  position: relative;
+}
+
+.workflow-loop-arrow.is-seen {
+  border-color: rgba(120, 218, 255, 0.5);
+  color: rgba(190, 238, 255, 0.9);
+}
+
+.workflow-loop-arrow.is-pulse {
+  box-shadow:
+    0 0 0 1px rgba(120, 218, 255, 0.45),
+    0 0 16px rgba(120, 218, 255, 0.36);
+  animation: workflow-loop-pulse 0.95s ease-in-out infinite;
+}
+
+.workflow-loop-count {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: rgba(120, 218, 255, 0.86);
+  color: #05121a;
+  font-size: 9px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workflow-extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workflow-extras.is-empty {
+  display: none;
+}
+
+.workflow-metric {
+  border: 1px solid rgba(121, 217, 255, 0.4);
+  border-radius: 999px;
+  padding: 5px 8px;
+  background:
+    linear-gradient(120deg, rgba(76, 193, 255, 0.18), rgba(104, 241, 255, 0.11)),
+    rgba(14, 22, 33, 0.58);
+  color: #def5ff;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 0 12px rgba(121, 217, 255, 0.18);
+}
+
+.workflow-metric-pass {
+  border: 1px solid rgba(121, 217, 255, 0.62);
+  border-radius: 999px;
+  padding: 1px 5px;
+  background: rgba(121, 217, 255, 0.22);
+  color: #c9f4ff;
+}
+
+.workflow-metric-stage {
+  color: #f1fbff;
+  letter-spacing: 0.01em;
+}
+
+.workflow-metric-stat {
+  color: rgba(225, 243, 255, 0.88);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.workflow-spot {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 6px 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: default;
+}
+
+.workflow-spot[data-workflow-open] {
+  cursor: pointer;
+}
+
+.workflow-spot[data-workflow-open]:hover {
+  border-color: #79d9ff;
+}
+
+.workflow-spot.is-running {
+  border-color: rgba(120, 218, 255, 0.62);
+  background: rgba(120, 218, 255, 0.16);
+  box-shadow: 0 0 14px rgba(120, 218, 255, 0.28);
+  animation: workflow-spot-breathe 1.1s ease-in-out infinite;
+}
+
+.workflow-spot.is-done {
+  border-color: var(--accent);
+  background: var(--accent-soft-bg);
+}
+
+.workflow-spot.is-error {
+  border-color: rgba(255, 107, 129, 0.66);
+  background: rgba(255, 107, 129, 0.2);
+  color: #ffe9ef;
+}
+
+.workflow-spot-label {
+  font-weight: 700;
+}
+
+.workflow-spot-state {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.workflow-spot-path {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: rgba(233, 244, 255, 0.86);
+}
+
+@keyframes workflow-pulse {
+  0% {
+    transform: scale(0.96);
+    box-shadow:
+      0 0 0 1px rgba(120, 218, 255, 0.36),
+      0 0 10px rgba(120, 218, 255, 0.24);
+  }
+  50% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 1px rgba(120, 218, 255, 0.5),
+      0 0 22px rgba(120, 218, 255, 0.42);
+  }
+  100% {
+    transform: scale(0.96);
+    box-shadow:
+      0 0 0 1px rgba(120, 218, 255, 0.36),
+      0 0 10px rgba(120, 218, 255, 0.24);
+  }
+}
+
+@keyframes workflow-loop-pulse {
+  0% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(0.95);
+  }
+}
+
+@keyframes workflow-spot-breathe {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
 .log-shell {
   margin-top: 10px;
   border: 1px solid var(--edge);
@@ -2492,6 +2873,20 @@ body[data-logs-collapsed="true"] .preview-block {
   line-height: 1.6;
   font-weight: 500;
   text-shadow: none;
+}
+
+#log-output .log-link {
+  color: #79d9ff;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(121, 217, 255, 0.6);
+}
+
+#log-output .log-link:hover {
+  color: #a4ecff;
+  text-shadow: 0 0 14px rgba(121, 217, 255, 0.82);
 }
 
 #log-output-md {
