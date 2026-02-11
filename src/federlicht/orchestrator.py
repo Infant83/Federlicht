@@ -698,7 +698,6 @@ class ReportOrchestrator:
             self._agent_overrides,
         )
         alignment_model = agent_runtime.model("alignment", check_model, self._agent_overrides)
-        alignment_agent = None
 
         def agent_max_tokens(name: str) -> tuple[Optional[int], str]:
             return agent_runtime.max_input_tokens(name, self._agent_overrides)
@@ -1194,45 +1193,84 @@ class ReportOrchestrator:
             return final_text
 
         def run_alignment_check(stage: str, content: str) -> Optional[str]:
-            nonlocal alignment_agent
             if not alignment_enabled:
                 return None
-            if alignment_agent is None:
-                align_max, align_max_source = agent_max_tokens("alignment")
-                alignment_agent = helpers.create_agent_with_fallback(
-                    self._create_deep_agent,
-                    alignment_model,
-                    tools,
-                    alignment_prompt,
-                    backend,
-                    max_input_tokens=align_max,
-                    max_input_tokens_source=align_max_source,
-                )
-            align_input = [
-                f"Stage: {stage}",
-                "",
-                "Run context:",
-                "\n".join(context_lines),
-                "",
-                "Report focus prompt:",
-                report_prompt or "(none)",
-                "",
-                "Stage content:",
-                helpers.truncate_text_middle(content, alignment_max_chars),
-            ]
-            align_payload = "\n".join(align_input)
-            align_notes, cached = get_cached_output(
-                f"alignment_{stage}",
+            align_max, align_max_source = agent_max_tokens("alignment")
+            alignment_agent = helpers.create_agent_with_fallback(
+                self._create_deep_agent,
                 alignment_model,
+                tools,
                 alignment_prompt,
-                align_payload,
-                lambda: self._runner.run(
-                    f"Alignment Check ({stage})",
-                    alignment_agent,
-                    {"messages": [{"role": "user", "content": align_payload}]},
-                    show_progress=True,
-                ),
+                backend,
+                max_input_tokens=align_max,
+                max_input_tokens_source=align_max_source,
             )
+            align_sections = [
+                make_section("stage", "Stage:", stage, priority="high", base_limit=120, min_limit=40),
+                make_section(
+                    "context",
+                    "Run context:",
+                    "\n".join(context_lines),
+                    priority="high",
+                    base_limit=context_limit,
+                    min_limit=600,
+                ),
+                make_section(
+                    "report_prompt",
+                    "Report focus prompt:",
+                    report_prompt or "(none)",
+                    priority="high",
+                    base_limit=report_prompt_limit,
+                    min_limit=800,
+                ),
+                make_section(
+                    "content",
+                    "Stage content:",
+                    helpers.truncate_text_middle(content, alignment_max_chars),
+                    priority="high",
+                    base_limit=alignment_max_chars,
+                    min_limit=1000,
+                ),
+            ]
+            align_budget = resolve_stage_budget(
+                align_max,
+                reserve=2500,
+                minimum=1500,
+                default_budget=7000,
+                hard_cap=12000,
+            )
+            align_payload, _, _ = build_stage_payload(align_sections, align_budget)
+            try:
+                align_notes, cached = get_cached_output(
+                    f"alignment_{stage}",
+                    alignment_model,
+                    alignment_prompt,
+                    align_payload,
+                    lambda: self._runner.run(
+                        f"Alignment Check ({stage})",
+                        alignment_agent,
+                        {"messages": [{"role": "user", "content": align_payload}]},
+                        show_progress=True,
+                    ),
+                )
+            except Exception as exc:
+                if not is_context_overflow(exc):
+                    raise
+                helpers.print_progress(
+                    f"Alignment Check ({stage})",
+                    "[warn] context overflow in alignment check; retrying with reduced payload.",
+                    args.progress,
+                    args.progress_chars,
+                )
+                fallback_budget = max(1200, (align_budget // 2) if align_budget else 1200)
+                fallback_payload, _, _ = build_stage_payload(align_sections, fallback_budget)
+                align_notes = self._runner.run(
+                    f"Alignment Check ({stage}) (fallback)",
+                    alignment_agent,
+                    {"messages": [{"role": "user", "content": fallback_payload}]},
+                    show_progress=True,
+                )
+                cached = False
             if cached:
                 helpers.print_progress(
                     f"Alignment Check ({stage}) [cache]",
@@ -2824,4 +2862,3 @@ class ReportOrchestrator:
             workflow_summary=workflow_summary,
             workflow_path=workflow_path,
         )
-
