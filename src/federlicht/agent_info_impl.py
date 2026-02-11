@@ -155,7 +155,7 @@ def build_agent_info(
         "evaluator": build_agent_entry(
             "evaluator",
             default_model=quality_model,
-            default_prompt=prompts.build_evaluate_prompt(metrics),
+            default_prompt=prompts.build_evaluate_prompt(metrics, depth=depth),
             default_enabled=quality_enabled,
         ),
         "pairwise_compare": build_agent_entry(
@@ -192,7 +192,6 @@ def build_agent_info(
             "language": language,
             "output_format": output_format,
             "model": args.model,
-            "temperature": args.temperature,
             "temperature_level": args.temperature_level,
             "quality_model": quality_model,
             "model_vision": args.model_vision,

@@ -50,7 +50,7 @@ const state = {
   jobsExpanded: false,
   historyLogs: {},
   logsCollapsed: false,
-  logMode: "raw",
+  logMode: "markdown",
   logRenderPending: false,
   logAutoScrollRequested: false,
   logBuffer: [],
@@ -116,6 +116,10 @@ const state = {
     busy: false,
     history: [],
     runRel: "",
+  },
+  workspace: {
+    open: false,
+    tab: "templates",
   },
 };
 
@@ -223,7 +227,6 @@ const FIELD_HELP = {
   "federlicht-free-format":
     "Write without template scaffolding. When enabled, template and rigidity controls are ignored.",
   "federlicht-temperature-level": "Preset creativity/variance level for report agents.",
-  "federlicht-temperature": "Explicit temperature override (takes precedence over level when set).",
   "federlicht-quality-iterations": "Number of quality loop passes (critic/reviser/evaluator).",
   "federlicht-max-chars": "Per-document read limit used during report ingestion.",
   "federlicht-max-tool-chars":
@@ -231,8 +234,10 @@ const FIELD_HELP = {
   "federlicht-progress-chars":
     "Live-log snippet length per stage message before appending [truncated].",
   "federlicht-max-pdf-pages": "Maximum PDF pages to read per document.",
-  "federlicht-agent-config":
-    "Agent override JSON path. Lets Federnett control per-agent model/prompt/enabled/max_input_tokens centrally.",
+  "agent-config-overrides":
+    "Profile-level Federlicht config overrides (same schema as agent_config.json > config).",
+  "agent-agent-overrides":
+    "Profile-level per-agent overrides (same schema as agent_config.json > agents).",
 };
 
 function isFederlichtActive() {
@@ -687,7 +692,8 @@ async function runAskQuestion() {
       body: JSON.stringify({
         question,
         model: model || undefined,
-        max_sources: 8,
+        strict_model: Boolean(model),
+        max_sources: 12,
         history: state.ask.history.slice(-10),
         run: runRel || undefined,
       }),
@@ -706,9 +712,15 @@ async function runAskQuestion() {
     }
     await saveAskHistory();
     const modelLabel = result.model || (model || "$OPENAI_MODEL");
+    const requestedModel = result.requested_model || model || "$OPENAI_MODEL";
+    const showRequested = Boolean(model || result.model_fallback);
     const indexed = Number(result.indexed_files || 0);
     if (result.used_llm) {
-      setAskStatus(`완료 · model=${modelLabel} · indexed=${indexed}`);
+      if (showRequested) {
+        setAskStatus(`완료 · model=${modelLabel} (requested=${requestedModel}) · indexed=${indexed}`);
+      } else {
+        setAskStatus(`완료 · model=${modelLabel} · indexed=${indexed}`);
+      }
     } else if (result.error) {
       setAskStatus(`완료(fallback) · indexed=${indexed} · ${result.error}`);
     } else {
@@ -796,6 +808,74 @@ function handleAskPanel() {
   window.addEventListener("resize", () => {
     if (!state.ask.open) return;
     clampAskPanelPosition();
+  });
+}
+
+function setWorkspaceTab(tabKey) {
+  const resolved = tabKey === "agents" ? "agents" : "templates";
+  state.workspace.tab = resolved;
+  document.querySelectorAll("[data-workspace-tab]").forEach((btn) => {
+    const active = btn.getAttribute("data-workspace-tab") === resolved;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-workspace-pane]").forEach((pane) => {
+    const active = pane.getAttribute("data-workspace-pane") === resolved;
+    pane.classList.toggle("active", active);
+  });
+  $("#workspace-open-templates")?.classList.toggle("is-active", state.workspace.open && resolved === "templates");
+  $("#workspace-open-agents")?.classList.toggle("is-active", state.workspace.open && resolved === "agents");
+}
+
+function setWorkspacePanelOpen(open, tabKey) {
+  const panel = $("#workspace-panel");
+  if (!panel) return;
+  state.workspace.open = Boolean(open);
+  panel.classList.toggle("open", state.workspace.open);
+  panel.setAttribute("aria-hidden", state.workspace.open ? "false" : "true");
+  panel.style.display = state.workspace.open ? "block" : "none";
+  if (state.workspace.open) {
+    setWorkspaceTab(tabKey || state.workspace.tab || "templates");
+  } else {
+    $("#workspace-open-templates")?.classList.remove("is-active");
+    $("#workspace-open-agents")?.classList.remove("is-active");
+  }
+}
+
+function handleWorkspacePanel() {
+  const panel = $("#workspace-panel");
+  if (!panel) return;
+  panel.style.display = "none";
+  setWorkspaceTab("templates");
+  const toggleFrom = (tabKey) => {
+    if (state.workspace.open && state.workspace.tab === tabKey) {
+      setWorkspacePanelOpen(false);
+      return;
+    }
+    setWorkspacePanelOpen(true, tabKey);
+  };
+  $("#workspace-open-templates")?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    toggleFrom("templates");
+  });
+  $("#workspace-open-agents")?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    toggleFrom("agents");
+  });
+  $("#workspace-close")?.addEventListener("click", () => setWorkspacePanelOpen(false));
+  panel.querySelectorAll("[data-workspace-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tabKey = btn.getAttribute("data-workspace-tab") || "templates";
+      setWorkspaceTab(tabKey);
+    });
+  });
+  panel.addEventListener("click", (ev) => ev.stopPropagation());
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && state.workspace.open) {
+      setWorkspacePanelOpen(false);
+    }
   });
 }
 
@@ -963,15 +1043,9 @@ function bindHeroCards() {
 
   if (templatesCard) {
     templatesCard.addEventListener("click", () => {
-      const panel = $("#templates-panel");
+      setWorkspacePanelOpen(true, "templates");
+      const panel = $("#workspace-panel");
       if (panel) {
-        if (panel.classList.contains("panel-collapsed")) {
-          panel.classList.remove("panel-collapsed");
-          const panelButton = $("#templates-panel-toggle");
-          if (panelButton) panelButton.textContent = "Hide panel";
-          localStorage.setItem("federnett-templates-panel-collapsed", "false");
-        }
-        panel.scrollIntoView({ behavior: "smooth", block: "start" });
         flashElement(panel);
       }
     });
@@ -1105,6 +1179,95 @@ let featherOutputTouched = false;
 let featherInputTouched = false;
 let promptFileTouched = false;
 let promptInlineTouched = false;
+let federlichtOutputHintSeq = 0;
+
+function toFederlichtOutputFieldPath(rawPath) {
+  const normalized = normalizePathString(rawPath);
+  if (!normalized) return "";
+  return stripSiteRunsPrefix(normalized) || normalized;
+}
+
+async function fetchFederlichtOutputSuggestion(rawOutputPath, runRel = "") {
+  const outputPath = normalizePathString(rawOutputPath);
+  if (!outputPath) return null;
+  const params = new URLSearchParams();
+  params.set("output", outputPath);
+  const normalizedRun = normalizePathString(runRel || "");
+  if (normalizedRun) params.set("run", normalizedRun);
+  try {
+    return await fetchJSON(`/api/federlicht/output-suggestion?${params.toString()}`);
+  } catch (err) {
+    return null;
+  }
+}
+
+async function refreshFederlichtOutputHint(options = {}) {
+  const input = $("#federlicht-output");
+  const hint = $("#federlicht-output-hint");
+  if (!input || !hint) return null;
+  const requestId = ++federlichtOutputHintSeq;
+  const entered = normalizePathString(input.value || "");
+  if (!entered) {
+    hint.innerHTML =
+      "동일 파일이 있으면 자동으로 <code>_1</code>, <code>_2</code>가 붙습니다.";
+    if (!state.workflow.running && state.workflow.kind !== "federlicht") {
+      state.workflow.resultPath = "";
+      renderWorkflow();
+    }
+    return null;
+  }
+  const expanded = expandSiteRunsPath(entered);
+  const runRel = normalizePathString($("#run-select")?.value || "");
+  const suggestion = await fetchFederlichtOutputSuggestion(expanded, runRel);
+  if (requestId !== federlichtOutputHintSeq) return suggestion;
+  if (!suggestion) {
+    hint.innerHTML =
+      "출력 파일명을 확인할 수 없습니다. 실행 시 충돌이 있으면 자동으로 접미사가 붙습니다.";
+    return null;
+  }
+  const requestedField = toFederlichtOutputFieldPath(suggestion.requested_output || expanded);
+  const suggestedField = toFederlichtOutputFieldPath(suggestion.suggested_output || expanded);
+  const changed = Boolean(suggestion.changed) && requestedField !== suggestedField;
+  if (changed) {
+    hint.innerHTML = `이미 존재: 실행 시 <code>${escapeHtml(
+      suggestedField,
+    )}</code> 로 저장됩니다.`;
+  } else {
+    hint.innerHTML = `예정 출력: <code>${escapeHtml(suggestedField)}</code>`;
+  }
+  if (options.applyToInput && suggestedField) {
+    input.value = suggestedField;
+    reportOutputTouched = true;
+  }
+  if (!state.workflow.running) {
+    state.workflow.resultPath = normalizeWorkflowResultPath(suggestion.suggested_output || expanded);
+    renderWorkflow();
+  }
+  return suggestion;
+}
+
+async function applyFederlichtOutputSuggestionToPayload(payload, options = {}) {
+  if (!payload || !payload.output) return payload;
+  const runRel = normalizePathString(payload.run || $("#run-select")?.value || "");
+  const suggestion = await fetchFederlichtOutputSuggestion(payload.output, runRel);
+  if (!suggestion || !suggestion.suggested_output) return payload;
+  const suggested = normalizePathString(suggestion.suggested_output);
+  if (!suggested) return payload;
+  if (normalizePathString(payload.output) !== suggested) {
+    payload.output = suggested;
+    const outputFieldPath = toFederlichtOutputFieldPath(suggested);
+    if (options.syncInput !== false) {
+      const input = $("#federlicht-output");
+      if (input) {
+        input.value = outputFieldPath;
+        reportOutputTouched = true;
+      }
+    }
+    appendLog(`[federlicht] output exists; using ${outputFieldPath}\n`);
+  }
+  await refreshFederlichtOutputHint().catch(() => {});
+  return payload;
+}
 
 function refreshRunDependentFields() {
   const runRel = $("#run-select")?.value;
@@ -1128,6 +1291,7 @@ function refreshRunDependentFields() {
       }
     });
   }
+  refreshFederlichtOutputHint().catch(() => {});
 }
 
 function maybeReloadAskHistory() {
@@ -1464,7 +1628,7 @@ async function loadFilePreview(relPath, options = {}) {
   const requestedLine = Number(options.focusLine || 0);
   const requestedEndLine = Number(options.endLine || requestedLine || 0);
   const originalMode = previewModeForPath(relPath);
-  const mode = requestedLine > 0 && originalMode === "markdown" ? "text" : originalMode;
+  const mode = originalMode;
   if (mode === "pdf" || mode === "html" || mode === "image") {
     updateFilePreviewState({
       path: relPath,
@@ -1786,6 +1950,7 @@ async function runCanvasUpdate() {
   payload.output = expandSiteRunsPath(outputPath);
   payload.prompt_file = expandSiteRunsPath(updatePath);
   delete payload.prompt;
+  await applyFederlichtOutputSuggestionToPayload(payload, { syncInput: true });
   const cleanPayload = pruneEmpty(payload);
   setCanvasStatus("Running update...");
   await startJob("/api/federlicht/start", cleanPayload, {
@@ -2956,6 +3121,40 @@ function updatePipelineOutputs() {
   setText("#pipeline-stages-value", stagesCsv || "-");
   setText("#pipeline-skip-value", skipCsv || "-");
   syncWorkflowStageSelection(selected);
+  syncWorkflowQualityControls();
+}
+
+function parseQualityIterations(value) {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  if (!Number.isFinite(parsed)) return 1;
+  if (parsed < 1) return 1;
+  return Math.min(parsed, 10);
+}
+
+function getQualityIterations() {
+  const mainInput = $("#federlicht-quality-iterations");
+  if (mainInput) return parseQualityIterations(mainInput.value);
+  return 1;
+}
+
+function setQualityIterations(value) {
+  const normalized = parseQualityIterations(value);
+  const text = String(normalized);
+  const mainInput = $("#federlicht-quality-iterations");
+  if (mainInput && mainInput.value !== text) mainInput.value = text;
+  return normalized;
+}
+
+function syncWorkflowQualityControls() {
+  const qualitySelected = workflowIsStageSelected("quality");
+  const current = getQualityIterations();
+  setQualityIterations(current);
+  const mainInput = $("#federlicht-quality-iterations");
+  if (mainInput) {
+    mainInput.title = qualitySelected
+      ? "Quality stage is enabled: iterations control critic/reviser loops."
+      : "Quality stage is disabled: this value is kept but not used.";
+  }
 }
 
 function workflowLabel(stepId) {
@@ -4013,10 +4212,14 @@ function renderWorkflow() {
       ? `<span class="workflow-node-path">${escapeHtml(stripSiteRunsPrefix(previewPath) || previewPath)}</span>`
       : "";
     const isQualityNode = stepId === "quality";
+    const qualityIterations = getQualityIterations();
     const showLoop =
       isQualityNode
       && (state.workflow.kind === "federlicht" || workflowIsStageSelected("quality"))
       && workflowIsStageSelected("writer");
+    const loopTitle = showLoop
+      ? `Quality feedback loop-back (${qualityIterations} iteration${qualityIterations === 1 ? "" : "s"})`
+      : "";
     const loopClasses = [
       "workflow-loop-arrow",
       state.workflow.loopbackPulse ? "is-pulse" : "",
@@ -4029,10 +4232,29 @@ function renderWorkflow() {
         ? `<span class="workflow-loop-count">${escapeHtml(String(state.workflow.loopbackCount))}</span>`
         : "";
     const loopHtml = showLoop
-      ? `<span class="${loopClasses}" title="Quality feedback loop-back">
+      ? `<span class="${loopClasses}" title="${escapeHtml(loopTitle)}">
           <span class="workflow-loop-symbol">↺</span>
           ${loopBadge}
         </span>`
+      : "";
+    const qualityStageOn = workflowIsStageSelected("quality");
+    const iterSelectDisabled = state.workflow.running || !qualityStageOn ? "disabled" : "";
+    const iterValues = Array.from({ length: 10 }, (_, idx) => idx + 1);
+    const iterOptions = iterValues
+      .map((value) => {
+        const selected = value === qualityIterations ? "selected" : "";
+        const label = `x${value}`;
+        return `<option value="${value}" ${selected}>${escapeHtml(label)}</option>`;
+      })
+      .join("");
+    const qualityControls = isQualityNode
+      ? `<select
+          class="workflow-iter-select"
+          data-workflow-quality-select="true"
+          aria-label="Quality iterations"
+          title="Quality iterations"
+          ${iterSelectDisabled}
+        >${iterOptions}</select>`
       : "";
     const arrow = idx < nodeOrder.length - 1 ? '<span class="workflow-arrow">→</span>' : "";
     return `
@@ -4050,6 +4272,7 @@ function renderWorkflow() {
           ${isResult ? pathLabel : ""}
         </button>
         ${loopHtml}
+        ${qualityControls}
         ${arrow}
       </span>
     `;
@@ -4163,6 +4386,19 @@ function renderWorkflow() {
       renderWorkflow();
     });
   });
+  host.querySelectorAll("[data-workflow-quality-select]").forEach((el) => {
+    el.addEventListener("click", (ev) => ev.stopPropagation());
+    el.addEventListener("change", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (state.workflow.running) return;
+      const target = ev.currentTarget;
+      if (!(target instanceof HTMLSelectElement)) return;
+      setQualityIterations(target.value || 0);
+      syncWorkflowQualityControls();
+      renderWorkflow();
+    });
+  });
   extrasHost.querySelectorAll("[data-workflow-open]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const relPath = btn.getAttribute("data-workflow-open") || "";
@@ -4170,6 +4406,7 @@ function renderWorkflow() {
       await loadFilePreview(relPath);
     });
   });
+  syncWorkflowQualityControls();
   syncWorkflowHistoryControls();
 }
 
@@ -4785,10 +5022,6 @@ function applyRunSettings(summary) {
       levelSelect.value = meta.temperature_level;
     }
   }
-  if (meta.temperature !== undefined && meta.temperature !== null) {
-    const temperatureInput = $("#federlicht-temperature");
-    if (temperatureInput) temperatureInput.value = String(meta.temperature);
-  }
   if (meta.max_chars !== undefined && meta.max_chars !== null) {
     const maxCharsInput = $("#federlicht-max-chars");
     if (maxCharsInput) maxCharsInput.value = String(meta.max_chars);
@@ -4801,13 +5034,12 @@ function applyRunSettings(summary) {
     const maxPdfPagesInput = $("#federlicht-max-pdf-pages");
     if (maxPdfPagesInput) maxPdfPagesInput.value = String(meta.max_pdf_pages);
   }
-  if (meta.agent_config) {
-    const agentConfigInput = $("#federlicht-agent-config");
-    if (agentConfigInput) agentConfigInput.value = String(meta.agent_config);
-  }
   if (meta.progress_chars !== undefined && meta.progress_chars !== null) {
     const progressCharsInput = $("#federlicht-progress-chars");
     if (progressCharsInput) progressCharsInput.value = String(meta.progress_chars);
+  }
+  if (meta.quality_iterations !== undefined && meta.quality_iterations !== null) {
+    setQualityIterations(meta.quality_iterations);
   }
   if (meta.agent_profile) {
     const profileId =
@@ -4821,6 +5053,7 @@ function applyRunSettings(summary) {
     }
   }
   applyFreeFormatMode();
+  syncWorkflowQualityControls();
 }
 
 function setKillEnabled(enabled) {
@@ -5089,7 +5322,6 @@ function buildFederlichtPayload() {
     model_vision: $("#federlicht-model-vision")?.value,
     template_rigidity: freeFormat ? undefined : $("#federlicht-template-rigidity")?.value,
     temperature_level: $("#federlicht-temperature-level")?.value,
-    temperature: Number.parseFloat($("#federlicht-temperature")?.value || ""),
     stages: $("#federlicht-stages")?.value,
     skip_stages: $("#federlicht-skip-stages")?.value,
     quality_iterations: Number.parseInt(
@@ -5120,7 +5352,6 @@ function buildFederlichtPayload() {
     site_output: $("#federlicht-site-output")?.value,
     agent_profile: agentProfile,
     agent_profile_dir: agentProfileDir,
-    agent_config: $("#federlicht-agent-config")?.value,
     extra_args: $("#federlicht-extra-args")?.value,
   };
   if (!payload.run) {
@@ -5130,7 +5361,6 @@ function buildFederlichtPayload() {
     throw new Error("Output report path is required.");
   }
   if (!Number.isFinite(payload.quality_iterations)) delete payload.quality_iterations;
-  if (!Number.isFinite(payload.temperature)) delete payload.temperature;
   if (!Number.isFinite(payload.max_chars)) delete payload.max_chars;
   if (!Number.isFinite(payload.max_tool_chars)) delete payload.max_tool_chars;
   if (!Number.isFinite(payload.progress_chars)) delete payload.progress_chars;
@@ -5175,12 +5405,9 @@ function buildPromptPayloadFromFederlicht() {
     free_format: freeFormat ? true : undefined,
     depth: $("#federlicht-depth")?.value,
     model: $("#federlicht-model")?.value,
-    agent_config: $("#federlicht-agent-config")?.value,
     template_rigidity: freeFormat ? undefined : $("#federlicht-template-rigidity")?.value,
     temperature_level: $("#federlicht-temperature-level")?.value,
-    temperature: Number.parseFloat($("#federlicht-temperature")?.value || ""),
   };
-  if (!Number.isFinite(payload.temperature)) delete payload.temperature;
   return pruneEmpty(payload);
 }
 
@@ -5289,6 +5516,11 @@ function handleFeatherAgenticControls() {
 function handleRunOutputTouch() {
   $("#federlicht-output")?.addEventListener("input", () => {
     reportOutputTouched = true;
+    refreshFederlichtOutputHint().catch(() => {});
+  });
+  $("#federlicht-output")?.addEventListener("change", () => {
+    reportOutputTouched = true;
+    refreshFederlichtOutputHint().catch(() => {});
   });
   $("#federlicht-prompt-file")?.addEventListener("input", () => {
     promptFileTouched = true;
@@ -5315,6 +5547,11 @@ function handlePipelineInputs() {
   });
   $("#federlicht-skip-stages")?.addEventListener("change", () => {
     initPipelineFromInputs();
+  });
+  $("#federlicht-quality-iterations")?.addEventListener("input", () => {
+    setQualityIterations($("#federlicht-quality-iterations")?.value || 0);
+    syncWorkflowQualityControls();
+    renderWorkflow();
   });
 }
 
@@ -6001,8 +6238,7 @@ function handleLogControls() {
   } else {
     setLogsCollapsed(false);
   }
-  const savedMode = localStorage.getItem("federnett-log-mode");
-  setLogMode(savedMode === "markdown" ? "markdown" : "raw");
+  setLogMode("markdown");
   $("#log-mode")?.addEventListener("click", () => {
     setLogMode(state.logMode === "markdown" ? "raw" : "markdown");
   });
@@ -6259,8 +6495,30 @@ function renderAgentProfileSelect() {
   }
 }
 
+function setAgentEditorReadOnly(readOnly) {
+  const saveBtn = $("#agent-save");
+  const deleteBtn = $("#agent-delete");
+  const hint = $("#agent-readonly-hint");
+  if (saveBtn) saveBtn.disabled = Boolean(readOnly);
+  if (deleteBtn) deleteBtn.disabled = Boolean(readOnly);
+  if (hint) {
+    hint.classList.toggle("is-readonly", Boolean(readOnly));
+    hint.textContent = readOnly
+      ? "Built-in profile is read-only. Clone 후 저장하면 site profile로 저장됩니다."
+      : "";
+  }
+}
+
 function fillAgentForm(profile, memoryText, source, readOnly) {
   const memoryHook = profile?.memory_hook || {};
+  const configOverrides =
+    profile?.config_overrides && typeof profile.config_overrides === "object"
+      ? profile.config_overrides
+      : {};
+  const agentOverrides =
+    profile?.agent_overrides && typeof profile.agent_overrides === "object"
+      ? profile.agent_overrides
+      : {};
   $("#agent-id").value = profile?.id || "";
   $("#agent-name").value = profile?.name || "";
   $("#agent-author-name").value = profile?.author_name || profile?.name || "";
@@ -6268,6 +6526,12 @@ function fillAgentForm(profile, memoryText, source, readOnly) {
   $("#agent-tagline").value = profile?.tagline || "";
   $("#agent-apply-to").value = (profile?.apply_to || []).join(", ");
   $("#agent-system-prompt").value = profile?.system_prompt || "";
+  $("#agent-config-overrides").value = Object.keys(configOverrides).length
+    ? JSON.stringify(configOverrides, null, 2)
+    : "";
+  $("#agent-agent-overrides").value = Object.keys(agentOverrides).length
+    ? JSON.stringify(agentOverrides, null, 2)
+    : "";
   $("#agent-memory-desc").value = memoryHook?.description || "";
   $("#agent-memory-path").value = memoryHook?.path || "";
   $("#agent-memory-text").value = memoryText || "";
@@ -6282,6 +6546,22 @@ function fillAgentForm(profile, memoryText, source, readOnly) {
       ? `Read-only built-in profile · ${source}`
       : `Editable profile · ${source}`;
   }
+  setAgentEditorReadOnly(readOnly);
+}
+
+function parseOptionalJsonObject(rawText, fieldLabel) {
+  const text = String(rawText || "").trim();
+  if (!text) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    throw new Error(`${fieldLabel} must be valid JSON.`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${fieldLabel} must be a JSON object.`);
+  }
+  return parsed;
 }
 
 async function openAgentProfile(id, source) {
@@ -6313,6 +6593,8 @@ function newAgentProfile() {
     tagline: "",
     apply_to: [],
     system_prompt: "",
+    config_overrides: {},
+    agent_overrides: {},
     memory_hook: {},
   };
   state.agentProfiles.memoryText = "";
@@ -6333,6 +6615,14 @@ function readAgentForm() {
   const tagline = $("#agent-tagline").value.trim();
   const applyTo = normalizeApplyTo($("#agent-apply-to").value);
   const systemPrompt = $("#agent-system-prompt").value;
+  const configOverrides = parseOptionalJsonObject(
+    $("#agent-config-overrides").value,
+    "Config overrides",
+  );
+  const agentOverrides = parseOptionalJsonObject(
+    $("#agent-agent-overrides").value,
+    "Agent overrides",
+  );
   const memoryDesc = $("#agent-memory-desc").value.trim();
   const memoryPath = $("#agent-memory-path").value.trim();
   const memoryText = $("#agent-memory-text").value;
@@ -6345,6 +6635,12 @@ function readAgentForm() {
     apply_to: applyTo,
     system_prompt: systemPrompt,
   };
+  if (configOverrides) {
+    profile.config_overrides = configOverrides;
+  }
+  if (agentOverrides) {
+    profile.agent_overrides = agentOverrides;
+  }
   if (memoryDesc || memoryPath) {
     profile.memory_hook = {
       description: memoryDesc,
@@ -6410,6 +6706,9 @@ function cloneAgentProfile() {
   $("#agent-id").value = profile.id;
   $("#agent-memory-text").value = memoryText || "";
   state.agentProfiles.readOnly = false;
+  const meta = $("#agent-editor-meta");
+  if (meta) meta.textContent = "Editable profile · site";
+  setAgentEditorReadOnly(false);
   setAgentStatus(`Cloned. New profile ID ${profile.id}.`);
 }
 
@@ -6594,6 +6893,7 @@ function bindForms() {
     e.preventDefault();
     try {
       const payload = buildFederlichtPayload();
+      await applyFederlichtOutputSuggestionToPayload(payload, { syncInput: true });
       const runRel = payload.run;
       await startJob("/api/federlicht/start", payload, {
         kind: "federlicht",
@@ -6690,6 +6990,7 @@ async function bootstrap() {
   initTheme();
   applyFieldTooltips();
   handleAskPanel();
+  handleWorkspacePanel();
   handleTabs();
   handleFeatherRunName();
   handleFeatherAgenticControls();
@@ -6726,6 +7027,7 @@ async function bootstrap() {
   renderJobs();
   resetWorkflowState();
   renderWorkflow();
+  syncWorkflowQualityControls();
 
   try {
     await loadInfo();

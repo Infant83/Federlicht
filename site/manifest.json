@@ -1,32 +1,32 @@
 {
-  "revision": "2026-02-11T06:43:31.263767",
-  "generated_at": "2026-02-11T06:43:31.263767",
+  "revision": "2026-02-12T08:07:05.313140",
+  "generated_at": "2026-02-12T08:07:05.313140",
   "items": [
     {
       "id": "동영상생성AI",
       "run": "동영상생성AI",
-      "report_stem": "report_full_2",
-      "title": "AI 동영상 생성 플랫폼 비교를 위한 1차 자료 확보 리스크 분석",
+      "report_stem": "report_full_4",
+      "title": "동영상 생성 AI 플랫폼 비교 보고서 수집·검증 과제",
       "author": "Federlicht Writer",
-      "summary": "AI 동영상 생성 플랫폼 비교를 위한 1차 자료 확보 리스크 분석 Default assisted and prompted by \"Federlicht Writer\" — 2026-02-11 06:43 Executive Summary 2026년 기준 “AI 동영상 생성 플랫폼” 실전 가이드를 완결형으로 쓰려면, 플랫폼 기능 설명만으로는 부족하고 가격/약관(상업적 이용·워터마크)/출력 스펙/제한사항…",
+      "summary": "동영상 생성 AI 플랫폼 비교 보고서 수집·검증 과제 Default assisted and prompted by \"Federlicht Writer\" — 2026-02-12 08:07 Executive Summary 이번 런(Query ID: 동영상생성AI )은 최근 365일 범위에서 “동영상 생성 AI 플랫폼 정리–요금/품질 비교–생성 방법 안내”라는 실무 지향 주제를 목표로 3개 쿼리를…",
       "lang": "Korean",
       "template": "default",
       "format": "html",
-      "model": "gpt-5.2-2025-12-11",
+      "model": "gpt-5.2",
       "tags": [
-        "플랫폼",
         "생성",
         "동영상",
-        "실제",
-        "비교"
+        "플랫폼",
+        "비교",
+        "수집"
       ],
-      "date": "2026-02-11",
-      "timestamp": "2026-02-11T06:43:30.919872",
-      "source_mtime": 1770759811,
-      "source_size": 56107,
+      "date": "2026-02-12",
+      "timestamp": "2026-02-12T08:07:05.008799",
+      "source_mtime": 1770851225,
+      "source_size": 50551,
       "paths": {
-        "report": "runs/동영상생성AI/report_full_2.html",
-        "overview": "runs/동영상생성AI/report/run_overview_report_full_2.md",
+        "report": "runs/동영상생성AI/report_full_4.html",
+        "overview": "runs/동영상생성AI/report/run_overview_report_full_4.md",
         "workflow": "runs/동영상생성AI/report_notes/report_workflow.md",
         "run": "runs/동영상생성AI"
       }

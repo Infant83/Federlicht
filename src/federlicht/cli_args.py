@@ -298,14 +298,6 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
             f"Default: {DEFAULT_TEMPERATURE_LEVEL}."
         ),
     )
-    ap.add_argument(
-        "--temperature",
-        type=float,
-        help=(
-            "Optional explicit temperature override for agents. "
-            "If unset, --temperature-level is used."
-        ),
-    )
     env_model_vision = os.getenv("OPENAI_MODEL_VISION") or None
     ap.add_argument(
         "--model-vision",

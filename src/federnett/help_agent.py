@@ -103,6 +103,14 @@ _META_PATH_HINTS = (
     "src/federnett/app.py",
     "src/federnett/help_agent.py",
 )
+_RUN_CONTEXT_PATTERNS = (
+    "instruction/*.txt",
+    "instruction/*.md",
+    "report/*.md",
+    "report/*.txt",
+    "report_notes/*.md",
+    "README.md",
+)
 
 
 @dataclass
@@ -330,6 +338,81 @@ def _fallback_sources(index: _IndexCache, max_sources: int) -> list[dict[str, An
     return out
 
 
+def _resolve_run_dir(root: Path, run_rel: str | None) -> Path | None:
+    normalized = (run_rel or "").strip().replace("\\", "/").strip("/")
+    if not normalized:
+        return None
+    try:
+        run_dir = (root / normalized).resolve()
+        run_dir.relative_to(root.resolve())
+    except Exception:
+        return None
+    if not run_dir.exists() or not run_dir.is_dir():
+        return None
+    return run_dir
+
+
+def _iter_run_context_files(root: Path, run_rel: str | None) -> list[Path]:
+    run_dir = _resolve_run_dir(root, run_rel)
+    if run_dir is None:
+        return []
+    files: list[Path] = []
+    seen: set[str] = set()
+    for pattern in _RUN_CONTEXT_PATTERNS:
+        for path in run_dir.glob(pattern):
+            if not path.is_file():
+                continue
+            rel = safe_rel(path, root)
+            if rel in seen or not _is_path_allowed(rel):
+                continue
+            if "/archive/" in rel.replace("\\", "/").lower():
+                continue
+            try:
+                if path.stat().st_size > _MAX_FILE_BYTES:
+                    continue
+            except OSError:
+                continue
+            seen.add(rel)
+            files.append(path)
+    return files
+
+
+def _score_run_context_sources(
+    root: Path,
+    run_rel: str | None,
+    *,
+    tokens: list[str],
+    question_l: str,
+    max_sources: int,
+) -> list[dict[str, Any]]:
+    scored: list[dict[str, Any]] = []
+    run_rel_l = (run_rel or "").strip().replace("\\", "/").strip("/").lower()
+    for path in _iter_run_context_files(root, run_rel):
+        doc = _read_doc(path, root)
+        if doc is None or not doc.lines:
+            continue
+        for start, end, text in _iter_chunks(doc.lines):
+            score = _chunk_score(doc.rel_path, text, tokens, question_l, run_rel_l=run_rel_l)
+            if score <= 0:
+                continue
+            excerpt = text.strip()
+            if len(excerpt) > _MAX_SOURCE_TEXT:
+                excerpt = excerpt[: _MAX_SOURCE_TEXT - 1] + "..."
+            scored.append(
+                {
+                    "path": doc.rel_path,
+                    "start_line": start,
+                    "end_line": end,
+                    "score": round(score + 3.0, 3),
+                    "excerpt": excerpt,
+                }
+            )
+    scored.sort(
+        key=lambda item: (-float(item["score"]), len(str(item["path"])), int(item["start_line"])),
+    )
+    return scored[: max(1, max_sources)]
+
+
 def _select_sources(
     root: Path,
     question: str,
@@ -363,7 +446,32 @@ def _select_sources(
     scored.sort(
         key=lambda item: (-float(item["score"]), len(str(item["path"])), int(item["start_line"])),
     )
-    selected = scored[: max(1, max_sources)]
+    run_context_scored = _score_run_context_sources(
+        root,
+        run_rel,
+        tokens=tokens,
+        question_l=question_l,
+        max_sources=max(2, min(6, max_sources)),
+    )
+    if run_context_scored:
+        scored.extend(run_context_scored)
+        scored.sort(
+            key=lambda item: (-float(item["score"]), len(str(item["path"])), int(item["start_line"])),
+        )
+    selected: list[dict[str, Any]] = []
+    seen_chunks: set[tuple[str, int, int]] = set()
+    for item in scored:
+        key = (
+            str(item.get("path") or ""),
+            int(item.get("start_line") or 0),
+            int(item.get("end_line") or 0),
+        )
+        if key in seen_chunks:
+            continue
+        seen_chunks.add(key)
+        selected.append(item)
+        if len(selected) >= max(1, max_sources):
+            break
     if not selected:
         selected = _fallback_sources(index, max_sources)
     for idx, item in enumerate(selected, start=1):
@@ -409,8 +517,24 @@ def _normalize_history(history: Any) -> list[dict[str, str]]:
     return cleaned
 
 
-def _chat_completion_urls(base_url: str) -> list[str]:
+def _normalize_api_base_url(base_url: str) -> str:
     base = (base_url or "https://api.openai.com").strip().rstrip("/")
+    lowered = base.lower()
+    for suffix in (
+        "/v1/chat/completions",
+        "/chat/completions",
+        "/v1/responses",
+        "/responses",
+    ):
+        if lowered.endswith(suffix):
+            base = base[: -len(suffix)]
+            lowered = base.lower()
+            break
+    return base.rstrip("/")
+
+
+def _chat_completion_urls(base_url: str) -> list[str]:
+    base = _normalize_api_base_url(base_url)
     candidates: list[str]
     if base.endswith("/v1"):
         root = base[:-3].rstrip("/")
@@ -432,12 +556,46 @@ def _chat_completion_urls(base_url: str) -> list[str]:
     return out
 
 
+def _responses_urls(base_url: str) -> list[str]:
+    base = _normalize_api_base_url(base_url)
+    candidates: list[str]
+    if base.endswith("/v1"):
+        root = base[:-3].rstrip("/")
+        candidates = [
+            f"{base}/responses",
+            f"{root}/v1/responses",
+            f"{root}/responses",
+        ]
+    else:
+        candidates = [f"{base}/v1/responses", f"{base}/responses"]
+    out: list[str] = []
+    seen: set[str] = set()
+    for url in candidates:
+        normalized = url.rstrip("/")
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out
+
+
 def _payload_variants(base_payload: dict[str, Any]) -> list[dict[str, Any]]:
     first = dict(base_payload)
     first["max_completion_tokens"] = 900
     second = dict(base_payload)
     second["max_tokens"] = 900
-    return [first, second]
+    third = dict(base_payload)
+    third.pop("temperature", None)
+    return [first, second, third]
+
+
+def _responses_payload_variants(base_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    first = dict(base_payload)
+    first["max_output_tokens"] = 900
+    second = dict(base_payload)
+    third = dict(base_payload)
+    third.pop("temperature", None)
+    return [first, second, third]
 
 
 def _is_unsupported_token_error(text: str, key_name: str) -> bool:
@@ -445,22 +603,129 @@ def _is_unsupported_token_error(text: str, key_name: str) -> bool:
     return "unsupported parameter" in lowered and key_name.lower() in lowered
 
 
+def _expand_env_reference(raw_value: str) -> str:
+    text = str(raw_value or "").strip()
+    if not text:
+        return ""
+    if text.startswith("${") and text.endswith("}") and len(text) > 3:
+        key = text[2:-1].strip()
+        return str(os.getenv(key) or "").strip()
+    if text.startswith("$") and len(text) > 1 and " " not in text:
+        key = text[1:].strip()
+        return str(os.getenv(key) or "").strip()
+    return text
+
+
+def _resolve_requested_model(model_input: str | None) -> tuple[str, bool]:
+    raw = str(model_input or "").strip()
+    if raw:
+        expanded = _expand_env_reference(raw)
+        if expanded:
+            # Explicit "$OPENAI_MODEL" is treated as auto-resolution to env model.
+            return expanded, not raw.startswith("$")
+        if raw.startswith("$"):
+            return "", False
+        return raw, True
+    env_model = _expand_env_reference(str(os.getenv("OPENAI_MODEL") or ""))
+    return env_model, False
+
+
+def _is_model_unavailable_error(status_code: int, text: str) -> bool:
+    lowered = (text or "").lower()
+    model_hint = any(token in lowered for token in ("model", "deployment"))
+    not_found_hint = any(
+        token in lowered
+        for token in (
+            "not found",
+            "does not exist",
+            "unknown model",
+            "unavailable",
+            "access",
+            "permission",
+            "invalid model",
+        )
+    )
+    return (status_code in {400, 404} and model_hint and not_found_hint) or (
+        status_code == 404 and "model_not_found" in lowered
+    )
+
+
+def _extract_chat_content(body: dict[str, Any]) -> str:
+    choices = body.get("choices") or []
+    if not choices:
+        return ""
+    message = choices[0].get("message") or {}
+    return str(message.get("content") or "").strip()
+
+
+def _extract_responses_content(body: dict[str, Any]) -> str:
+    text = body.get("output_text")
+    if isinstance(text, str) and text.strip():
+        return text.strip()
+    output = body.get("output")
+    chunks: list[str] = []
+    if isinstance(output, list):
+        for item in output:
+            if not isinstance(item, dict):
+                continue
+            content = item.get("content")
+            if isinstance(content, list):
+                for part in content:
+                    if not isinstance(part, dict):
+                        continue
+                    part_type = str(part.get("type") or "").strip().lower()
+                    part_text = part.get("text")
+                    if part_type in {"output_text", "text"} and isinstance(part_text, str) and part_text.strip():
+                        chunks.append(part_text.strip())
+            elif isinstance(content, str) and content.strip():
+                chunks.append(content.strip())
+    if chunks:
+        return "\n".join(chunks).strip()
+    return _extract_chat_content(body)
+
+
+def _resolve_model_candidates(chosen_model: str, *, explicit: bool, strict_model: bool = False) -> list[str]:
+    allow_fallback = str(os.getenv("FEDERNETT_HELP_ALLOW_MODEL_FALLBACK") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    candidates: list[str] = []
+    for token in (chosen_model,):
+        if token and token not in candidates:
+            candidates.append(token)
+    if explicit and (strict_model or not allow_fallback):
+        return candidates
+    for token in (
+        _expand_env_reference(str(os.getenv("OPENAI_MODEL") or "")),
+        _expand_env_reference(str(os.getenv("FEDERNETT_HELP_FALLBACK_MODEL") or "gpt-4o-mini")),
+    ):
+        if token and token not in candidates:
+            candidates.append(token)
+    return candidates
+
+
 def _call_llm(
     question: str,
     sources: list[dict[str, Any]],
     model: str | None,
     history: list[dict[str, str]] | None = None,
+    strict_model: bool = False,
 ) -> tuple[str, str]:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not set")
     if requests is None:
         raise RuntimeError("requests package is unavailable")
-    chosen_model = (model or os.getenv("OPENAI_MODEL") or "").strip()
+    chosen_model, explicit_model = _resolve_requested_model(model)
     if not chosen_model:
         raise RuntimeError("Model is not configured (set OPENAI_MODEL or pass model)")
-    base_url = (os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE") or "https://api.openai.com").strip()
-    urls = _chat_completion_urls(base_url)
+    base_url = _normalize_api_base_url(
+        (os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE") or "https://api.openai.com").strip()
+    )
+    chat_urls = _chat_completion_urls(base_url)
+    responses_urls = _responses_urls(base_url)
     context = _build_context(sources)
     system = (
         "You are Federnett usage guide assistant. "
@@ -498,50 +763,97 @@ def _call_llm(
     if history:
         messages.extend(_normalize_history(history))
     messages.append({"role": "user", "content": user})
-    base_payload = {
-        "model": chosen_model,
-        "messages": messages,
-        "temperature": 0.2,
-    }
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     last_error = "LLM request failed: no endpoint attempted"
     resp = None
-    for url in urls:
-        for payload in _payload_variants(base_payload):
-            resp = requests.post(
-                url,
-                headers=headers,
-                json=payload,
-                timeout=45,
-            )
-            if resp.status_code == 200:
+    for candidate_model in _resolve_model_candidates(
+        chosen_model,
+        explicit=explicit_model,
+        strict_model=bool(strict_model),
+    ):
+        model_unavailable = False
+        chat_payload_base = {
+            "model": candidate_model,
+            "messages": messages,
+            "temperature": 0.2,
+        }
+        for url in chat_urls:
+            for payload in _payload_variants(chat_payload_base):
+                resp = requests.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=45,
+                )
+                if resp.status_code == 200:
+                    body = resp.json()
+                    content = _extract_chat_content(body)
+                    if content:
+                        return content, candidate_model
+                    last_error = "LLM returned empty content"
+                    continue
+                text = resp.text.strip()
+                last_error = f"LLM request failed: {resp.status_code} {text}"
+                if _is_model_unavailable_error(resp.status_code, text):
+                    model_unavailable = True
+                    break
+                if resp.status_code == 404:
+                    # Endpoint mismatch (common on OpenAI-compatible gateways): try next URL.
+                    break
+                if _is_unsupported_token_error(text, "max_tokens"):
+                    continue
+                if _is_unsupported_token_error(text, "max_completion_tokens"):
+                    continue
+                if _is_unsupported_token_error(text, "temperature"):
+                    continue
+                # For other errors, keep trying alternates but preserve the latest detail.
+            if model_unavailable:
                 break
-            text = resp.text.strip()
-            last_error = f"LLM request failed: {resp.status_code} {text}"
-            if resp.status_code == 404:
-                # Endpoint mismatch (common on OpenAI-compatible gateways): try next URL.
+            if resp is not None and resp.status_code == 200:
                 break
-            if _is_unsupported_token_error(text, "max_tokens"):
-                continue
-            if _is_unsupported_token_error(text, "max_completion_tokens"):
-                continue
-            # For other errors, keep trying alternates but preserve the latest detail.
-        if resp is not None and resp.status_code == 200:
-            break
-    if resp is None or resp.status_code != 200:
-        raise RuntimeError(last_error)
-    body = resp.json()
-    choices = body.get("choices") or []
-    if not choices:
-        raise RuntimeError("LLM returned no choices")
-    message = choices[0].get("message") or {}
-    content = str(message.get("content") or "").strip()
-    if not content:
-        raise RuntimeError("LLM returned empty content")
-    return content, chosen_model
+        if model_unavailable:
+            continue
+        responses_payload_base = {
+            "model": candidate_model,
+            "input": messages,
+            "temperature": 0.2,
+        }
+        for url in responses_urls:
+            for payload in _responses_payload_variants(responses_payload_base):
+                resp = requests.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=45,
+                )
+                if resp.status_code == 200:
+                    body = resp.json()
+                    content = _extract_responses_content(body)
+                    if content:
+                        return content, candidate_model
+                    last_error = "LLM returned empty content"
+                    continue
+                text = resp.text.strip()
+                last_error = f"LLM request failed: {resp.status_code} {text}"
+                if _is_model_unavailable_error(resp.status_code, text):
+                    model_unavailable = True
+                    break
+                if resp.status_code == 404:
+                    break
+                if _is_unsupported_token_error(text, "max_output_tokens"):
+                    continue
+                if _is_unsupported_token_error(text, "temperature"):
+                    continue
+            if model_unavailable:
+                break
+            if resp is not None and resp.status_code == 200:
+                break
+        if model_unavailable:
+            continue
+    raise RuntimeError(last_error)
 
 
 def _fallback_answer(question: str, sources: list[dict[str, Any]]) -> str:
@@ -610,6 +922,7 @@ def answer_help_question(
     question: str,
     *,
     model: str | None = None,
+    strict_model: bool = False,
     max_sources: int = 8,
     history: list[dict[str, str]] | None = None,
     run_rel: str | None = None,
@@ -626,8 +939,15 @@ def answer_help_question(
     error_msg = ""
     used_llm = False
     used_model = ""
+    requested_model, explicit_model = _resolve_requested_model(model)
     try:
-        answer, used_model = _call_llm(q, sources, model=model, history=history)
+        answer, used_model = _call_llm(
+            q,
+            sources,
+            model=model,
+            history=history,
+            strict_model=bool(strict_model),
+        )
         used_llm = True
     except Exception as exc:
         error_msg = str(exc)
@@ -637,6 +957,9 @@ def answer_help_question(
         "sources": sources,
         "used_llm": used_llm,
         "model": used_model,
+        "requested_model": requested_model,
+        "model_selection": "explicit" if explicit_model else "auto",
+        "model_fallback": bool(used_llm and requested_model and used_model and requested_model != used_model),
         "error": error_msg,
         "indexed_files": indexed_files,
         "action": _infer_safe_action(q, run_rel=run_rel),

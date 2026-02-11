@@ -82,3 +82,32 @@ def test_build_generate_prompt_cmd_free_format_disables_template_args(tmp_path: 
     assert "--free-format" in cmd
     assert "--template" not in cmd
     assert "--template-rigidity" not in cmd
+
+
+def test_build_federlicht_cmd_ignores_temperature_override(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    payload = {
+        "run": "site/runs/demo",
+        "output": "site/runs/demo/report_full.md",
+        "temperature_level": "high",
+        "temperature": 0.9,
+    }
+
+    cmd = _build_federlicht_cmd(cfg, payload)
+
+    assert "--temperature-level" in cmd
+    assert "--temperature" not in cmd
+
+
+def test_build_generate_prompt_cmd_ignores_temperature_override(tmp_path: Path) -> None:
+    cfg = _cfg(tmp_path)
+    payload = {
+        "run": "site/runs/demo",
+        "temperature_level": "high",
+        "temperature": 0.9,
+    }
+
+    cmd = _build_generate_prompt_cmd(cfg, payload)
+
+    assert "--temperature-level" in cmd
+    assert "--temperature" not in cmd

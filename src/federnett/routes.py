@@ -29,7 +29,7 @@ from .filesystem import (
 from .help_agent import answer_help_question
 from .jobs import Job
 from .templates import list_template_styles, list_templates, read_template_style, template_details
-from .utils import safe_rel as _safe_rel
+from .utils import resolve_under_root as _resolve_under_root, safe_rel as _safe_rel
 
 
 class HandlerLike(Protocol):
@@ -60,6 +60,40 @@ def _send_running_conflict(handler: HandlerLike, exc: RuntimeError) -> None:
         },
         status=409,
     )
+
+
+def _resolve_unique_output_path(root: Path, raw_output: str) -> dict[str, Any]:
+    requested = _resolve_under_root(root, raw_output)
+    if not requested:
+        raise ValueError("output path is required")
+    companion_suffixes = [".pdf"] if requested.suffix.lower() == ".tex" else []
+
+    def has_companion_conflict(path: Path) -> bool:
+        for suffix in companion_suffixes:
+            if path.with_suffix(suffix).exists():
+                return True
+        return False
+
+    suggested = requested
+    if suggested.exists() or has_companion_conflict(suggested):
+        parent = suggested.parent
+        stem = suggested.stem
+        suffix = suggested.suffix
+        counter = 1
+        while True:
+            candidate = parent / f"{stem}_{counter}{suffix}"
+            if candidate.exists() or has_companion_conflict(candidate):
+                counter += 1
+                continue
+            suggested = candidate
+            break
+
+    return {
+        "requested_output": _safe_rel(requested, root),
+        "suggested_output": _safe_rel(suggested, root),
+        "changed": requested != suggested,
+        "requested_exists": requested.exists(),
+    }
 
 
 def handle_api_get(
@@ -186,6 +220,22 @@ def handle_api_get(
         return
     if path == "/api/models":
         handler._send_json(list_models())
+        return
+    if path == "/api/federlicht/output-suggestion":
+        raw_output = (qs.get("output") or [None])[0]
+        run_rel = (qs.get("run") or [None])[0]
+        output_value = str(raw_output or "").strip()
+        if not output_value:
+            handler._send_json({"error": "output is required"}, status=400)
+            return
+        if run_rel and "/" not in output_value and "\\" not in output_value:
+            output_value = f"{str(run_rel).strip().strip('/').strip()}/{output_value}"
+        try:
+            payload = _resolve_unique_output_path(cfg.root, output_value)
+        except ValueError as exc:
+            handler._send_json({"error": str(exc)}, status=400)
+            return
+        handler._send_json(payload)
         return
     if path == "/api/run-summary":
         run_rel = (qs.get("run") or [None])[0]
@@ -392,6 +442,8 @@ def handle_api_post(
                 raise ValueError("question must be a non-empty string")
             model = payload.get("model")
             model_value = str(model).strip() if isinstance(model, str) else None
+            strict_model_raw = payload.get("strict_model")
+            strict_model_value = bool(strict_model_raw) if isinstance(strict_model_raw, bool) else False
             run_rel = payload.get("run")
             run_value = str(run_rel).strip() if isinstance(run_rel, str) else None
             history_raw = payload.get("history")
@@ -405,6 +457,7 @@ def handle_api_post(
                 cfg.root,
                 question,
                 model=model_value,
+                strict_model=strict_model_value,
                 max_sources=max_sources,
                 history=history_value,
                 run_rel=run_value,

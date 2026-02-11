@@ -49,7 +49,6 @@ REPORTER_INPUT_SCHEMA = {
             "type": "string",
             "description": "Agent temperature profile: very_low|low|balanced|high|very_high.",
         },
-        "temperature": {"type": "number", "description": "Optional explicit temperature override."},
         "check_model": {"type": "string", "description": "Check/quality model name."},
         "quality_model": {"type": "string", "description": "Quality model name."},
         "quality_iterations": {"type": "integer", "description": "Number of quality iterations."},
@@ -86,6 +85,8 @@ def _mark_cli_flag(args, flag: str) -> None:
 
 def _apply_arg_overrides(args, overrides: dict) -> None:
     for key, value in overrides.items():
+        if key in {"temperature", "temperature_override", "temperature-override"}:
+            continue
         if key in {"no_figures", "no-figures"}:
             args.extract_figures = False
             continue
@@ -106,8 +107,6 @@ def _apply_arg_overrides(args, overrides: dict) -> None:
                 _mark_cli_flag(args, "--template-rigidity")
             elif attr == "temperature_level" and value:
                 _mark_cli_flag(args, "--temperature-level")
-            elif attr == "temperature" and value is not None:
-                _mark_cli_flag(args, "--temperature")
             elif attr == "template_adjust":
                 _mark_cli_flag(args, "--template-adjust")
             elif attr == "template_adjust_mode" and value:

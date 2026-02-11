@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 
+import federnett.routes as routes_mod
 from federnett.config import FedernettConfig
 from federnett.jobs import JobRegistry
 from federnett.routes import handle_api_get, handle_api_post
@@ -90,3 +91,60 @@ def test_handle_api_post_unknown_endpoint(tmp_path: Path) -> None:
     handler = DummyHandler(cfg, "/api/does-not-exist", payload={})
     handle_api_post(handler, render_template_preview=lambda _root, _payload: "")
     assert handler.json_response == (404, {"error": "unknown_endpoint"})
+
+
+def test_handle_api_get_output_suggestion_appends_suffix(tmp_path: Path) -> None:
+    cfg = make_cfg(tmp_path)
+    existing = tmp_path / "site" / "runs" / "demo" / "report_full.html"
+    existing.parent.mkdir(parents=True, exist_ok=True)
+    existing.write_text("old", encoding="utf-8")
+    handler = DummyHandler(cfg, "/api/federlicht/output-suggestion?output=site/runs/demo/report_full.html")
+    handle_api_get(handler, list_models=lambda: [])
+    assert handler.json_response is not None
+    status, body = handler.json_response
+    assert status == 200
+    assert isinstance(body, dict)
+    assert body.get("requested_output") == "site/runs/demo/report_full.html"
+    assert body.get("suggested_output") == "site/runs/demo/report_full_1.html"
+    assert body.get("changed") is True
+
+
+def test_handle_api_get_output_suggestion_with_run_prefix(tmp_path: Path) -> None:
+    cfg = make_cfg(tmp_path)
+    handler = DummyHandler(
+        cfg,
+        "/api/federlicht/output-suggestion?run=site/runs/demo&output=report_full.html",
+    )
+    handle_api_get(handler, list_models=lambda: [])
+    assert handler.json_response is not None
+    status, body = handler.json_response
+    assert status == 200
+    assert isinstance(body, dict)
+    assert body.get("requested_output") == "site/runs/demo/report_full.html"
+    assert body.get("suggested_output") == "site/runs/demo/report_full.html"
+    assert body.get("changed") is False
+
+
+def test_handle_api_post_help_ask_forwards_strict_model(tmp_path: Path, monkeypatch) -> None:
+    cfg = make_cfg(tmp_path)
+    captured: dict[str, object] = {}
+
+    def _fake_answer(root, question, **kwargs):
+        captured["root"] = root
+        captured["question"] = question
+        captured.update(kwargs)
+        return {"answer": "ok", "sources": [], "used_llm": False, "model": ""}
+
+    monkeypatch.setattr(routes_mod, "answer_help_question", _fake_answer)
+    handler = DummyHandler(
+        cfg,
+        "/api/help/ask",
+        payload={"question": "테스트", "model": "gpt-5", "strict_model": True},
+    )
+    handle_api_post(handler, render_template_preview=lambda _root, _payload: "")
+    assert handler.json_response is not None
+    status, body = handler.json_response
+    assert status == 200
+    assert isinstance(body, dict)
+    assert captured.get("model") == "gpt-5"
+    assert captured.get("strict_model") is True

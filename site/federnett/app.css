@@ -147,7 +147,7 @@ body {
   justify-content: space-between;
   border: 1px solid var(--edge);
   border-radius: 22px;
-  padding: 14px 20px;
+  padding: 10px 16px;
   background:
     linear-gradient(140deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
     rgba(8, 12, 18, 0.72);
@@ -158,6 +158,7 @@ body {
   position: sticky;
   top: 16px;
   z-index: 20;
+  overflow: visible;
 }
 
 .ask-panel {
@@ -440,11 +441,146 @@ body {
   overflow-wrap: anywhere;
 }
 
+.workspace-panel {
+  position: fixed;
+  top: 86px;
+  right: 24px;
+  width: min(1440px, calc(100vw - 48px));
+  max-height: calc(100vh - 112px);
+  min-width: 780px;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(8, 13, 22, 0.9);
+  box-shadow:
+    var(--shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  overflow: auto;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.99);
+  pointer-events: none;
+  padding: 0;
+  display: none;
+  z-index: 58;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    border-color 220ms ease;
+}
+
+.workspace-panel.open {
+  display: block;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  padding: 16px 18px 18px;
+  border-color: var(--edge);
+}
+
+.workspace-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed var(--edge);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.workspace-panel-head h2 {
+  margin: 0 0 2px;
+  font-family: "Fraunces", "Noto Serif KR", serif;
+  font-size: clamp(18px, 2.2vw, 24px);
+}
+
+.workspace-panel-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.workspace-panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-tab-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.workspace-tab {
+  border: 1px solid var(--edge);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.workspace-tab.active {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--accent-soft-bg);
+  box-shadow: 0 10px 22px var(--accent-soft);
+}
+
+.workspace-pane {
+  display: none;
+}
+
+.workspace-pane.active {
+  display: block;
+}
+
+.workspace-pane .panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.workspace-pane .templates-panel,
+.workspace-pane .agent-panel {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.workspace-pane .panel-head.slim {
+  margin-bottom: 10px;
+}
+
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
   font-family: "Fraunces", serif;
+  position: relative;
+  margin-left: 22px;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 0;
+  object-fit: contain;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  position: absolute;
+  left: -52px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.28));
 }
 
 .brand-dot {
@@ -474,6 +610,8 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .theme-select {
@@ -1401,6 +1539,16 @@ body[data-tab="feather"] #run-studio-wrap {
   color: var(--muted);
 }
 
+.agent-readonly-hint {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.agent-readonly-hint.is-readonly {
+  color: #ffd5dd;
+}
+
 .agent-status {
   margin: 0;
   padding: 10px 12px;
@@ -2118,6 +2266,15 @@ body[data-tab="feather"] #run-studio-wrap {
   letter-spacing: 0.01em;
 }
 
+#federlicht-output-hint {
+  display: block;
+  line-height: 1.35;
+}
+
+#federlicht-output-hint code {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .form-grid label[data-help] > span:first-child {
   display: inline-flex;
   align-items: center;
@@ -2510,16 +2667,20 @@ body[data-logs-collapsed="true"] .preview-block {
 .workflow-track {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  overflow: clip;
+  padding-bottom: 0;
+  row-gap: 6px;
 }
 
 .workflow-node-wrap {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .workflow-arrow {
@@ -2630,10 +2791,33 @@ body[data-logs-collapsed="true"] .preview-block {
   letter-spacing: 0.02em;
 }
 
+.workflow-iter-select {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  padding: 2px 7px;
+  min-height: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #edf6ff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  cursor: pointer;
+}
+
+.workflow-iter-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .workflow-node-path {
   font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
   color: rgba(235, 246, 255, 0.82);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workflow-loop-arrow {
@@ -3098,6 +3282,12 @@ body[data-logs-collapsed="true"] .preview-block {
   .templates-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .agent-grid {
+    grid-template-columns: 1fr;
+  }
+  .template-editor-controls {
+    grid-template-columns: 1fr;
+  }
   .template-modal-layout {
     grid-template-columns: 1fr;
   }
@@ -3122,6 +3312,13 @@ body[data-logs-collapsed="true"] .preview-block {
     min-height: 320px;
     max-height: calc(100vh - 84px);
     resize: none;
+  }
+  .workspace-panel {
+    right: 12px;
+    top: 72px;
+    width: calc(100vw - 24px);
+    min-width: 0;
+    max-height: calc(100vh - 84px);
   }
 }
 
@@ -3154,6 +3351,14 @@ body[data-logs-collapsed="true"] .preview-block {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+  .brand {
+    margin-left: 20px;
+  }
+  .brand-logo {
+    width: 34px;
+    height: 34px;
+    left: -44px;
   }
 }
 

@@ -288,10 +288,14 @@ def build_writer_prompt(
         "NEEDS_VERIFICATION 태그가 붙은 항목은 tool_cache 원문 청크를 확인한 뒤 인용하세요. "
         "원문 확인 없이 수치/인용을 재구성하거나 추정하지 마세요. "
         "Verification excerpts 섹션이 있으면 우선 인용 근거로 사용하세요. "
-        "해석/추론/제안/전망은 인용이 필수가 아니지만, 문장에 '(해석)', '(추론)', '(제안)', '(전망)' 중 하나를 명시하세요. "
+        "인용 표기는 반드시 실제 URL/파일 경로를 포함한 대괄호 인용으로 작성하세요 "
+        "(예: [https://...], [./archive/...]). "
+        "'[source]' '[paper]' '[evidence]' 같은 일반 라벨은 금지합니다. "
         "일반적 배경 설명은 인용 없이 작성해도 됩니다. "
         "JSONL 인덱스 내용을 그대로 덤프하지 말고, 실제 문서/기사 내용을 분석하세요. "
         "JSONL 인덱스 파일을 인용하지 마세요(tavily_search.jsonl, openalex/works.jsonl 등). "
+        "내부 인덱스 파일명(tavily_search.jsonl 등)을 본문 문장에 직접 노출하지 말고, "
+        "독자가 이해 가능한 출처 유형(예: 웹 검색 결과, 공식 문서, 논문 원문)으로 표현하세요. "
         "대신 실제 원문 URL과 추출 텍스트/PDF/트랜스크립트를 인용하세요. "
         "외부 소스의 저작권/라이선스는 원 출처 정책을 따른다는 점을 전제로 작성하세요. "
         "긴 원문을 그대로 복제하지 말고, 분석 목적의 요약/재서술을 우선하세요. "
@@ -408,7 +412,7 @@ def build_critic_prompt(language: str, required_sections: list[str]) -> str:
         "보고서 포커스와의 정합성을 비판적으로 검토하세요. "
         "JSONL 인덱스 데이터를 원문 대신 사용했는지, 또는 JSONL을 인용했는지 여부도 지적하세요. "
         "사실/수치/출처 의존 주장에 인용이 있는지 확인하세요. "
-        "인용이 없는 해석/추론/제안/전망 문장은 라벨이 있는지 확인하세요(예: '(해석)'). "
+        "일반 라벨 인용('[source]' '[paper]')이 남아 있으면 반드시 지적하세요. "
         f"{section_check}"
         "보고서가 이미 충분히 우수하면 'NO_CHANGES'로 답하세요. "
         f"{language}로 작성하세요."
@@ -426,7 +430,7 @@ def build_revise_prompt(format_instructions: "FormatInstructions", output_format
         f"{section_rule}"
         "서술 흐름, 종합성, 기술적 엄밀성을 개선하세요. "
         "사실/수치/출처 의존 주장은 인용을 추가해 보강하세요. "
-        "인용 없이 남길 해석/추론/제안/전망 문장은 라벨을 붙이세요(예: '(해석)'). "
+        "일반 라벨 인용('[source]' '[paper]')을 실제 URL/파일 경로 인용으로 교체하세요. "
         "References 전체 목록은 추가하지 마세요(스크립트가 Source Index를 자동 추가). "
         f"{'LaTeX 서식을 유지하고 섹션 명령을 사용하세요. Markdown으로 변환하지 마세요. ' if output_format == 'tex' else ''}"
         f"{format_instructions.latex_safety_instruction}"
@@ -434,11 +438,18 @@ def build_revise_prompt(format_instructions: "FormatInstructions", output_format
     )
 
 
-def build_evaluate_prompt(metrics: str) -> str:
+def build_evaluate_prompt(metrics: str, depth: str | None = None) -> str:
+    depth_rule = (
+        f"요청 depth={depth}와 실제 보고서의 분량/분석 깊이 정합성을 반드시 평가하세요. "
+        if depth
+        else "요청 depth 정보가 제공되지 않으면 일반적인 심층성 기준으로 평가하세요. "
+    )
     return (
         "당신은 엄정한 보고서 평가자입니다. 보고서를 여러 차원에서 점수화하세요. "
         "(보고서 프롬프트 정합성, 톤/보이스 적합성, 출력 포맷 준수, 구조/가독성, 근거 적합성, "
         "환각 위험(낮을수록 높은 점수), 통찰 깊이, 미적/시각 완성도). "
+        f"{depth_rule}"
+        "근거 인용이 실제 URL/파일 경로인지 확인하고, '[source]' 같은 일반 라벨 인용은 감점하세요. "
         "다음 키만 포함한 JSON만 반환하세요:\n"
         f"{metrics}, overall, strengths, weaknesses, fixes\n"
         "각 점수는 0-100(높을수록 좋음)이어야 합니다. "
@@ -468,7 +479,7 @@ def build_synthesize_prompt(
         "당신은 수석 편집자입니다. Report A와 Report B의 강점을 결합하고 약점을 수정해 더 높은 품질의 최종 보고서를 작성하세요. "
         "인용을 보존하고 새로운 출처를 만들지 마세요. "
         "사실/수치/출처 의존 주장에는 인용을 유지하세요. "
-        "인용 없는 해석/추론/제안/전망 문장은 라벨을 붙이세요(예: '(해석)'). "
+        "일반 라벨 인용('[source]' '[paper]')은 금지하고 실제 URL/파일 경로 인용으로 교체하세요. "
         "References 전체 목록은 추가하지 마세요(스크립트가 자동 추가). "
         f"{format_instructions.section_heading_instruction}{format_instructions.report_skeleton}\n"
         f"{template_guidance_block}"

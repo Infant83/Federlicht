@@ -644,10 +644,20 @@ class ReportOrchestrator:
             stage_order=workflow_stage_order,
             stage_set=stage_set,
         )
+        stage_events: list[dict[str, str]] = []
 
         def record_stage(name: str, status: str, detail: str = "") -> None:
             workflow_stages.record_stage(stage_status, name=name, status=status, detail=detail)
             detail_text = str(detail or "").strip()
+            stage_events.append(
+                {
+                    "index": str(len(stage_events) + 1),
+                    "timestamp": dt.datetime.now().isoformat(timespec="seconds"),
+                    "stage": name,
+                    "status": status,
+                    "detail": detail_text,
+                }
+            )
             if detail_text:
                 print(f"[workflow] stage={name} status={status} detail={detail_text}")
             else:
@@ -698,6 +708,7 @@ class ReportOrchestrator:
             self._agent_overrides,
         )
         alignment_model = agent_runtime.model("alignment", check_model, self._agent_overrides)
+        alignment_agent = None
 
         def agent_max_tokens(name: str) -> tuple[Optional[int], str]:
             return agent_runtime.max_input_tokens(name, self._agent_overrides)
@@ -2446,6 +2457,7 @@ class ReportOrchestrator:
                 notes_dir=notes_dir,
                 run_dir=run_dir,
                 template_adjustment_path=template_adjustment_path,
+                stage_events=stage_events,
             )
             return PipelineResult(
                 report="",
@@ -2822,6 +2834,7 @@ class ReportOrchestrator:
                     output_format,
                     language,
                     evaluator_model,
+                    depth,
                     self._create_deep_agent,
                     tools,
                     backend,
@@ -2913,6 +2926,7 @@ class ReportOrchestrator:
             notes_dir=notes_dir,
             run_dir=run_dir,
             template_adjustment_path=template_adjustment_path,
+            stage_events=stage_events,
         )
 
         return PipelineResult(

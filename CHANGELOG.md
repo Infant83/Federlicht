@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.1
+- Simplify Federlicht/Federnett advanced controls by removing explicit temperature override wiring and keeping `temperature-level` as the single temperature control path.
+- Consolidate pipeline control UX into Live Logs:
+  - remove the separate Agent Pipeline panel
+  - make workflow nodes directly toggleable/clickable for stage control
+  - move quality loop control to the workflow `Quality xN` selector (dropdown)
+  - default Live Logs view to Markdown (`MD 보기`)
+- Improve responsive workflow rendering to reduce horizontal scrollbar pressure in narrow layouts.
+- Add output filename collision guidance/suggestion for report generation so users can see and adopt safe suffixed names before run start.
+- Strengthen workflow observability by expanding `report_workflow.md/.json` with richer stage timeline/telemetry and diagram-friendly history metadata.
+- Harden Federnett Guide Agent model handling:
+  - honor explicit model selection without silent fallback when strict selection is requested
+  - keep env-driven model resolution (`$OPENAI_MODEL`) and OpenAI-compatible endpoint usage aligned across requests
+- Improve report writing policy defaults for citation quality:
+  - discourage placeholder citation markers (for example generic `[source]`)
+  - prefer concrete URL/path-backed references and cleaner reader-facing prose
+- Add/adjust Federnett branding asset placement for clearer header/logo composition.
+
 ## 1.5.0
 - Federnett workflow pipeline upgraded from a static status strip to an interactive runtime map:
   - stage selection/toggle and drag-reorder reflected in the Live Logs workflow track

@@ -16,6 +16,11 @@
     <div class="app">
       <header class="topbar">
         <div class="brand">
+          <img
+            class="brand-logo"
+            src="/api/raw?path=src/federnett/logo.png"
+            alt="Federnett logo"
+          />
           <span class="brand-dot" aria-hidden="true"></span>
           <div class="brand-text">
             <strong>Federnett</strong>
@@ -25,6 +30,8 @@
         <div class="top-actions">
           <button id="reload-runs" class="ghost">Reload Runs</button>
           <button id="ask-button" class="ghost">질문하기</button>
+          <button id="workspace-open-templates" class="ghost">Templates</button>
+          <button id="workspace-open-agents" class="ghost">Agent Profiles</button>
           <button id="help-button" class="ghost">Help</button>
           <label class="theme-select">
             <span>Theme</span>
@@ -313,6 +320,9 @@
                     placeholder="20260127_new-run/report_full.html"
                     required
                   />
+                  <small id="federlicht-output-hint" class="muted"
+                    >동일 파일이 있으면 자동으로 <code>_1</code>, <code>_2</code>가 붙습니다.</small
+                  >
                 </label>
 
                 <label>
@@ -437,10 +447,6 @@
                       </select>
                     </label>
                     <label>
-                      <span>Temperature (override)</span>
-                      <input id="federlicht-temperature" type="number" min="0" max="2" step="0.05" />
-                    </label>
-                    <label>
                       <span>Stages</span>
                       <input id="federlicht-stages" placeholder="scout,evidence,writer" />
                     </label>
@@ -448,15 +454,7 @@
                       <span>Skip Stages</span>
                       <input id="federlicht-skip-stages" placeholder="quality" />
                     </label>
-                    <label>
-                      <span>Quality Iterations</span>
-                      <input
-                        id="federlicht-quality-iterations"
-                        type="number"
-                        min="0"
-                        value="0"
-                      />
-                    </label>
+                    <input id="federlicht-quality-iterations" type="hidden" value="1" />
                     <label>
                       <span>Quality Strategy</span>
                       <input id="federlicht-quality-strategy" value="pairwise" />
@@ -507,48 +505,12 @@
                       <input id="federlicht-site-output" placeholder="run/report_full.html" />
                     </label>
                     <label class="wide">
-                      <span>Agent Config</span>
-                      <input
-                        id="federlicht-agent-config"
-                        placeholder="site/runs/<run>/instruction/agent_config.json"
-                      />
-                    </label>
-                    <label class="wide">
                       <span>Extra Args</span>
                       <input
                         id="federlicht-extra-args"
                         placeholder="--progress --stream --repair-debug"
                       />
                     </label>
-                  </div>
-                  <div class="advanced-block">
-                    <header class="inline-header">
-                      <div class="inline-header-row">
-                        <h3>Agent Pipeline</h3>
-                        <button type="button" id="pipeline-help" class="ghost">
-                          Help
-                        </button>
-                      </div>
-                      <p>
-                        Toggle stages, drag to reorder, and feed the result into Federlicht.
-                      </p>
-                    </header>
-                    <div id="pipeline-chips" class="pipeline-chips"></div>
-                    <div id="pipeline-selected" class="pipeline-selected"></div>
-                    <div class="pipeline-meta">
-                      <div>
-                        Stages:
-                        <code id="pipeline-stages-value">-</code>
-                      </div>
-                      <div>
-                        Skip:
-                        <code id="pipeline-skip-value">-</code>
-                      </div>
-                    </div>
-                    <div class="stage-detail">
-                      <h4 id="stage-detail-title">Stage Details</h4>
-                      <pre id="stage-detail-body"></pre>
-                    </div>
                   </div>
                 </details>
 
@@ -628,10 +590,22 @@
                 <div class="workflow-history-controls" id="workflow-history-controls">
                   <span id="workflow-history-hint" class="muted">History checkpoint: -</span>
                   <div class="workflow-history-actions">
-                    <button type="button" id="workflow-resume-apply" class="ghost" disabled>
+                    <button
+                      type="button"
+                      id="workflow-resume-apply"
+                      class="ghost"
+                      title="선택한 단계부터 Stages/Skip 값을 자동으로 맞춰 재실행 프리셋을 만듭니다."
+                      disabled
+                    >
                       Resume from stage
                     </button>
-                    <button type="button" id="workflow-resume-prompt" class="ghost" disabled>
+                    <button
+                      type="button"
+                      id="workflow-resume-prompt"
+                      class="ghost"
+                      title="재실행용 update prompt 초안을 instruction 폴더에 생성합니다."
+                      disabled
+                    >
                       Draft update prompt
                     </button>
                   </div>
@@ -706,6 +680,37 @@
         </section>
       </main>
 
+      <section class="workspace-panel" id="workspace-panel" aria-hidden="true">
+        <div class="workspace-panel-head">
+          <div>
+            <h2>Federnett Workspace</h2>
+            <p>Templates와 Agent Profiles를 한 패널에서 제어합니다.</p>
+          </div>
+          <div class="workspace-panel-actions">
+            <button type="button" id="workspace-close" class="ghost">Close</button>
+          </div>
+        </div>
+        <div class="workspace-tab-row" role="tablist" aria-label="Workspace tabs">
+          <button
+            type="button"
+            class="workspace-tab active"
+            id="workspace-tab-templates"
+            data-workspace-tab="templates"
+            aria-selected="true"
+          >
+            Templates
+          </button>
+          <button
+            type="button"
+            class="workspace-tab"
+            id="workspace-tab-agents"
+            data-workspace-tab="agents"
+            aria-selected="false"
+          >
+            Agent Profiles
+          </button>
+        </div>
+        <div class="workspace-pane active" id="workspace-pane-templates" data-workspace-pane="templates">
       <section class="panel templates-panel" id="templates-panel">
         <div class="panel-head slim">
           <div>
@@ -820,12 +825,13 @@
           <div class="template-editor-meta" id="template-editor-meta"></div>
         </div>
       </section>
-
+        </div>
+        <div class="workspace-pane" id="workspace-pane-agents" data-workspace-pane="agents">
       <section class="panel agent-panel" id="agent-panel">
         <div class="panel-head slim">
           <div>
             <h2>Agent Profiles</h2>
-            <p>Manage persona prompts, memory hooks, and registry metadata.</p>
+            <p>Manage persona prompts, memory hooks, and profile-level Federlicht/agent overrides.</p>
           </div>
           <div class="panel-pills">
             <button type="button" class="ghost" id="agent-panel-toggle">Hide panel</button>
@@ -851,6 +857,7 @@
                 <button type="button" id="agent-delete" class="danger">Delete</button>
               </div>
             </div>
+            <div id="agent-readonly-hint" class="agent-readonly-hint"></div>
             <div class="agent-editor-grid">
               <label>
                 Profile ID
@@ -911,6 +918,24 @@
               ></textarea>
             </label>
             <label>
+              Config overrides (JSON)
+              <textarea
+                id="agent-config-overrides"
+                class="ghost-input"
+                rows="6"
+                placeholder='{"quality_iterations": 2, "quality_strategy": "pairwise", "template_rigidity": "balanced"}'
+              ></textarea>
+            </label>
+            <label>
+              Agent overrides (JSON)
+              <textarea
+                id="agent-agent-overrides"
+                class="ghost-input"
+                rows="8"
+                placeholder='{"writer": {"model": "gpt-5.2"}, "critic": {"enabled": true}}'
+              ></textarea>
+            </label>
+            <label>
               Memory hook
               <textarea
                 id="agent-memory-text"
@@ -921,6 +946,8 @@
             </label>
             <pre id="agent-status" class="agent-status">Ready.</pre>
           </div>
+        </div>
+      </section>
         </div>
       </section>
 
@@ -1160,7 +1187,7 @@
                   <code>--template-rigidity</code>: strict | balanced | relaxed | loose | off (default: balanced).
                 </li>
                 <li>
-                  <code>--temperature-level</code>/<code>--temperature</code>: model creativity profile or explicit override (default level: balanced=0.2).
+                  <code>--temperature-level</code>: model creativity profile (default: balanced=0.2).
                 </li>
                 <li>
                   <code>--web-search</code>: enable web research (default: off).
@@ -1199,15 +1226,28 @@
               </ul>
             </section>
             <section class="help-section" id="help-pipeline">
-              <h4>Agent Pipeline</h4>
+              <h4>Workflow Pipeline</h4>
               <ul>
                 <li>
-                  Toggle stages to include/exclude, then drag to reorder. Results
-                  populate the <code>Stages</code> and <code>Skip</code> fields.
+                  Click stage chips in Live Logs to include/exclude stages, and drag to reorder.
+                  Changes populate <code>Stages</code> and <code>Skip</code> automatically.
                 </li>
                 <li>
-                  To customize deeper agent settings, edit your agent config and reload
-                  Federlicht. (Future: inline agent editor.)
+                  <code>Quality</code> stage controls whether quality agents run at all.
+                  <code>xN</code> 배지를 클릭해 드롭다운에서 반복 횟수(1~10)를 선택할 수 있습니다.
+                  Quality를 끄면 반복 루프도 함께 비활성화됩니다.
+                </li>
+                <li>
+                  The <code>↺</code> marker beside Quality indicates feedback loop-back from
+                  quality checks toward final writing passes.
+                </li>
+                <li>
+                  <code>Resume from stage</code>는 History checkpoint를 기준으로 해당 단계부터
+                  <code>Stages/Skip</code>를 자동 설정해 재실행 준비를 해줍니다.
+                </li>
+                <li>
+                  이 Workflow는 멀티에이전트 오케스트레이션 뷰입니다. 각 stage는 역할별 agent 실행 단위를
+                  의미하고, 순서/활성화를 통해 비용과 품질의 균형을 조절합니다.
                 </li>
               </ul>
             </section>

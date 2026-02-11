@@ -1888,6 +1888,8 @@ def format_metadata_block(meta: dict, output_format: str) -> str:
     lines.append(f"Quality strategy: {meta.get('quality_strategy', '-')}")
     lines.append(f"Quality iterations: {meta.get('quality_iterations', '-')}")
     lines.append(f"Template: {meta.get('template', '-')}")
+    if meta.get("depth"):
+        lines.append(f"Depth: {meta.get('depth')}")
     if meta.get("language"):
         lines.append(f"Language: {meta.get('language', '-')}")
     if meta.get("tags"):
@@ -1994,6 +1996,7 @@ def evaluate_report(
     output_format: str,
     language: str,
     model_name: str,
+    depth: Optional[str],
     create_deep_agent,
     tools,
     backend,
@@ -2002,7 +2005,7 @@ def evaluate_report(
     max_input_tokens_source: str = "none",
 ) -> dict:
     metrics = ", ".join(QUALITY_WEIGHTS.keys())
-    evaluator_prompt = prompts.build_evaluate_prompt(metrics)
+    evaluator_prompt = prompts.build_evaluate_prompt(metrics, depth=depth)
     evaluator_agent = create_agent_with_fallback(
         create_deep_agent,
         model_name,
@@ -2022,6 +2025,8 @@ def evaluate_report(
             "",
             "Template guidance:",
             template_guidance_text or "(none)",
+            "",
+            f"Requested depth: {depth or '(auto)'}",
             "",
             "Report focus prompt:",
             report_prompt or "(none)",
@@ -2937,13 +2942,17 @@ def build_format_instructions(
                 )
     if output_format != "tex":
         citation_instruction = pick(
-            "본문에 전체 URL을 그대로 출력하지 말고 [source], [paper] 같은 짧은 링크 라벨을 사용하세요. "
+            "인용은 실제 URL/파일 경로를 대괄호로 직접 표기하세요 "
+            "(예: [https://example.com], [./archive/path.txt]). "
+            "[source], [paper], [evidence] 같은 일반 라벨은 사용하지 마세요. "
             "파일 경로는 클릭 가능하도록 마크다운 링크를 우선 사용하세요. "
-            "./archive/... 같은 파일 경로를 본문에 그대로 쓰지 말고 인용만 남기세요. "
+            "./archive/... 같은 파일 경로를 본문 설명 문장에 그대로 노출하지 말고, 인용으로만 남기세요. "
             "인용은 문장 끝에 inline으로 붙이고, 인용만 단독 줄이나 단독 리스트 항목으로 두지 마세요. ",
-            "Avoid printing full URLs in the body; use short link labels like [source] or [paper] instead. "
+            "Citations must use concrete URL/file-path targets inside brackets "
+            "(for example [https://example.com], [./archive/path.txt]). "
+            "Do not use generic labels like [source], [paper], or [evidence]. "
             "Prefer markdown links for file paths so they are clickable. "
-            "Do not print archive file paths verbatim in the prose; keep only the citation. "
+            "Do not print archive file paths verbatim in prose; keep them as inline citations only. "
             "Keep citations inline at the end of the sentence; do not place citations on their own line or as standalone list items. ",
         )
     else:
@@ -3036,7 +3045,6 @@ def normalize_config_overrides(raw: dict) -> dict:
         "template_adjust",
         "template_adjust_mode",
         "temperature_level",
-        "temperature",
         "quality_iterations",
         "quality_strategy",
         "web_search",
@@ -3106,9 +3114,6 @@ def apply_config_overrides(args: argparse.Namespace, config: dict) -> None:
         token = config["temperature_level"].strip().lower()
         if token in TEMPERATURE_LEVELS:
             args.temperature_level = token
-    parsed_temperature = parse_temperature(config.get("temperature"))
-    if parsed_temperature is not None:
-        args.temperature = parsed_temperature
     config_max_input = parse_max_input_tokens(config.get("max_input_tokens"))
     if config_max_input:
         args.max_input_tokens = config_max_input
@@ -3150,30 +3155,63 @@ def merge_agent_overrides(base: dict, extra: Optional[dict]) -> dict:
     return merged
 
 
+def resolve_profile_overrides(args: argparse.Namespace) -> tuple[dict, dict]:
+    profile_id = getattr(args, "agent_profile", None)
+    profile_dir = getattr(args, "agent_profile_dir", None)
+    try:
+        profile = load_profile(profile_id, profile_dir)
+    except Exception:
+        return {}, {}
+    raw = profile.raw if isinstance(profile.raw, dict) else {}
+    raw_config = {}
+    if isinstance(raw.get("config_overrides"), dict):
+        raw_config = raw.get("config_overrides") or {}
+    elif isinstance(raw.get("config"), dict):
+        raw_config = raw.get("config") or {}
+    raw_agents = {}
+    if isinstance(raw.get("agent_overrides"), dict):
+        raw_agents = raw.get("agent_overrides") or {}
+    elif isinstance(raw.get("agents"), dict):
+        raw_agents = raw.get("agents") or {}
+    config_overrides = normalize_config_overrides(raw_config)
+    agent_overrides = normalize_agent_overrides(raw_agents)
+    return config_overrides, agent_overrides
+
+
 def resolve_agent_overrides_from_config(
     args: argparse.Namespace, explicit_overrides: Optional[dict] = None
 ) -> tuple[dict, dict]:
     agent_overrides: dict = {}
     config_overrides: dict = {}
+    profile_config_overrides, profile_agent_overrides = resolve_profile_overrides(args)
+    if profile_config_overrides:
+        apply_config_overrides(args, profile_config_overrides)
+        config_overrides.update(profile_config_overrides)
+    if profile_agent_overrides:
+        agent_overrides = merge_agent_overrides(agent_overrides, profile_agent_overrides)
     if args.agent_config:
-        config_overrides, raw_overrides = load_agent_config(args.agent_config)
-        apply_config_overrides(args, normalize_config_overrides(config_overrides))
-        agent_overrides = normalize_agent_overrides(raw_overrides)
-        if args.quality_iterations > 0:
-            disabled_quality = any(
-                resolve_agent_enabled(name, True, agent_overrides) is False
-                for name in ("critic", "reviser", "evaluator")
-            )
-            if disabled_quality:
-                print(
-                    "WARN: agent-config disabled quality agents; skipping quality iterations.",
-                    file=sys.stderr,
-                )
-                args.quality_iterations = 0
+        raw_config, raw_overrides = load_agent_config(args.agent_config)
+        config_from_file = normalize_config_overrides(raw_config)
+        apply_config_overrides(args, config_from_file)
+        config_overrides.update(config_from_file)
+        agent_overrides = merge_agent_overrides(
+            agent_overrides, normalize_agent_overrides(raw_overrides)
+        )
     if explicit_overrides:
         agent_overrides = merge_agent_overrides(
             agent_overrides, normalize_agent_overrides(explicit_overrides)
         )
+    if args.quality_iterations > 0:
+        disabled_quality = any(
+            resolve_agent_enabled(name, True, agent_overrides) is False
+            for name in ("critic", "reviser", "evaluator")
+        )
+        if disabled_quality:
+            print(
+                "WARN: quality agents disabled by overrides/profile; skipping quality iterations.",
+                file=sys.stderr,
+            )
+            args.quality_iterations = 0
     return agent_overrides, config_overrides
 
 
@@ -3216,8 +3254,7 @@ def resolve_effective_temperature(args: argparse.Namespace) -> float:
     level = str(getattr(args, "temperature_level", DEFAULT_TEMPERATURE_LEVEL) or "").strip().lower()
     if level not in TEMPERATURE_LEVELS:
         level = DEFAULT_TEMPERATURE_LEVEL
-    explicit = parse_temperature(getattr(args, "temperature", None))
-    effective = explicit if explicit is not None else float(TEMPERATURE_LEVELS[level])
+    effective = float(TEMPERATURE_LEVELS[level])
     args.temperature_level = level
     args.temperature = effective
     return effective
@@ -5444,6 +5481,21 @@ def filter_references(
     if max_refs > 0:
         selected = selected[:max_refs]
     return selected
+
+
+_PLACEHOLDER_CITATION_RE = re.compile(
+    r"\[\s*(?:source|paper|evidence|citation|ref|reference|출처|근거)\s*\]",
+    re.IGNORECASE,
+)
+
+
+def remove_placeholder_citations(report_text: str) -> str:
+    if not report_text:
+        return report_text
+    cleaned = _PLACEHOLDER_CITATION_RE.sub("", report_text)
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned
 
 
 def rewrite_citations(report_text: str, output_format: str = "md") -> tuple[str, list[dict]]:

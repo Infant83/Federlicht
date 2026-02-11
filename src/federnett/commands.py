@@ -118,9 +118,6 @@ def _build_federlicht_cmd(cfg: FedernettConfig, payload: dict[str, Any]) -> list
     temperature_level = payload.get("temperature_level")
     if temperature_level:
         cmd.extend(["--temperature-level", str(temperature_level)])
-    temperature = payload.get("temperature")
-    if temperature is not None and str(temperature) != "":
-        cmd.extend(["--temperature", str(temperature)])
     quality_iterations = payload.get("quality_iterations")
     if quality_iterations is not None and str(quality_iterations) != "":
         cmd.extend(["--quality-iterations", str(quality_iterations)])
@@ -223,9 +220,6 @@ def _build_generate_prompt_cmd(cfg: FedernettConfig, payload: dict[str, Any]) ->
     temperature_level = payload.get("temperature_level")
     if temperature_level:
         cmd.extend(["--temperature-level", str(temperature_level)])
-    temperature = payload.get("temperature")
-    if temperature is not None and str(temperature) != "":
-        cmd.extend(["--temperature", str(temperature)])
     cmd.extend(extra_args(payload.get("extra_args")))
     return cmd
 

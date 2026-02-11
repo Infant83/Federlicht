@@ -177,6 +177,22 @@ def run_pipeline(
                 result.quality_model = last_report_result.quality_model
             merged_status = _merge_workflow_stage_status(pass_summaries)
             merged_order = _flatten_execution_stage_order(execution_plan)
+            merged_events: list[dict[str, str]] = []
+            for pass_idx, summary in enumerate(pass_summaries, start=1):
+                for line in summary:
+                    parsed = _parse_workflow_summary_line(line)
+                    if not parsed:
+                        continue
+                    stage_name, status, detail = parsed
+                    merged_events.append(
+                        {
+                            "index": str(len(merged_events) + 1),
+                            "timestamp": "",
+                            "stage": stage_name,
+                            "status": status,
+                            "detail": f"pass={pass_idx}{(', ' + detail) if detail else ''}",
+                        }
+                    )
             for stage_name in merged_order:
                 merged_status.setdefault(stage_name, {"status": "disabled", "detail": ""})
             workflow_summary, workflow_path = write_workflow_summary(
@@ -185,6 +201,7 @@ def run_pipeline(
                 notes_dir=result.notes_dir,
                 run_dir=result.run_dir,
                 template_adjustment_path=result.template_adjustment_path,
+                stage_events=merged_events,
             )
             result.workflow_summary = workflow_summary
             result.workflow_path = workflow_path
@@ -326,6 +343,7 @@ def run_pipeline(
                 for entry in figure_entries:
                     handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
     report = feder_tools.normalize_math_expressions(report)
+    report = remove_placeholder_citations(report)
     report_body, citation_refs = rewrite_citations(report.rstrip(), output_format)
     if output_format != "tex":
         report_body = merge_orphan_citations(report_body)
@@ -390,13 +408,13 @@ def run_pipeline(
         "duration_seconds": round(elapsed, 2),
         "duration_hms": format_duration(elapsed),
         "model": args.model,
-        "temperature": args.temperature,
         "temperature_level": args.temperature_level,
         "model_vision": args.model_vision,
         "quality_model": quality_model if args.quality_iterations > 0 else None,
         "quality_iterations": args.quality_iterations,
         "quality_strategy": args.quality_strategy if args.quality_iterations > 0 else "none",
         "template": template_spec.name,
+        "depth": result.depth,
         "template_rigidity": args.template_rigidity,
         "template_rigidity_effective": getattr(args, "template_rigidity_effective", {}),
         "template_adjust_mode": args.template_adjust_mode,
