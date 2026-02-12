@@ -132,6 +132,17 @@ def run_pipeline(
     )
     canonical_top = workflow_stages.canonical_top_level_order(requested_top)
     execution_plan = workflow_stages.resolve_top_level_execution_plan(requested_top)
+    if requested_top:
+        requested_text = ",".join(requested_top)
+        canonical_text = ",".join(canonical_top) if canonical_top else "(none)"
+        execution_text = ",".join(execution_plan) if execution_plan else "(none)"
+        print(
+            "[workflow] "
+            "resume_hint "
+            f"requested_top={requested_text} "
+            f"canonical_top={canonical_text} "
+            f"execution_plan={execution_text}"
+        )
     reordered_top = len(requested_top) > 1 and requested_top != canonical_top
 
     if reordered_top:
@@ -610,4 +621,3 @@ def run_pipeline(
         preview_text=preview_text,
         state=pipeline_state,
     )
-
