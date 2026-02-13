@@ -153,6 +153,66 @@ class ReportOrchestrator:
         overview_path = helpers.write_run_overview(run_dir, instruction_file, index_file)
         baseline_report = helpers.find_baseline_report(run_dir)
         notes_dir = helpers.resolve_notes_dir(run_dir, args.notes_dir)
+        artwork_log_jsonl = notes_dir / "artwork_tool_calls.jsonl"
+        artwork_log_md = notes_dir / "artwork_tool_calls.md"
+        artwork_tool_counter = {"n": 0}
+
+        def _shorten(value: object, max_chars: int = 360) -> str:
+            text = str(value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+            if len(text) <= max_chars:
+                return text
+            return f"{text[: max_chars - 1]}…"
+
+        def _append_artwork_log(
+            tool_name: str,
+            *,
+            params: dict[str, object] | None = None,
+            output: object = "",
+            ok: bool = True,
+            error: str = "",
+        ) -> None:
+            try:
+                artwork_tool_counter["n"] += 1
+                idx = artwork_tool_counter["n"]
+                ts = dt.datetime.now().isoformat(timespec="seconds")
+                payload = {
+                    "index": idx,
+                    "timestamp": ts,
+                    "tool": tool_name,
+                    "ok": bool(ok),
+                    "params": params or {},
+                    "output_preview": _shorten(output, 800),
+                    "error": _shorten(error, 800),
+                }
+                artwork_log_jsonl.parent.mkdir(parents=True, exist_ok=True)
+                with artwork_log_jsonl.open("a", encoding="utf-8") as handle:
+                    handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+                if not artwork_log_md.exists():
+                    artwork_log_md.write_text(
+                        "# Artwork Tool Calls\n\n"
+                        "Writer/Artwork 도구 호출 이력입니다.\n\n",
+                        encoding="utf-8",
+                    )
+                with artwork_log_md.open("a", encoding="utf-8") as handle:
+                    handle.write(f"## {idx}. `{tool_name}` · {ts}\n")
+                    handle.write(f"- status: {'ok' if ok else 'error'}\n")
+                    if params:
+                        params_text = json.dumps(params, ensure_ascii=False)
+                        handle.write(f"- params: `{_shorten(params_text, 320)}`\n")
+                    if error:
+                        handle.write(f"- error: `{_shorten(error, 320)}`\n")
+                    preview = _shorten(output, 480)
+                    if preview:
+                        handle.write("\n```text\n")
+                        handle.write(preview)
+                        handle.write("\n```\n")
+                    handle.write("\n")
+                print(
+                    f"[artwork-tool] {tool_name} status={'ok' if ok else 'error'} "
+                    f"index={idx} log={artwork_log_jsonl.relative_to(run_dir).as_posix()}"
+                )
+            except Exception as exc:
+                print(f"[artwork-tool] log failed ({tool_name}): {exc}")
 
         def infer_model_context_hint(model_name: object) -> int:
             token = str(model_name or "").strip().lower()
@@ -668,12 +728,16 @@ class ReportOrchestrator:
 
         tools = [list_archive_files, list_supporting_files, read_document]
         writer_tools = list(tools)
+        # Quality-stage agents should avoid large file reads to reduce context overflow risk.
+        quality_tools = [list_archive_files, list_supporting_files]
         writer_subagents: list[dict[str, object]] = []
         writer_artwork_enabled = False
 
         def artwork_capabilities() -> str:
             """List available report artwork/diagram capabilities."""
-            return feder_artwork.list_artwork_capabilities()
+            result = feder_artwork.list_artwork_capabilities()
+            _append_artwork_log("artwork_capabilities", params={}, output=result, ok=True)
+            return result
 
         def artwork_mermaid_flowchart(
             nodes: str,
@@ -682,16 +746,62 @@ class ReportOrchestrator:
             title: str = "",
         ) -> str:
             """Build a Mermaid flowchart snippet for direct insertion into the report."""
-            return feder_artwork.build_mermaid_flowchart(
-                nodes,
-                edges,
-                direction=direction,
-                title=title,
-            )
+            try:
+                result = feder_artwork.build_mermaid_flowchart(
+                    nodes,
+                    edges,
+                    direction=direction,
+                    title=title,
+                )
+                _append_artwork_log(
+                    "artwork_mermaid_flowchart",
+                    params={
+                        "direction": direction,
+                        "title": title,
+                        "nodes_chars": len(str(nodes or "")),
+                        "edges_chars": len(str(edges or "")),
+                    },
+                    output=result,
+                    ok=True,
+                )
+                return result
+            except Exception as exc:
+                message = f"[artwork][error] flowchart failed: {exc}"
+                _append_artwork_log(
+                    "artwork_mermaid_flowchart",
+                    params={
+                        "direction": direction,
+                        "title": title,
+                        "nodes_chars": len(str(nodes or "")),
+                        "edges_chars": len(str(edges or "")),
+                    },
+                    output="",
+                    ok=False,
+                    error=str(exc),
+                )
+                return message
 
         def artwork_mermaid_timeline(events: str, title: str = "") -> str:
             """Build a Mermaid timeline snippet for the report."""
-            return feder_artwork.build_mermaid_timeline(events, title=title)
+            try:
+                result = feder_artwork.build_mermaid_timeline(events, title=title)
+                _append_artwork_log(
+                    "artwork_mermaid_timeline",
+                    params={"title": title, "events_chars": len(str(events or ""))},
+                    output=result,
+                    ok=True,
+                )
+                return result
+            except Exception as exc:
+                message = f"[artwork][error] timeline failed: {exc}"
+                _append_artwork_log(
+                    "artwork_mermaid_timeline",
+                    params={"title": title, "events_chars": len(str(events or ""))},
+                    output="",
+                    ok=False,
+                    error=str(exc),
+                )
+                return message
 
         def artwork_d2_render(
             d2_source: str,
@@ -708,10 +818,23 @@ class ReportOrchestrator:
                 layout=layout,
             )
             if str(result.get("ok", "")).lower() != "true":
-                return (
+                message = (
                     "[artwork][error] "
                     + str(result.get("message") or result.get("error") or "d2_render_failed")
                 )
+                _append_artwork_log(
+                    "artwork_d2_render",
+                    params={
+                        "output_rel_path": output_rel_path,
+                        "theme": theme,
+                        "layout": layout,
+                        "source_chars": len(str(d2_source or "")),
+                    },
+                    output="",
+                    ok=False,
+                    error=message,
+                )
+                return message
             rel_path = str(result.get("path") or "").strip()
             markdown = str(result.get("markdown") or "").strip()
             lines = []
@@ -719,7 +842,19 @@ class ReportOrchestrator:
                 lines.append(f"[artwork] generated: {rel_path}")
             if markdown:
                 lines.append(markdown)
-            return "\n".join(lines).strip() or "[artwork] generated"
+            output_text = "\n".join(lines).strip() or "[artwork] generated"
+            _append_artwork_log(
+                "artwork_d2_render",
+                params={
+                    "output_rel_path": output_rel_path,
+                    "theme": theme,
+                    "layout": layout,
+                    "source_chars": len(str(d2_source or "")),
+                },
+                output=output_text,
+                ok=True,
+            )
+            return output_text
 
         artwork_tools = [
             artwork_capabilities,
@@ -1074,6 +1209,7 @@ class ReportOrchestrator:
                 for token in (
                     "context_length_exceeded",
                     "maximum context length",
+                    "maximum context is",
                     "context window",
                     "prompt is too long",
                     "input is too long",
@@ -3089,7 +3225,7 @@ class ReportOrchestrator:
                 critic_agent = helpers.create_agent_with_fallback(
                     self._create_deep_agent,
                     critic_model,
-                    tools,
+                    quality_tools,
                     critic_prompt,
                     backend,
                     max_input_tokens=critic_max,
@@ -3162,12 +3298,92 @@ class ReportOrchestrator:
                         "alignment_draft": helpers.truncate_text_middle(align_draft or "(none)", 900),
                     },
                 )
-                critique = invoke_agent(
-                    f"Critique Pass {idx + 1}",
-                    critic_agent,
-                    {"messages": [{"role": "user", "content": critic_input}]},
-                    show_progress=True,
-                )
+                try:
+                    critique = invoke_agent(
+                        f"Critique Pass {idx + 1}",
+                        critic_agent,
+                        {"messages": [{"role": "user", "content": critic_input}]},
+                        show_progress=True,
+                    )
+                except Exception as exc:
+                    if not is_context_overflow(exc):
+                        raise
+                    helpers.print_progress(
+                        f"Critique Pass {idx + 1}",
+                        "[warn] context overflow in critique; retrying with compact payload.",
+                        args.progress,
+                        args.progress_chars,
+                    )
+                    compact_digest = max(1000, digest_limit // 2)
+                    compact_sections = [
+                        make_section(
+                            "report_digest",
+                            "Report context (compact):",
+                            build_quality_report_digest(report, previous_report, max_chars=compact_digest),
+                            priority="high",
+                            base_limit=compact_digest,
+                            min_limit=700,
+                        ),
+                        make_section(
+                            "evidence",
+                            "Evidence packet (compact):",
+                            quality_evidence_context,
+                            priority="high",
+                            base_limit=max(900, min(args.quality_max_chars, 2400)),
+                            min_limit=700,
+                        ),
+                        make_section(
+                            "report_prompt",
+                            "Report focus prompt:",
+                            report_prompt or "(none)",
+                            priority="medium",
+                            base_limit=max(500, min(report_prompt_limit, 1200)),
+                            min_limit=350,
+                        ),
+                        make_section(
+                            "alignment_draft",
+                            "Alignment notes (compact):",
+                            align_draft or "(none)",
+                            priority="low",
+                            base_limit=700,
+                            min_limit=300,
+                        ),
+                    ]
+                    compact_budget = max(1400, (critic_budget // 2) if critic_budget else 1800)
+                    compact_input, _, _ = build_stage_payload(
+                        compact_sections,
+                        compact_budget,
+                        fallback_map={
+                            "report_digest": helpers.truncate_text_middle(
+                                build_quality_report_digest(
+                                    report,
+                                    previous_report,
+                                    max_chars=max(900, compact_digest // 2),
+                                ),
+                                1800,
+                            ),
+                            "evidence": helpers.truncate_text_middle(quality_evidence_context, 1400),
+                            "alignment_draft": helpers.truncate_text_middle(align_draft or "(none)", 600),
+                        },
+                        force_fallback=True,
+                    )
+                    try:
+                        critique = invoke_agent(
+                            f"Critique Pass {idx + 1} (fallback)",
+                            critic_agent,
+                            {"messages": [{"role": "user", "content": compact_input}]},
+                            show_progress=True,
+                        )
+                    except Exception as fallback_exc:
+                        if not is_context_overflow(fallback_exc):
+                            raise
+                        helpers.print_progress(
+                            f"Critique Pass {idx + 1}",
+                            "[warn] critique overflow persisted; treating as no_changes for this pass.",
+                            args.progress,
+                            args.progress_chars,
+                        )
+                        critique = "no_changes"
                 if "no_changes" in critique.lower():
                     break
 
@@ -3181,7 +3397,7 @@ class ReportOrchestrator:
                 revise_agent = helpers.create_agent_with_fallback(
                     self._create_deep_agent,
                     revise_model,
-                    tools,
+                    quality_tools,
                     revise_prompt,
                     backend,
                     max_input_tokens=revise_max,
@@ -3262,12 +3478,93 @@ class ReportOrchestrator:
                     },
                 )
                 previous_report = report
-                report = invoke_agent(
-                    f"Revision Pass {idx + 1}",
-                    revise_agent,
-                    {"messages": [{"role": "user", "content": revise_input}]},
-                    show_progress=True,
-                )
+                try:
+                    report = invoke_agent(
+                        f"Revision Pass {idx + 1}",
+                        revise_agent,
+                        {"messages": [{"role": "user", "content": revise_input}]},
+                        show_progress=True,
+                    )
+                except Exception as exc:
+                    if not is_context_overflow(exc):
+                        raise
+                    helpers.print_progress(
+                        f"Revision Pass {idx + 1}",
+                        "[warn] context overflow in revision; retrying with compact payload.",
+                        args.progress,
+                        args.progress_chars,
+                    )
+                    compact_digest = max(1000, digest_limit // 2)
+                    compact_sections = [
+                        make_section(
+                            "report_digest",
+                            "Original report context (compact):",
+                            build_quality_report_digest(report, previous_report, max_chars=compact_digest),
+                            priority="high",
+                            base_limit=compact_digest,
+                            min_limit=700,
+                        ),
+                        make_section(
+                            "critique",
+                            "Critique (compact):",
+                            critique,
+                            priority="high",
+                            base_limit=max(900, min(args.quality_max_chars, 1800)),
+                            min_limit=600,
+                        ),
+                        make_section(
+                            "evidence",
+                            "Evidence packet (compact):",
+                            quality_evidence_context,
+                            priority="high",
+                            base_limit=max(900, min(args.quality_max_chars, 2200)),
+                            min_limit=700,
+                        ),
+                        make_section(
+                            "report_prompt",
+                            "Report focus prompt:",
+                            report_prompt or "(none)",
+                            priority="medium",
+                            base_limit=max(500, min(report_prompt_limit, 1200)),
+                            min_limit=350,
+                        ),
+                    ]
+                    compact_budget = max(1500, (revise_budget // 2) if revise_budget else 1900)
+                    compact_input, _, _ = build_stage_payload(
+                        compact_sections,
+                        compact_budget,
+                        fallback_map={
+                            "report_digest": helpers.truncate_text_middle(
+                                build_quality_report_digest(
+                                    report,
+                                    previous_report,
+                                    max_chars=max(900, compact_digest // 2),
+                                ),
+                                1800,
+                            ),
+                            "critique": helpers.truncate_text_middle(critique, 1200),
+                            "evidence": helpers.truncate_text_middle(quality_evidence_context, 1300),
+                        },
+                        force_fallback=True,
+                    )
+                    try:
+                        report = invoke_agent(
+                            f"Revision Pass {idx + 1} (fallback)",
+                            revise_agent,
+                            {"messages": [{"role": "user", "content": compact_input}]},
+                            show_progress=True,
+                        )
+                    except Exception as fallback_exc:
+                        if not is_context_overflow(fallback_exc):
+                            raise
+                        helpers.print_progress(
+                            f"Revision Pass {idx + 1}",
+                            "[warn] revision overflow persisted; keeping previous draft.",
+                            args.progress,
+                            args.progress_chars,
+                        )
+                        report = previous_report
+                        break
                 candidates.append({"label": f"rev_{idx + 1}", "text": report})
             record_stage("quality", "ran", f"iterations={quality_iterations}")
         elif stage_enabled("quality"):
@@ -3279,23 +3576,56 @@ class ReportOrchestrator:
             evaluator_model = agent_runtime.model("evaluator", quality_model, self._agent_overrides)
             for idx, candidate in enumerate(candidates):
                 eval_max, eval_max_source = agent_max_tokens("evaluator")
-                evaluation = helpers.evaluate_report(
-                    candidate["text"],
-                    quality_evidence_context,
-                    report_prompt,
-                    template_guidance_text,
-                    required_sections,
-                    output_format,
-                    language,
-                    evaluator_model,
-                    depth,
-                    self._create_deep_agent,
-                    tools,
-                    backend,
-                    args.quality_max_chars,
-                    max_input_tokens=eval_max,
-                    max_input_tokens_source=eval_max_source,
-                )
+                eval_chars = max(1200, min(args.quality_max_chars, 4200))
+                try:
+                    evaluation = helpers.evaluate_report(
+                        candidate["text"],
+                        quality_evidence_context,
+                        report_prompt,
+                        template_guidance_text,
+                        required_sections,
+                        output_format,
+                        language,
+                        evaluator_model,
+                        depth,
+                        self._create_deep_agent,
+                        quality_tools,
+                        backend,
+                        eval_chars,
+                        max_input_tokens=eval_max,
+                        max_input_tokens_source=eval_max_source,
+                    )
+                except Exception as exc:
+                    if not is_context_overflow(exc):
+                        raise
+                    helpers.print_progress(
+                        "Quality Eval",
+                        f"[warn] context overflow while evaluating {candidate['label']}; using fallback score.",
+                        args.progress,
+                        args.progress_chars,
+                    )
+                    fallback_overall = 62.0
+                    missing_sections_eval = helpers.find_missing_sections(
+                        candidate["text"],
+                        required_sections,
+                        output_format,
+                    )
+                    if missing_sections_eval:
+                        fallback_overall -= min(20.0, float(len(missing_sections_eval) * 4))
+                    evaluation = {
+                        "overall": max(0.0, fallback_overall),
+                        "coverage": max(0.0, fallback_overall - 2.0),
+                        "evidence_use": max(0.0, fallback_overall - 6.0),
+                        "analysis_depth": max(0.0, fallback_overall - 4.0),
+                        "structure": max(0.0, fallback_overall - 3.0),
+                        "clarity": max(0.0, fallback_overall - 3.0),
+                        "actionability": max(0.0, fallback_overall - 5.0),
+                        "citation_integrity": max(0.0, fallback_overall - 4.0),
+                        "strengths": ["Fallback evaluation used due to context overflow."],
+                        "weaknesses": ["Manual review recommended for this candidate."],
+                        "fixes": ["Lower quality_max_chars or reduce evidence packet density."],
+                        "raw": f"context_overflow: {exc}",
+                    }
                 evaluation["label"] = candidate["label"]
                 evaluation["index"] = idx
                 evaluations.append(evaluation)
@@ -3306,24 +3636,43 @@ class ReportOrchestrator:
                 for i in range(len(candidates)):
                     for j in range(i + 1, len(candidates)):
                         compare_max, compare_max_source = agent_max_tokens("pairwise_compare")
-                        result = helpers.compare_reports_pairwise(
-                            candidates[i]["text"],
-                            candidates[j]["text"],
-                            evaluations[i],
-                            evaluations[j],
-                            quality_evidence_context,
-                            report_prompt,
-                            required_sections,
-                            output_format,
-                            language,
-                            compare_model,
-                            self._create_deep_agent,
-                            tools,
-                            backend,
-                            args.quality_max_chars,
-                            max_input_tokens=compare_max,
-                            max_input_tokens_source=compare_max_source,
-                        )
+                        try:
+                            result = helpers.compare_reports_pairwise(
+                                candidates[i]["text"],
+                                candidates[j]["text"],
+                                evaluations[i],
+                                evaluations[j],
+                                quality_evidence_context,
+                                report_prompt,
+                                required_sections,
+                                output_format,
+                                language,
+                                compare_model,
+                                self._create_deep_agent,
+                                quality_tools,
+                                backend,
+                                max(1200, min(args.quality_max_chars, 4200)),
+                                max_input_tokens=compare_max,
+                                max_input_tokens_source=compare_max_source,
+                            )
+                        except Exception as exc:
+                            if not is_context_overflow(exc):
+                                raise
+                            helpers.print_progress(
+                                "Quality Pairwise",
+                                (
+                                    f"[warn] context overflow in pairwise compare "
+                                    f"({candidates[i]['label']} vs {candidates[j]['label']}); marking tie."
+                                ),
+                                args.progress,
+                                args.progress_chars,
+                            )
+                            result = {
+                                "winner": "TIE",
+                                "reason": "Fallback tie due to context overflow in pairwise compare.",
+                                "focus_improvements": ["Reduce compare payload or evidence density."],
+                                "raw": f"context_overflow: {exc}",
+                            }
                         result["a"] = candidates[i]["label"]
                         result["b"] = candidates[j]["label"]
                         pairwise_notes.append(result)

@@ -110,6 +110,9 @@ _RUN_CONTEXT_PATTERNS = (
     "report/*.md",
     "report/*.txt",
     "report_notes/*.md",
+    "supporting/help_agent/web_search.jsonl",
+    "supporting/help_agent/web_extract/*.txt",
+    "supporting/help_agent/web_text/*.txt",
     "README.md",
 )
 
@@ -128,13 +131,14 @@ class _IndexCache:
     built_at: float
 
 
-def _is_path_allowed(rel_path: str) -> bool:
+def _is_path_allowed(rel_path: str, *, allow_run_prefixes: bool = False) -> bool:
     rel = rel_path.replace("\\", "/")
     if not rel:
         return False
-    for prefix in _EXCLUDE_PREFIXES:
-        if rel == prefix or rel.startswith(f"{prefix}/"):
-            return False
+    if not allow_run_prefixes:
+        for prefix in _EXCLUDE_PREFIXES:
+            if rel == prefix or rel.startswith(f"{prefix}/"):
+                return False
     parts = [p for p in rel.split("/") if p]
     if any(part in _EXCLUDE_PARTS for part in parts):
         return False
@@ -364,7 +368,7 @@ def _iter_run_context_files(root: Path, run_rel: str | None) -> list[Path]:
             if not path.is_file():
                 continue
             rel = safe_rel(path, root)
-            if rel in seen or not _is_path_allowed(rel):
+            if rel in seen or not _is_path_allowed(rel, allow_run_prefixes=True):
                 continue
             if "/archive/" in rel.replace("\\", "/").lower():
                 continue
@@ -516,6 +520,102 @@ def _normalize_history(history: Any) -> list[dict[str, str]]:
             },
         )
     return cleaned
+
+
+def _build_help_web_queries(question: str, history: list[dict[str, str]] | None) -> list[str]:
+    queries: list[str] = []
+    primary = str(question or "").strip()
+    if primary:
+        queries.append(primary)
+    normalized = _normalize_history(history)
+    for item in reversed(normalized):
+        if item.get("role") != "user":
+            continue
+        text = str(item.get("content") or "").strip()
+        if not text:
+            continue
+        if text == primary:
+            continue
+        queries.append(text)
+        if len(queries) >= 3:
+            break
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for query in queries:
+        key = query.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(query)
+    return deduped[:3]
+
+
+def _should_run_help_web_search(question: str, history: list[dict[str, str]] | None) -> bool:
+    text = str(question or "").strip().lower()
+    if not text:
+        return False
+    triggers = (
+        "웹검색",
+        "web search",
+        "검색",
+        "찾아",
+        "최신",
+        "뉴스",
+        "논문",
+        "paper",
+        "arxiv",
+        "openalex",
+        "link",
+        "source",
+        "근거",
+        "시장",
+        "동향",
+    )
+    if any(token in text for token in triggers):
+        return True
+    normalized = _normalize_history(history)
+    for item in reversed(normalized):
+        if item.get("role") != "user":
+            continue
+        prev = str(item.get("content") or "").strip().lower()
+        if any(token in prev for token in triggers):
+            return True
+    return False
+
+
+def _run_help_web_research(
+    root: Path,
+    *,
+    question: str,
+    run_rel: str | None,
+    history: list[dict[str, str]] | None,
+) -> str:
+    run_dir = _resolve_run_dir(root, run_rel)
+    if run_dir is None:
+        return "web_search skipped: run folder not selected."
+    api_key = str(os.getenv("TAVILY_API_KEY") or "").strip()
+    if not api_key:
+        return "web_search skipped: TAVILY_API_KEY is not set."
+    queries = _build_help_web_queries(question, history)
+    if not queries:
+        return "web_search skipped: no query generated."
+    try:
+        from feather.web_research import run_supporting_web_research
+
+        supporting_dir = run_dir / "supporting" / "help_agent"
+        summary, _ = run_supporting_web_research(
+            supporting_dir=supporting_dir,
+            queries=queries,
+            max_results=4,
+            max_fetch=4,
+            max_chars=3200,
+            max_pdf_pages=8,
+            api_key=api_key,
+        )
+        rel_dir = safe_rel(supporting_dir, root)
+        return f"{summary} (dir={rel_dir})"
+    except Exception as exc:
+        return f"web_search failed: {exc}"
 
 
 def _normalize_api_base_url(base_url: str) -> str:
@@ -1162,6 +1262,37 @@ def _infer_safe_action(question: str, run_rel: str | None = None) -> dict[str, A
     return None
 
 
+def _help_capabilities(web_search_enabled: bool) -> dict[str, list[dict[str, Any]]]:
+    return {
+        "tools": [
+            {
+                "id": "source_index",
+                "label": "Source Index",
+                "description": "코드/문서/런 아티팩트 인덱스를 검색해 근거 후보를 선택합니다.",
+            },
+            {
+                "id": "web_research",
+                "label": "Web Search",
+                "description": "웹 보강 검색(Tavily)을 수행해 최신 근거를 보완합니다.",
+                "enabled": bool(web_search_enabled),
+            },
+            {
+                "id": "llm_generate",
+                "label": "LLM Generate",
+                "description": "선별된 근거를 바탕으로 답변을 생성합니다.",
+            },
+        ],
+        "skills": [
+            {
+                "id": "action_runner",
+                "label": "Action Runner",
+                "description": "질문 문맥 기반으로 안전한 실행 제안을 생성합니다.",
+            }
+        ],
+        "mcp": [],
+    }
+
+
 def answer_help_question(
     root: Path,
     question: str,
@@ -1171,10 +1302,17 @@ def answer_help_question(
     max_sources: int = 8,
     history: list[dict[str, str]] | None = None,
     run_rel: str | None = None,
+    web_search: bool = False,
 ) -> dict[str, Any]:
     q = (question or "").strip()
     if not q:
         raise ValueError("question is required")
+    web_note = ""
+    if web_search:
+        if _should_run_help_web_search(q, history):
+            web_note = _run_help_web_research(root, question=q, run_rel=run_rel, history=history)
+        else:
+            web_note = "web_search enabled: skipped (query does not require web lookup)."
     sources, indexed_files = _select_sources(
         root,
         q,
@@ -1207,7 +1345,10 @@ def answer_help_question(
         "model_fallback": bool(used_llm and requested_model and used_model and requested_model != used_model),
         "error": error_msg,
         "indexed_files": indexed_files,
+        "web_search": bool(web_search),
+        "web_search_note": web_note,
         "action": _infer_safe_action(q, run_rel=run_rel),
+        "capabilities": _help_capabilities(bool(web_search)),
     }
 
 
@@ -1220,27 +1361,77 @@ def stream_help_question(
     max_sources: int = 8,
     history: list[dict[str, str]] | None = None,
     run_rel: str | None = None,
+    web_search: bool = False,
 ) -> Iterator[dict[str, Any]]:
     q = (question or "").strip()
     if not q:
         raise ValueError("question is required")
+    web_note = ""
+    yield {
+        "event": "activity",
+        "id": "source_index",
+        "status": "running",
+        "message": "코드/문서 인덱스를 탐색 중입니다.",
+    }
+    if web_search:
+        yield {
+            "event": "activity",
+            "id": "web_research",
+            "status": "running",
+            "message": "웹 보강 검색을 준비 중입니다.",
+        }
+        if _should_run_help_web_search(q, history):
+            web_note = _run_help_web_research(root, question=q, run_rel=run_rel, history=history)
+        else:
+            web_note = "web_search enabled: skipped (query does not require web lookup)."
+        web_status = "error" if web_note.lower().startswith("web_search failed") else "done"
+        if "skipped" in web_note.lower():
+            web_status = "skipped"
+        yield {
+            "event": "activity",
+            "id": "web_research",
+            "status": web_status,
+            "message": web_note or "web search completed",
+        }
+    else:
+        yield {
+            "event": "activity",
+            "id": "web_research",
+            "status": "disabled",
+            "message": "web_search 옵션이 꺼져 있습니다.",
+        }
     sources, indexed_files = _select_sources(
         root,
         q,
         max_sources=max(3, min(max_sources, 16)),
         run_rel=run_rel,
     )
+    yield {
+        "event": "activity",
+        "id": "source_index",
+        "status": "done",
+        "message": f"근거 후보 {indexed_files}개 인덱스 완료",
+    }
     requested_model, explicit_model = _resolve_requested_model(model)
     yield {
         "event": "meta",
         "requested_model": requested_model,
         "model_selection": "explicit" if explicit_model else "auto",
         "indexed_files": indexed_files,
+        "web_search": bool(web_search),
+        "web_search_note": web_note,
+        "capabilities": _help_capabilities(bool(web_search)),
     }
     error_msg = ""
     used_llm = False
     used_model = ""
     answer_parts: list[str] = []
+    yield {
+        "event": "activity",
+        "id": "llm_generate",
+        "status": "running",
+        "message": "답변 생성 중입니다.",
+    }
     try:
         chunk_iter, used_model = _call_llm_stream(
             q,
@@ -1258,6 +1449,12 @@ def stream_help_question(
             yield {"event": "delta", "text": token}
     except Exception as exc:
         error_msg = str(exc)
+        yield {
+            "event": "activity",
+            "id": "llm_generate",
+            "status": "error",
+            "message": error_msg,
+        }
     answer = "".join(answer_parts).strip()
     if not answer:
         answer = _fallback_answer(q, sources)
@@ -1265,6 +1462,14 @@ def stream_help_question(
             used_llm = False
             if not error_msg:
                 error_msg = "LLM returned empty content"
+    if not error_msg:
+        model_note = used_model or requested_model or "configured default"
+        yield {
+            "event": "activity",
+            "id": "llm_generate",
+            "status": "done",
+            "message": f"완료 · model={model_note}",
+        }
     yield {"event": "sources", "sources": sources}
     yield {
         "event": "done",
@@ -1277,5 +1482,8 @@ def stream_help_question(
         "model_fallback": bool(used_llm and requested_model and used_model and requested_model != used_model),
         "error": error_msg,
         "indexed_files": indexed_files,
+        "web_search": bool(web_search),
+        "web_search_note": web_note,
         "action": _infer_safe_action(q, run_rel=run_rel),
+        "capabilities": _help_capabilities(bool(web_search)),
     }

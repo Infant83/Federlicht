@@ -2,12 +2,24 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
 DEFAULT_PROFILE_ID = "default"
 PROFILE_DIR_ENV = "FEDERLICHT_PROFILE_DIR"
+APPLY_TO_ALIASES = {
+    "plan": "planner",
+    "plans": "planner",
+    "align": "alignment",
+    "aligned": "alignment",
+    "aligner": "alignment",
+}
+APPLY_TO_FRAGMENT_REPAIRS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("pla", "er"), "planner"),
+    (("alig", "me", "t"), "alignment"),
+)
 
 
 def default_profiles_dir() -> Path:
@@ -36,6 +48,47 @@ def resolve_profiles_dir(profile_dir: Optional[str] = None) -> Path:
     if env:
         return Path(env).expanduser().resolve()
     return default_profiles_dir().resolve()
+
+
+def _normalize_apply_to(value: Any) -> list[str]:
+    values = value if isinstance(value, (list, tuple, set)) else [value]
+    tokens: list[str] = []
+    for entry in values:
+        raw = str(entry or "")
+        for token in re.split(r"[,\n]+", raw):
+            cleaned = token.strip().lower()
+            if not cleaned:
+                continue
+            tokens.append(APPLY_TO_ALIASES.get(cleaned, cleaned))
+    repaired: list[str] = []
+    idx = 0
+    while idx < len(tokens):
+        matched = False
+        for parts, replacement in APPLY_TO_FRAGMENT_REPAIRS:
+            size = len(parts)
+            chunk = tuple(tokens[idx : idx + size])
+            if len(chunk) == size and chunk == parts:
+                repaired.append(replacement)
+                idx += size
+                matched = True
+                break
+        if matched:
+            continue
+        repaired.append(tokens[idx])
+        idx += 1
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for token in repaired:
+        normalized = str(token).strip().lower()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(normalized)
+    if "planner" in seen:
+        deduped = [token for token in deduped if token not in {"pla", "er"}]
+    if "alignment" in seen:
+        deduped = [token for token in deduped if token not in {"alig", "me", "t"}]
+    return deduped
 
 
 def load_registry(profile_dir: Path) -> dict[str, dict[str, Any]]:
@@ -76,7 +129,7 @@ def list_profiles(profile_dir: Path) -> list[dict[str, Any]]:
                 "author_name": payload.get("author_name") or "",
                 "organization": payload.get("organization") or "",
                 "version": payload.get("version") or "",
-                "apply_to": payload.get("apply_to") or [],
+                "apply_to": _normalize_apply_to(payload.get("apply_to") or []),
                 "file": file_name,
             }
         )
@@ -110,7 +163,7 @@ def load_profile(profile_id: Optional[str], profile_dir: Optional[str] = None) -
     author_name = str(data.get("author_name") or "").strip()
     organization = str(data.get("organization") or "").strip()
     system_prompt = str(data.get("system_prompt") or "").strip()
-    apply_to = list(data.get("apply_to") or ["writer"])
+    apply_to = _normalize_apply_to(data.get("apply_to") or ["writer"])
     version = str(data.get("version") or "")
     memory_path = None
     memory_text = None

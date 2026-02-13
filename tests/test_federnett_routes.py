@@ -162,6 +162,30 @@ def test_handle_api_post_help_ask_forwards_strict_model(tmp_path: Path, monkeypa
     assert captured.get("strict_model") is True
 
 
+def test_handle_api_post_help_ask_forwards_web_search_flag(tmp_path: Path, monkeypatch) -> None:
+    cfg = make_cfg(tmp_path)
+    captured: dict[str, object] = {}
+
+    def _fake_answer(root, question, **kwargs):
+        captured["root"] = root
+        captured["question"] = question
+        captured.update(kwargs)
+        return {"answer": "ok", "sources": [], "used_llm": False, "model": ""}
+
+    monkeypatch.setattr(routes_mod, "answer_help_question", _fake_answer)
+    handler = DummyHandler(
+        cfg,
+        "/api/help/ask",
+        payload={"question": "테스트", "web_search": True},
+    )
+    handle_api_post(handler, render_template_preview=lambda _root, _payload: "")
+    assert handler.json_response is not None
+    status, body = handler.json_response
+    assert status == 200
+    assert isinstance(body, dict)
+    assert captured.get("web_search") is True
+
+
 def test_handle_api_post_help_ask_stream_emits_sse(tmp_path: Path, monkeypatch) -> None:
     cfg = make_cfg(tmp_path)
 
@@ -182,6 +206,25 @@ def test_handle_api_post_help_ask_stream_emits_sse(tmp_path: Path, monkeypatch) 
     assert "event: meta" in raw
     assert "event: delta" in raw
     assert "event: done" in raw
+
+
+def test_handle_api_post_help_ask_stream_forwards_web_search_flag(tmp_path: Path, monkeypatch) -> None:
+    cfg = make_cfg(tmp_path)
+    captured: dict[str, object] = {}
+
+    def _fake_stream(_root, _question, **kwargs):
+        captured.update(kwargs)
+        yield {"event": "done", "answer": "ok", "sources": []}
+
+    monkeypatch.setattr(routes_mod, "stream_help_question", _fake_stream)
+    handler = DummyHandler(
+        cfg,
+        "/api/help/ask/stream",
+        payload={"question": "테스트 스트림", "web_search": True},
+    )
+    handle_api_post(handler, render_template_preview=lambda _root, _payload: "")
+    assert handler.stream_status == 200
+    assert captured.get("web_search") is True
 
 
 def test_handle_api_get_help_history_forwards_profile_id(tmp_path: Path, monkeypatch) -> None:

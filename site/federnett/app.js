@@ -66,6 +66,9 @@ const state = {
     historyMode: false,
     historySourcePath: "",
     resumeStage: "",
+    resumePromptPath: "",
+    resumePromptStage: "",
+    resumePromptAt: "",
     historyStageStatus: {},
     historyFailedStage: "",
     selectedStages: new Set(),
@@ -127,6 +130,13 @@ const state = {
     lastAction: null,
     lastAnswer: "",
     lastSources: [],
+    pendingQuestion: "",
+    threadPopoverOpen: false,
+    actionMode: "plan",
+    allowArtifactWrites: false,
+    capabilities: null,
+    activity: {},
+    activityStatus: "대기",
   },
   workspace: {
     open: false,
@@ -144,6 +154,18 @@ const AGENT_PROFILE_STORAGE_KEY = "federnett-active-agent-profile-v1";
 const ASK_DEFAULT_THREAD_ID = "main";
 const ASK_DEFAULT_THREAD_TITLE = "기본 대화";
 const ASK_THREAD_LIMIT = 24;
+const ASK_ACTION_PREF_KEY = askStorageKey("action-pref-v1");
+const ASK_CAPABILITY_FALLBACK = {
+  tools: [
+    { id: "source_index", label: "Source Index", description: "코드/문서/런 인덱스 검색" },
+    { id: "web_research", label: "Web Search", description: "웹 보강 검색", enabled: false },
+    { id: "llm_generate", label: "LLM Generate", description: "최종 답변 생성" },
+  ],
+  skills: [
+    { id: "action_runner", label: "Action Runner", description: "안전 실행 제안/미리보기" },
+  ],
+  mcp: [],
+};
 const AGENT_APPLY_TARGETS = [
   { id: "writer", label: "Writer", hint: "최종 보고서 본문 생성" },
   { id: "critic", label: "Critic", hint: "문장/논리 품질 비평" },
@@ -260,12 +282,8 @@ const FIELD_HELP = {
     "Write without template scaffolding. When enabled, template and rigidity controls are ignored.",
   "federlicht-temperature-level": "Preset creativity/variance level for report agents.",
   "federlicht-quality-iterations": "Number of quality loop passes (critic/reviser/evaluator).",
-  "federlicht-max-chars": "Per-document read limit used during report ingestion.",
-  "federlicht-max-tool-chars":
-    "Cumulative read_document budget across the run (0 keeps automatic safety cap).",
-  "federlicht-progress-chars":
-    "Live-log snippet length per stage message before appending [truncated].",
-  "federlicht-max-pdf-pages": "Maximum PDF pages to read per document.",
+  "federlicht-web-search":
+    "Enable Federlicht supporting web research stage. This is separate from Feather YouTube/OpenAlex collection.",
   "agent-config-overrides":
     "Profile-level Federlicht config overrides (same schema as agent_config.json > config).",
   "agent-agent-overrides":
@@ -498,6 +516,155 @@ function askStorageKey(key) {
   return `federnett-ask-${key}`;
 }
 
+function loadAskActionPrefs() {
+  try {
+    const raw = localStorage.getItem(ASK_ACTION_PREF_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    const mode = String(parsed?.mode || "").trim().toLowerCase();
+    if (mode === "act" || mode === "plan") {
+      state.ask.actionMode = mode;
+    }
+    state.ask.allowArtifactWrites = Boolean(parsed?.allow_artifacts);
+  } catch (err) {
+    // ignore invalid local storage payload
+  }
+}
+
+function saveAskActionPrefs() {
+  localStorage.setItem(
+    ASK_ACTION_PREF_KEY,
+    JSON.stringify({
+      mode: state.ask.actionMode || "plan",
+      allow_artifacts: Boolean(state.ask.allowArtifactWrites),
+    }),
+  );
+}
+
+function setAskActionMode(mode, { persist = true } = {}) {
+  const next = String(mode || "").trim().toLowerCase() === "act" ? "act" : "plan";
+  state.ask.actionMode = next;
+  if (persist) saveAskActionPrefs();
+  syncAskActionPolicyInputs();
+}
+
+function normalizeAskCapabilities(payload) {
+  const source = payload && typeof payload === "object" ? payload : ASK_CAPABILITY_FALLBACK;
+  const normalizeList = (rawList, group) => {
+    if (!Array.isArray(rawList)) return [];
+    return rawList
+      .map((item, idx) => {
+        const id = String(item?.id || "").trim().toLowerCase() || `${group}_${idx + 1}`;
+        const label = String(item?.label || id).trim();
+        const description = String(item?.description || "").trim();
+        const enabled = item?.enabled === false ? false : true;
+        return { id, label, description, enabled, group };
+      })
+      .filter((item) => Boolean(item.id));
+  };
+  const tools = normalizeList(source.tools || [], "tools");
+  const skills = normalizeList(source.skills || [], "skills");
+  let mcp = normalizeList(source.mcp || [], "mcp");
+  if (!mcp.length) {
+    mcp = [
+      {
+        id: "mcp_none",
+        label: "MCP 없음",
+        description: "등록된 MCP 서버가 없습니다.",
+        enabled: false,
+        group: "mcp",
+      },
+    ];
+  }
+  return { tools, skills, mcp };
+}
+
+function askCapabilityEntries() {
+  const cap = normalizeAskCapabilities(state.ask.capabilities);
+  return [...cap.tools, ...cap.skills, ...cap.mcp];
+}
+
+function resetAskActivityState() {
+  const entries = askCapabilityEntries();
+  const next = {};
+  entries.forEach((entry) => {
+    next[entry.id] = entry.enabled === false ? "disabled" : "idle";
+  });
+  state.ask.activity = next;
+  state.ask.activityStatus = "대기";
+  renderAskCapabilities();
+}
+
+function setAskActivity(id, status, message = "") {
+  const token = String(id || "").trim().toLowerCase();
+  if (!token) return;
+  const normalizedStatus = String(status || "idle").trim().toLowerCase();
+  state.ask.activity[token] = normalizedStatus || "idle";
+  if (message) {
+    state.ask.activityStatus = String(message);
+  } else {
+    state.ask.activityStatus =
+      normalizedStatus === "running" ? "작업 실행 중..." : normalizedStatus === "done" ? "완료" : "대기";
+  }
+  renderAskCapabilities();
+}
+
+function renderAskCapabilities() {
+  const host = $("#ask-capability-grid");
+  const statusEl = $("#ask-activity-status");
+  if (!host) return;
+  const entries = askCapabilityEntries();
+  if (!entries.length) {
+    host.innerHTML = '<span class="muted">표시할 도구 정보가 없습니다.</span>';
+    if (statusEl) statusEl.textContent = "대기";
+    return;
+  }
+  host.innerHTML = entries
+    .map((entry) => {
+      const status = String(state.ask.activity?.[entry.id] || (entry.enabled === false ? "disabled" : "idle"));
+      const classes = ["ask-cap-chip"];
+      if (status === "running") classes.push("is-running");
+      else if (status === "done") classes.push("is-done");
+      else if (status === "disabled" || entry.enabled === false) classes.push("is-disabled");
+      else if (status === "error") classes.push("is-error");
+      const titleParts = [];
+      if (entry.group) titleParts.push(entry.group.toUpperCase());
+      if (entry.description) titleParts.push(entry.description);
+      const title = titleParts.join(" · ");
+      return `<span class="${classes.join(" ")}" title="${escapeHtml(title)}">${escapeHtml(entry.label)}</span>`;
+    })
+    .join("");
+  if (statusEl) {
+    statusEl.textContent = state.ask.activityStatus || "대기";
+    const hasRunning = Object.values(state.ask.activity || {}).some((value) => value === "running");
+    statusEl.classList.toggle("is-active", hasRunning);
+  }
+}
+
+function syncAskActionPolicyInputs() {
+  const modeInput = $("#ask-action-mode");
+  const mode = state.ask.actionMode === "act" ? "act" : "plan";
+  if (modeInput && modeInput.value !== mode) {
+    modeInput.value = mode;
+  }
+  const modeHint = $("#ask-action-mode-hint");
+  if (modeHint) {
+    modeHint.textContent = mode === "act" ? "Act: 안전 범위 작업 자동 실행" : "Plan: 제안 후 확인 실행";
+  }
+  const modeSwitch = $("#ask-action-mode-switch");
+  if (modeSwitch) {
+    modeSwitch.querySelectorAll("[data-ask-mode]").forEach((btn) => {
+      const token = btn.getAttribute("data-ask-mode") || "";
+      btn.classList.toggle("is-on", token === mode);
+      btn.setAttribute("aria-pressed", token === mode ? "true" : "false");
+    });
+  }
+  const allowCheck = $("#ask-allow-artifacts");
+  if (allowCheck && allowCheck.checked !== Boolean(state.ask.allowArtifactWrites)) {
+    allowCheck.checked = Boolean(state.ask.allowArtifactWrites);
+  }
+}
+
 function askScopeValues() {
   const runRel = ensureAskRunRel();
   const profileId = ensureAskProfileId() || "default";
@@ -575,6 +742,7 @@ function renderAskThreadList() {
   const items = Array.isArray(state.ask.threads) ? state.ask.threads : [];
   if (!items.length) {
     host.innerHTML = '<p class="muted">스레드가 없습니다.</p>';
+    syncAskThreadActions();
     return;
   }
   host.innerHTML = items
@@ -599,13 +767,35 @@ function renderAskThreadList() {
       setAskActiveThread(threadId).catch((err) => setAskStatus(`스레드 전환 실패: ${err}`));
     });
   });
+  syncAskThreadActions();
+}
+
+function setAskThreadPopoverOpen(open) {
+  state.ask.threadPopoverOpen = Boolean(open);
+  const panel = $("#ask-thread-popover");
+  if (panel) {
+    panel.classList.toggle("open", state.ask.threadPopoverOpen);
+    panel.setAttribute("aria-hidden", state.ask.threadPopoverOpen ? "false" : "true");
+  }
+  $("#ask-thread-toggle")?.classList.toggle("is-active", state.ask.threadPopoverOpen);
+}
+
+function syncAskThreadActions() {
+  const delBtn = $("#ask-thread-delete");
+  if (!delBtn) return;
+  const count = Array.isArray(state.ask.threads) ? state.ask.threads.length : 0;
+  delBtn.disabled = count <= 0;
 }
 
 function askHistoryProfileId() {
+  return askHistoryProfileIdForThread(state.ask.activeThreadId || ASK_DEFAULT_THREAD_ID);
+}
+
+function askHistoryProfileIdForThread(threadId) {
   const scope = askScopeValues();
   const base = normalizeAskThreadId(scope.profileId) || "default";
-  const threadId = normalizeAskThreadId(state.ask.activeThreadId || ASK_DEFAULT_THREAD_ID) || ASK_DEFAULT_THREAD_ID;
-  return `${base}__th_${threadId}`;
+  const normalizedThread = normalizeAskThreadId(threadId || ASK_DEFAULT_THREAD_ID) || ASK_DEFAULT_THREAD_ID;
+  return `${base}__th_${normalizedThread}`;
 }
 
 function askCurrentThreadLabel() {
@@ -651,6 +841,8 @@ async function setAskActiveThread(threadId) {
   }
   state.ask.activeThreadId = normalized;
   state.ask.historyProfileId = askHistoryProfileId();
+  state.ask.pendingQuestion = "";
+  setAskThreadPopoverOpen(false);
   renderAskThreadList();
   await loadAskHistory(ensureAskRunRel());
 }
@@ -667,6 +859,8 @@ async function createNewAskThread() {
   state.ask.lastAction = null;
   state.ask.lastAnswer = "";
   state.ask.lastSources = [];
+  state.ask.pendingQuestion = "";
+  setAskThreadPopoverOpen(false);
   saveAskThreadMeta();
   renderAskThreadList();
   renderAskHistory();
@@ -674,6 +868,60 @@ async function createNewAskThread() {
   renderAskSources([]);
   renderAskActions(null, "", []);
   setAskStatus("새 스레드를 시작했습니다.");
+}
+
+async function deleteActiveAskThread() {
+  ensureAskThreadScope(false);
+  const current = activeAskThread();
+  if (!current) {
+    setAskStatus("삭제할 스레드가 없습니다.");
+    return;
+  }
+  const count = Array.isArray(state.ask.threads) ? state.ask.threads.length : 0;
+  const ok = window.confirm(
+    `현재 스레드를 삭제할까요?\n- ${current.title || current.id}\n- 저장된 대화 이력 파일도 함께 삭제됩니다.`,
+  );
+  if (!ok) return;
+  const profileForThread = askHistoryProfileIdForThread(current.id);
+  try {
+    await fetchJSON("/api/help/history/clear", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run: ensureAskRunRel(), profile_id: profileForThread }),
+    });
+  } catch (err) {
+    appendLog(`[ask] thread history clear failed: ${err}\n`);
+  }
+  state.ask.threads = (state.ask.threads || []).filter((item) => item.id !== current.id);
+  if (!state.ask.threads.length) {
+    state.ask.threads = [{
+      id: ASK_DEFAULT_THREAD_ID,
+      title: ASK_DEFAULT_THREAD_TITLE,
+      preview: "",
+      updated_at: "",
+    }];
+  }
+  const next = state.ask.threads[0] || null;
+  state.ask.activeThreadId = next?.id || ASK_DEFAULT_THREAD_ID;
+  state.ask.historyProfileId = askHistoryProfileId();
+  state.ask.pendingQuestion = "";
+  setAskThreadPopoverOpen(false);
+  saveAskThreadMeta();
+  renderAskThreadList();
+  if (count <= 1) {
+    state.ask.history = [];
+    state.ask.pendingQuestion = "";
+    state.ask.lastAnswer = "";
+    state.ask.lastSources = [];
+    renderAskHistory();
+    renderAskAnswer("");
+    renderAskSources([]);
+    renderAskActions(null, "", []);
+    setAskStatus("스레드를 삭제하고 기본 스레드를 다시 만들었습니다.");
+    return;
+  }
+  await loadAskHistory(ensureAskRunRel());
+  setAskStatus("스레드를 삭제했습니다.");
 }
 
 function updateActiveThreadMeta(nextValues = {}) {
@@ -833,7 +1081,9 @@ async function loadAskHistory(runRel) {
       });
     }
     renderAskHistory();
+    renderAskAnswer("");
     renderAskThreadList();
+    renderAskSources([]);
     renderAskActions(null, "", []);
     if (migratedLegacy) {
       setAskStatus(`이력 불러옴(legacy) · ${state.ask.history.length}개`);
@@ -849,7 +1099,9 @@ async function loadAskHistory(runRel) {
     state.ask.lastAnswer = "";
     state.ask.lastSources = [];
     renderAskHistory();
+    renderAskAnswer("");
     renderAskThreadList();
+    renderAskSources([]);
     renderAskActions(null, "", []);
     setAskStatus(`이력 로드 실패: ${err}`);
   }
@@ -892,13 +1144,15 @@ async function clearAskHistoryAndUi() {
   state.ask.lastAction = null;
   state.ask.lastAnswer = "";
   state.ask.lastSources = [];
+  state.ask.pendingQuestion = "";
   state.ask.selectionText = "";
   renderAskHistory();
   renderAskAnswer("");
   renderAskSources([]);
   renderAskActions(null, "", []);
+  resetAskActivityState();
   updateActiveThreadMeta({ preview: "" });
-  setAskStatus("이력이 초기화되었습니다.");
+  setAskStatus("현재 스레드 이력을 초기화했습니다. (스레드 카드는 유지)");
 }
 
 function setAskPanelOpen(open, opts = {}) {
@@ -916,6 +1170,8 @@ function setAskPanelOpen(open, opts = {}) {
     restoreAskGeometry(opts.anchor || null);
     ensureAskThreadScope(false);
     renderAskThreadList();
+    syncAskActionPolicyInputs();
+    setAskThreadPopoverOpen(false);
     loadAskHistory(ensureAskRunRel()).catch((err) => {
       setAskStatus(`이력 로드 실패: ${err}`);
     });
@@ -923,6 +1179,7 @@ function setAskPanelOpen(open, opts = {}) {
       $("#ask-input")?.focus();
     }, 0);
   } else {
+    setAskThreadPopoverOpen(false);
     closeAskActionModal();
     saveAskGeometry();
   }
@@ -931,14 +1188,44 @@ function setAskPanelOpen(open, opts = {}) {
 function renderAskAnswer(answerText) {
   const answerEl = $("#ask-answer");
   if (!answerEl) return;
-  const text = String(answerText || "").trim();
-  if (!text) {
+  const pendingQuestion = String(state.ask.pendingQuestion || "").trim();
+  const pendingAnswer = String(answerText || "").trim();
+  const historyItems = Array.isArray(state.ask.history) ? state.ask.history.slice(-40) : [];
+  const rows = historyItems.map((entry) => ({
+    role: entry.role === "assistant" ? "assistant" : "user",
+    content: String(entry.content || "").trim(),
+    pending: false,
+  }));
+  if (pendingQuestion) {
+    rows.push({ role: "user", content: pendingQuestion, pending: true });
+  }
+  if (pendingAnswer) {
+    rows.push({ role: "assistant", content: pendingAnswer, pending: true });
+  }
+  if (!rows.length) {
     answerEl.innerHTML = '<p class="muted">아직 답변이 없습니다.</p>';
     scrollAskAnswerToBottom(true);
     return;
   }
   const nearBottom = isNearBottom(answerEl, 140);
-  setRenderedMarkdown(answerEl, text);
+  answerEl.innerHTML = rows
+    .map((row) => {
+      const roleLabel = row.role === "assistant" ? "답변" : "질문";
+      const badge = row.pending ? '<span class="ask-badge">streaming</span>' : "";
+      const body = row.role === "assistant"
+        ? renderMarkdown(row.content || "")
+        : escapeHtml(row.content || "").replace(/\n/g, "<br />");
+      return `
+        <article class="ask-message ${row.role}">
+          <div class="ask-message-head">
+            <strong>${escapeHtml(roleLabel)}</strong>
+            ${badge}
+          </div>
+          <div class="ask-message-body">${body}</div>
+        </article>
+      `;
+    })
+    .join("");
   if (state.ask.busy || nearBottom) {
     window.requestAnimationFrame(() => {
       scrollAskAnswerToBottom(true);
@@ -988,6 +1275,7 @@ function renderAskSources(sources) {
       await loadFilePreview(sourcePath, {
         focusLine: startLine,
         endLine,
+        readOnly: true,
       });
       appendLog(`[help] source opened: ${sourcePath}:${startLine}-${endLine}\n`);
     });
@@ -997,6 +1285,7 @@ function renderAskSources(sources) {
 async function runAskQuestion() {
   if (state.ask.busy) return;
   ensureAskThreadScope(false);
+  setAskThreadPopoverOpen(false);
   const question = $("#ask-input")?.value?.trim() || "";
   const model = $("#ask-model")?.value?.trim() || "";
   if (!question) {
@@ -1007,6 +1296,7 @@ async function runAskQuestion() {
   state.ask.lastAction = null;
   state.ask.lastAnswer = "";
   state.ask.lastSources = [];
+  state.ask.pendingQuestion = question;
   state.ask.selectionText = "";
   const runButton = $("#ask-run");
   if (runButton) {
@@ -1014,6 +1304,8 @@ async function runAskQuestion() {
     runButton.textContent = "질문 중...";
   }
   setAskStatus("코드/문서를 분석 중입니다...");
+  resetAskActivityState();
+  setAskActivity("source_index", "running", "근거 탐색 준비 중...");
   renderAskActions(null, "", []);
   renderAskAnswer("");
   renderAskSources([]);
@@ -1031,6 +1323,7 @@ async function runAskQuestion() {
       history: state.ask.history.slice(-14),
       run: runRel || undefined,
       profile_id: askHistoryProfileId(),
+      web_search: Boolean($("#federlicht-web-search")?.checked),
     };
     let result;
     try {
@@ -1038,6 +1331,17 @@ async function runAskQuestion() {
     } catch (streamErr) {
       appendLog(`[ask] stream fallback: ${streamErr}\n`);
       result = await runAskQuestionLegacy(requestPayload);
+      state.ask.capabilities = normalizeAskCapabilities(result?.capabilities || ASK_CAPABILITY_FALLBACK);
+      resetAskActivityState();
+      setAskActivity("source_index", "done", `근거 후보 ${Number(result?.indexed_files || 0)}개`);
+      if (requestPayload.web_search) {
+        const webNote = String(result?.web_search_note || "");
+        const webStatus = webNote.toLowerCase().includes("skipped") ? "skipped" : "done";
+        setAskActivity("web_research", webStatus, webNote || "웹 검색 처리 완료");
+      } else {
+        setAskActivity("web_research", "disabled", "web_search 옵션 꺼짐");
+      }
+      setAskActivity("llm_generate", result?.used_llm ? "done" : "error", result?.error || "완료");
     }
     renderAskAnswer(result.answer || "");
     renderAskSources(result.sources || []);
@@ -1045,16 +1349,22 @@ async function runAskQuestion() {
     state.ask.lastAction = result.action || null;
     state.ask.lastAnswer = String(result.answer || "");
     state.ask.lastSources = Array.isArray(result.sources) ? result.sources : [];
+    if (result?.capabilities) {
+      state.ask.capabilities = normalizeAskCapabilities(result.capabilities);
+      renderAskCapabilities();
+    }
     const stamp = new Date().toISOString();
     state.ask.history.push({ role: "user", content: question, ts: stamp });
     state.ask.history.push({
       role: "assistant",
-      content: String(result.answer || "").slice(0, 3000),
+      content: String(result.answer || "").slice(0, 12000),
       ts: stamp,
     });
     if (state.ask.history.length > 40) {
       state.ask.history = state.ask.history.slice(-40);
     }
+    state.ask.pendingQuestion = "";
+    renderAskAnswer("");
     updateActiveThreadMeta({
       title: question.slice(0, 34),
       preview: question.slice(0, 72),
@@ -1083,8 +1393,11 @@ async function runAskQuestion() {
     renderAskAnswer(`질문 실패: ${err}`);
     renderAskSources([]);
     renderAskActions(null, "", []);
+    setAskActivity("llm_generate", "error", `질문 실패: ${err}`);
+    state.ask.pendingQuestion = "";
   } finally {
     state.ask.busy = false;
+    state.ask.pendingQuestion = "";
     if (runButton) {
       runButton.disabled = false;
       runButton.textContent = "질문 실행";
@@ -1095,13 +1408,20 @@ async function runAskQuestion() {
 function handleAskPanel() {
   const panel = $("#ask-panel");
   if (!panel) return;
+  loadAskActionPrefs();
   ensureAskThreadScope(true);
   renderAskHistory();
   renderAskThreadList();
   renderAskAnswer("");
   renderAskSources([]);
   renderAskActions(null, "", []);
+  state.ask.capabilities = normalizeAskCapabilities(ASK_CAPABILITY_FALLBACK);
+  resetAskActivityState();
+  syncAskActionPolicyInputs();
+  setAskThreadPopoverOpen(false);
   setAskStatus("Ready.");
+  const threadToggle = $("#ask-thread-toggle");
+  const threadPopover = $("#ask-thread-popover");
   $("#ask-button")?.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
@@ -1122,6 +1442,27 @@ function handleAskPanel() {
     createNewAskThread().catch((err) => {
       setAskStatus(`새 스레드 생성 실패: ${err}`);
     });
+  });
+  $("#ask-thread-delete")?.addEventListener("click", () => {
+    deleteActiveAskThread().catch((err) => {
+      setAskStatus(`스레드 삭제 실패: ${err}`);
+    });
+  });
+  threadToggle?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    setAskThreadPopoverOpen(!state.ask.threadPopoverOpen);
+  });
+  $("#ask-action-mode-switch")?.addEventListener("click", (ev) => {
+    const button = ev.target instanceof Element ? ev.target.closest("[data-ask-mode]") : null;
+    if (!button) return;
+    const mode = button.getAttribute("data-ask-mode") || "plan";
+    setAskActionMode(mode, { persist: true });
+  });
+  $("#ask-allow-artifacts")?.addEventListener("change", (ev) => {
+    state.ask.allowArtifactWrites = Boolean(ev?.target?.checked);
+    saveAskActionPrefs();
+    syncAskActionPolicyInputs();
   });
   $("#ask-run")?.addEventListener("click", () => runAskQuestion());
   $("#ask-input")?.addEventListener("keydown", (ev) => {
@@ -1156,7 +1497,22 @@ function handleAskPanel() {
     closeAskActionModal();
     await executeAskSuggestedAction(actionType);
   });
-  panel.addEventListener("click", (ev) => ev.stopPropagation());
+  panel.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    const target = ev.target;
+    if (!(target instanceof Element)) return;
+    if (!state.ask.threadPopoverOpen) return;
+    if (target.closest("#ask-thread-popover")) return;
+    if (target.closest("#ask-thread-toggle")) return;
+    setAskThreadPopoverOpen(false);
+  });
+  threadPopover?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+  });
+  document.addEventListener("click", () => {
+    if (!state.ask.threadPopoverOpen) return;
+    setAskThreadPopoverOpen(false);
+  });
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && isAskActionModalOpen()) {
       closeAskActionModal();
@@ -1288,7 +1644,29 @@ async function runAskQuestionWithStream(payload) {
       if (eventName === "meta") {
         const indexed = Number(data?.indexed_files || 0);
         const requested = String(data?.requested_model || payload.model || "$OPENAI_MODEL");
+        if (data?.capabilities) {
+          state.ask.capabilities = normalizeAskCapabilities(data.capabilities);
+          renderAskCapabilities();
+        }
+        setAskActivity("source_index", "done", `근거 후보 ${indexed}개`);
+        if (payload.web_search) {
+          const webNote = String(data?.web_search_note || "");
+          if (webNote.toLowerCase().includes("skipped")) {
+            setAskActivity("web_research", "skipped", webNote || "웹 검색 생략");
+          }
+        } else {
+          setAskActivity("web_research", "disabled", "web_search 옵션 꺼짐");
+        }
         setAskStatus(`답변 생성 중 · model=${requested} · indexed=${indexed}`);
+        return false;
+      }
+      if (eventName === "activity") {
+        const activityId = String(data?.id || "").trim();
+        const status = String(data?.status || "running").trim();
+        const message = String(data?.message || "").trim();
+        if (activityId) {
+          setAskActivity(activityId, status, message);
+        }
         return false;
       }
       if (eventName === "delta") {
@@ -1311,6 +1689,15 @@ async function runAskQuestionWithStream(payload) {
       if (eventName === "done") {
         doneSeen = true;
         finalResult = data && typeof data === "object" ? data : {};
+        if (finalResult?.capabilities) {
+          state.ask.capabilities = normalizeAskCapabilities(finalResult.capabilities);
+          renderAskCapabilities();
+        }
+        setAskActivity(
+          "llm_generate",
+          finalResult?.used_llm ? "done" : "error",
+          finalResult?.error ? String(finalResult.error) : "답변 생성 완료",
+        );
         if (!answerText) {
           answerText = String(finalResult.answer || "");
           renderAskAnswer(answerText);
@@ -1519,7 +1906,7 @@ function renderAskActions(action, answerText = "", sources = []) {
     btn.addEventListener("click", async () => {
       const path = btn.getAttribute("data-ask-open") || "";
       if (!path) return;
-      await loadFilePreview(path);
+      await loadFilePreview(path, { readOnly: true });
       appendLog(`[ask-action] opened: ${path}\n`);
     });
   });
@@ -1657,6 +2044,21 @@ async function executeAskSuggestedAction(actionType) {
 async function runAskSuggestedAction(actionType) {
   try {
     const plan = await buildAskActionPlan(actionType);
+    const mode = String(state.ask.actionMode || "plan").toLowerCase();
+    const isRunAction = [
+      "run_feather",
+      "run_federlicht",
+      "run_feather_then_federlicht",
+    ].includes(String(actionType || "").trim().toLowerCase());
+    const canAutoRun = mode === "act" && (!isRunAction || state.ask.allowArtifactWrites);
+    if (canAutoRun) {
+      setAskStatus("Act mode: 안전 규칙에 따라 제안을 바로 실행합니다.");
+      await executeAskSuggestedAction(actionType);
+      return;
+    }
+    if (mode === "act" && isRunAction && !state.ask.allowArtifactWrites) {
+      setAskStatus("Act mode이지만 artifacts 쓰기가 꺼져 있어 확인 후 실행 모드로 전환합니다.");
+    }
     openAskActionModal(plan);
   } catch (err) {
     setAskStatus(`실행 미리보기 생성 실패: ${err}`);
@@ -1846,8 +2248,12 @@ function setMetaStrip() {
   if (!strip || !state.info) return;
   const { run_roots: runRoots } = state.info;
   const runRootsLabel = formatRunRoots(runRoots || []);
-  const pills = [`run root: ${runRootsLabel}`];
+  const pills = [];
+  if (runRootsLabel && runRootsLabel !== "." && runRootsLabel !== "-") {
+    pills.push(`workspace: ${runRootsLabel}`);
+  }
   strip.innerHTML = pills.map((p) => `<span class="meta-pill">${p}</span>`).join("");
+  strip.classList.toggle("is-empty", pills.length === 0);
   updateHeroStats();
 }
 
@@ -2560,6 +2966,7 @@ async function loadFilePreview(relPath, options = {}) {
   revokePreviewObjectUrl();
   const requestedLine = Number(options.focusLine || 0);
   const requestedEndLine = Number(options.endLine || requestedLine || 0);
+  const forceReadOnly = Boolean(options.readOnly || options.forceReadOnly);
   const originalMode = previewModeForPath(relPath);
   const mode = originalMode;
   if (mode === "pdf" || mode === "html" || mode === "image") {
@@ -2590,7 +2997,7 @@ async function loadFilePreview(relPath, options = {}) {
   }
   try {
     const data = await fetchJSON(`/api/files?path=${encodeURIComponent(relPath)}`);
-    const canEdit = originalMode === "text";
+    const canEdit = originalMode === "text" && !forceReadOnly;
     updateFilePreviewState({
       path: data.path || relPath,
       content: data.content || "",
@@ -2917,20 +3324,65 @@ async function saveFilePreview(targetPath) {
   await loadRunSummary(selectedRunRel());
 }
 
+function runRelForFile(summary, relPath) {
+  const runRel = normalizePathString(summary?.run_rel || "");
+  const normalized = normalizePathString(relPath || "");
+  if (!runRel || !normalized.startsWith(`${runRel}/`)) return "";
+  return normalized.slice(runRel.length + 1);
+}
+
+function isRunFileDeletable(summary, relPath, groupTitle = "") {
+  const inRun = runRelForFile(summary, relPath);
+  if (!inRun) return false;
+  const normalized = inRun.toLowerCase();
+  if (groupTitle === "Instructions") {
+    return normalized.startsWith("instruction/");
+  }
+  if (groupTitle === "Reports") {
+    return /^report_full(?:_[0-9]+)?\.(html|md|tex)$/i.test(inRun);
+  }
+  return false;
+}
+
+async function deleteRunFile(relPath) {
+  const normalized = normalizePathString(relPath);
+  if (!normalized) return;
+  const ok = window.confirm(`파일을 삭제할까요?\n${normalized}`);
+  if (!ok) return;
+  const result = await fetchJSON("/api/files/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: normalized }),
+  });
+  appendLog(`[files] deleted ${result?.path || normalized}\n`);
+  if (normalizePathString(state.filePreview.path || "") === normalized) {
+    updateFilePreviewState({
+      path: "",
+      content: "선택한 파일이 삭제되었습니다.",
+      canEdit: false,
+      dirty: false,
+      mode: "text",
+      objectUrl: "",
+      htmlDoc: "",
+    });
+  }
+  await loadRunSummary(selectedRunRel());
+}
+
 function renderRunFiles(summary) {
   const host = $("#run-file-list");
   if (!host) return;
   const groups = [
-    { title: "Reports", files: summary?.report_files || [] },
-    { title: "Index Files", files: summary?.index_files || [] },
-    { title: "Archive PDFs", files: summary?.pdf_files || [] },
-    { title: "Archive PPTX", files: summary?.pptx_files || [] },
-    { title: "Web Extracts", files: summary?.extract_files || [] },
-    { title: "Archive Texts", files: summary?.text_files || [] },
-    { title: "Logs", files: summary?.log_files || [] },
+    { title: "Reports", files: (summary?.report_files || []).map((path) => ({ path })) },
+    { title: "Index Files", files: (summary?.index_files || []).map((path) => ({ path })) },
+    { title: "Archive PDFs", files: (summary?.pdf_files || []).map((path) => ({ path })) },
+    { title: "Archive PPTX", files: (summary?.pptx_files || []).map((path) => ({ path })) },
+    { title: "Web Extracts", files: (summary?.extract_files || []).map((path) => ({ path })) },
+    { title: "Archive Texts", files: (summary?.text_files || []).map((path) => ({ path })) },
+    { title: "Logs", files: (summary?.log_files || []).map((path) => ({ path })) },
     {
       title: "Instructions",
-      files: (summary?.instruction_files || []).map((f) => f.path),
+      files: (summary?.instruction_files || []).map((f) => ({ path: f.path })),
     },
   ];
   const hasAny = groups.some((g) => g.files && g.files.length);
@@ -2942,9 +3394,18 @@ function renderRunFiles(summary) {
     .filter((group) => group.files && group.files.length)
     .map((group) => {
       const items = group.files
-        .map((rel) => {
+        .map((file) => {
+          const rel = String(file?.path || "");
           const name = rel.split("/").pop() || rel;
-          return `<button type="button" data-file="${escapeHtml(rel)}">${escapeHtml(name)}</button>`;
+          const canDelete = isRunFileDeletable(summary, rel, group.title);
+          return `
+            <span class="file-chip">
+              <button type="button" data-file-open="${escapeHtml(rel)}">${escapeHtml(name)}</button>
+              ${canDelete
+                ? `<button type="button" class="file-chip-delete" data-file-delete="${escapeHtml(rel)}" aria-label="Delete file" title="Delete">×</button>`
+                : ""}
+            </span>
+          `;
         })
         .join("");
       return `
@@ -2955,8 +3416,294 @@ function renderRunFiles(summary) {
       `;
     })
     .join("");
-  host.querySelectorAll("button[data-file]").forEach((btn) => {
-    btn.addEventListener("click", () => loadFilePreview(btn.dataset.file));
+  host.querySelectorAll("button[data-file-open]").forEach((btn) => {
+    btn.addEventListener("click", () => loadFilePreview(btn.dataset.fileOpen));
+  });
+  host.querySelectorAll("button[data-file-delete]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const relPath = btn.getAttribute("data-file-delete") || "";
+      if (!relPath) return;
+      try {
+        await deleteRunFile(relPath);
+      } catch (err) {
+        appendLog(`[files] delete failed: ${err}\n`);
+      }
+    });
+  });
+}
+
+function parseJsonlObjects(content, maxItems = 120) {
+  const out = [];
+  const lines = String(content || "").split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = String(rawLine || "").trim();
+    if (!line) continue;
+    try {
+      const parsed = JSON.parse(line);
+      if (parsed && typeof parsed === "object") {
+        out.push(parsed);
+      }
+    } catch (err) {
+      continue;
+    }
+    if (out.length >= maxItems) break;
+  }
+  return out;
+}
+
+function parseFigureSelectionIds(content) {
+  const lines = String(content || "").split(/\r?\n/);
+  const ids = new Set();
+  lines.forEach((rawLine) => {
+    const line = String(rawLine || "").trim();
+    if (!line || line.startsWith("#")) return;
+    const [id] = line.split("|", 1);
+    const cleaned = String(id || "").trim();
+    if (cleaned) ids.add(cleaned);
+  });
+  return ids;
+}
+
+function buildFigureSelectionText(ids) {
+  const sorted = Array.from(ids).map((v) => String(v || "").trim()).filter(Boolean).sort();
+  return [
+    "# Add one candidate_id per line (e.g., fig-001)",
+    "# Optional: add a custom caption after | (e.g., fig-001 | My caption)",
+    "# Lines starting with '#' are ignored.",
+    ...sorted,
+    "",
+  ].join("\n");
+}
+
+function figureLocationLabel(entry) {
+  const asFiniteInt = (value) => {
+    const num = Number.parseInt(String(value ?? "").trim(), 10);
+    return Number.isFinite(num) ? num : null;
+  };
+  const slide = asFiniteInt(entry?.slide ?? entry?.slide_no);
+  if (slide !== null) return `slide ${slide}`;
+  const page = asFiniteInt(entry?.page ?? entry?.page_number ?? entry?.pdf_page);
+  if (page !== null) return `p.${page}`;
+  const idx = asFiniteInt(entry?.index ?? entry?.chunk_index);
+  if (idx !== null) return `idx ${idx}`;
+  return "";
+}
+
+function formatFigureSelectionPreview(ids) {
+  const sorted = Array.from(ids).map((v) => String(v || "").trim()).filter(Boolean).sort();
+  if (!sorted.length) {
+    return "선택된 figure가 없습니다.";
+  }
+  return sorted.map((id) => `- ${id}`).join("\n");
+}
+
+async function saveFigureSelection(pathRel, ids) {
+  await fetchJSON("/api/files", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: pathRel, content: buildFigureSelectionText(ids) }),
+  });
+}
+
+function setFiguresSelectPath(pathRel) {
+  const input = $("#federlicht-figures-select");
+  if (!input || !pathRel) return;
+  input.value = pathRel;
+}
+
+async function renderRunFigureTools(summary) {
+  const host = $("#run-figure-tools");
+  if (!host) return;
+  host.classList.add("is-empty");
+  host.innerHTML = "";
+  const runRel = normalizePathString(summary?.run_rel || "");
+  if (!runRel) return;
+  const candidatesPath = `${runRel}/report_notes/figures_candidates.jsonl`;
+  const selectedPath = `${runRel}/report_notes/figures_selected.txt`;
+  const previewPath = `${runRel}/report_views/figures_preview.html`;
+  let candidates = [];
+  try {
+    const payload = await fetchJSON(`/api/files?path=${encodeURIComponent(candidatesPath)}`);
+    candidates = parseJsonlObjects(payload?.content || "", 48);
+  } catch (err) {
+    candidates = [];
+  }
+  let selectedIds = new Set();
+  try {
+    const payload = await fetchJSON(`/api/files?path=${encodeURIComponent(selectedPath)}`);
+    selectedIds = parseFigureSelectionIds(payload?.content || "");
+  } catch (err) {
+    selectedIds = new Set();
+  }
+  let previewExists = false;
+  try {
+    await fetchJSON(`/api/files?path=${encodeURIComponent(previewPath)}`);
+    previewExists = true;
+  } catch (err) {
+    previewExists = false;
+  }
+  if (!candidates.length && !previewExists) {
+    return;
+  }
+  const chips = candidates
+    .map((entry) => {
+      const id = String(entry?.candidate_id || "").trim();
+      if (!id) return "";
+      const source = String(entry?.source_file || entry?.pdf_path || entry?.pptx_path || "").trim();
+      const sourceTail = source ? source.split("/").pop() : "";
+      const locationLabel = figureLocationLabel(entry);
+      const pageLabel = locationLabel ? ` · ${locationLabel}` : "";
+      const recommended = String(entry?.vision_recommended || "").trim().toLowerCase() === "true";
+      const selected = selectedIds.has(id) ? "is-selected" : "";
+      const label = `${recommended ? "★ " : ""}${id}${sourceTail ? ` · ${sourceTail}` : ""}${pageLabel}`;
+      const imagePath = normalizePathString(entry?.image_path || "");
+      const title = [source || id, locationLabel ? `location: ${locationLabel}` : ""]
+        .filter(Boolean)
+        .join("\n");
+      return `<button
+        type="button"
+        class="run-figure-chip ${selected}"
+        data-figure-id="${escapeHtml(id)}"
+        data-figure-image="${escapeHtml(imagePath)}"
+        data-figure-source="${escapeHtml(sourceTail || source || "")}"
+        data-figure-location="${escapeHtml(locationLabel)}"
+        title="${escapeHtml(title)}"
+      >${escapeHtml(label)}</button>`;
+    })
+    .filter(Boolean)
+    .join("");
+  const selectedCount = selectedIds.size;
+  host.classList.remove("is-empty");
+  host.innerHTML = `
+    <div class="run-figure-tools-head">
+      <strong>Figure Candidates</strong>
+      <span>${escapeHtml(String(candidates.length))} candidates · selected ${escapeHtml(String(selectedCount))}</span>
+    </div>
+    <div class="run-figure-tools-actions">
+      <button type="button" class="ghost" data-figure-open-preview ${previewExists ? "" : "disabled"}>Open figures preview</button>
+      <button type="button" class="ghost" data-figure-open-select>Open selected list</button>
+      <button type="button" class="ghost" data-figure-apply-select>Use in Figures Select</button>
+    </div>
+    ${chips ? `<div class="run-figure-list">${chips}</div>` : `<div class="run-figure-meta">아직 후보 카드가 없습니다. 먼저 Federlicht를 --figures로 실행해 후보를 생성하세요.</div>`}
+    <div class="run-figure-selected">
+      <div class="run-figure-selected-head">
+        <strong>Selected Figures</strong>
+        <span><code>${escapeHtml(selectedPath)}</code></span>
+      </div>
+      <pre class="run-figure-selected-body" data-figure-selected-body>${escapeHtml(formatFigureSelectionPreview(selectedIds))}</pre>
+    </div>
+    <div class="run-figure-hover-preview" data-figure-hover-preview hidden>
+      <div class="run-figure-hover-meta" data-figure-hover-meta></div>
+      <img class="run-figure-hover-image" data-figure-hover-image alt="Figure preview" />
+    </div>
+    <div class="run-figure-meta">칩 클릭: 선택/해제 · Hover: 빠른 이미지 미리보기 · Shift+클릭: File Preview에서 열기</div>
+    <div class="run-figure-meta">표기 안내: <code>p.</code>=PDF page, <code>slide</code>=PPT slide, <code>idx</code>=추출 인덱스</div>
+  `;
+  const countText = host.querySelector(".run-figure-tools-head span");
+  const selectedBody = host.querySelector("[data-figure-selected-body]");
+  const hoverCard = host.querySelector("[data-figure-hover-preview]");
+  const hoverMeta = host.querySelector("[data-figure-hover-meta]");
+  const hoverImage = host.querySelector("[data-figure-hover-image]");
+  let hoverActiveBtn = null;
+  const updateSelectionUi = () => {
+    if (countText) {
+      countText.textContent = `${candidates.length} candidates · selected ${selectedIds.size}`;
+    }
+    if (selectedBody) {
+      selectedBody.textContent = formatFigureSelectionPreview(selectedIds);
+    }
+  };
+  const hideHoverPreview = () => {
+    if (hoverCard) hoverCard.setAttribute("hidden", "");
+    if (hoverActiveBtn) hoverActiveBtn.classList.remove("is-hover-preview");
+    hoverActiveBtn = null;
+  };
+  const showHoverPreview = (btn, ev) => {
+    if (!hoverCard || !hoverMeta || !hoverImage) return;
+    const imagePath = btn.getAttribute("data-figure-image") || "";
+    if (!imagePath) {
+      hideHoverPreview();
+      return;
+    }
+    if (hoverActiveBtn && hoverActiveBtn !== btn) {
+      hoverActiveBtn.classList.remove("is-hover-preview");
+    }
+    hoverActiveBtn = btn;
+    hoverActiveBtn.classList.add("is-hover-preview");
+    const id = btn.getAttribute("data-figure-id") || "";
+    const source = btn.getAttribute("data-figure-source") || "";
+    const location = btn.getAttribute("data-figure-location") || "";
+    hoverMeta.textContent = [id, source, location].filter(Boolean).join(" · ");
+    const previewSrc = rawFileUrl(imagePath);
+    if (hoverImage.getAttribute("src") !== previewSrc) {
+      hoverImage.setAttribute("src", previewSrc);
+    }
+    hoverCard.removeAttribute("hidden");
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const offsetX = 16;
+    const offsetY = 14;
+    const cardRect = hoverCard.getBoundingClientRect();
+    let left = (ev?.clientX || 0) + offsetX;
+    let top = (ev?.clientY || 0) + offsetY;
+    if (left + cardRect.width > viewportWidth - 10) {
+      left = Math.max(10, viewportWidth - cardRect.width - 10);
+    }
+    if (top + cardRect.height > viewportHeight - 10) {
+      top = Math.max(10, viewportHeight - cardRect.height - 10);
+    }
+    hoverCard.style.left = `${left}px`;
+    hoverCard.style.top = `${top}px`;
+  };
+  host.querySelector("[data-figure-open-preview]")?.addEventListener("click", async () => {
+    await loadFilePreview(previewPath).catch((err) => {
+      appendLog(`[figures] preview open failed: ${err}\n`);
+    });
+  });
+  host.querySelector("[data-figure-open-select]")?.addEventListener("click", async () => {
+    await loadFilePreview(selectedPath).catch((err) => {
+      appendLog(`[figures] selected list open failed: ${err}\n`);
+    });
+  });
+  host.querySelector("[data-figure-apply-select]")?.addEventListener("click", () => {
+    setFiguresSelectPath(selectedPath);
+    appendLog(`[figures] figures_select set to ${selectedPath}\n`);
+  });
+  host.querySelectorAll("[data-figure-id]").forEach((btn) => {
+    btn.addEventListener("mouseenter", (ev) => {
+      showHoverPreview(btn, ev);
+    });
+    btn.addEventListener("mousemove", (ev) => {
+      showHoverPreview(btn, ev);
+    });
+    btn.addEventListener("mouseleave", () => {
+      hideHoverPreview();
+    });
+    btn.addEventListener("click", async (ev) => {
+      const id = btn.getAttribute("data-figure-id") || "";
+      if (!id) return;
+      const imagePath = btn.getAttribute("data-figure-image") || "";
+      if (ev.shiftKey && imagePath) {
+        await loadFilePreview(imagePath).catch((err) => {
+          appendLog(`[figures] image preview failed: ${err}\n`);
+        });
+        return;
+      }
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      btn.classList.toggle("is-selected", selectedIds.has(id));
+      await saveFigureSelection(selectedPath, selectedIds).catch((err) => {
+        appendLog(`[figures] save selection failed: ${err}\n`);
+      });
+      updateSelectionUi();
+      setFiguresSelectPath(selectedPath);
+    });
+  });
+  host.addEventListener("mouseleave", () => {
+    hideHoverPreview();
   });
 }
 
@@ -2998,8 +3745,40 @@ function renderRunSummary(summary) {
   }
   const linesHost = $("#run-summary-lines");
   if (linesHost) {
-    const lines = summary?.summary_lines || [];
-    linesHost.innerHTML = lines.map((line) => `<li>${escapeHtml(line)}</li>`).join("");
+    const counts = summary?.counts && typeof summary.counts === "object"
+      ? summary.counts
+      : null;
+    const rows = counts
+      ? [
+          ["Archive PDFs", counts.pdf ?? 0],
+          ["Archive PPTX", counts.pptx ?? 0],
+          ["Archive texts", counts.text ?? 0],
+          ["Web extracts", counts.extracts ?? 0],
+          ["Logs", counts.logs ?? 0],
+          ["Reports", counts.report ?? 0],
+          ["Instructions", counts.instruction ?? 0],
+        ]
+      : (summary?.summary_lines || []).map((line) => {
+          const parts = String(line || "").split(":");
+          if (parts.length < 2) return [String(line || "").trim(), "-"];
+          const key = parts.shift() || "";
+          const value = parts.join(":").trim();
+          return [key.trim(), value];
+        });
+    linesHost.innerHTML = `
+      <table class="summary-table" role="table" aria-label="Run summary counts">
+        <tbody>
+          ${rows
+            .map(([label, value]) => `
+              <tr>
+                <th scope="row">${escapeHtml(String(label))}</th>
+                <td>${escapeHtml(String(value))}</td>
+              </tr>
+            `)
+            .join("")}
+        </tbody>
+      </table>
+    `;
   }
   const linksHost = $("#run-summary-links");
   if (linksHost) {
@@ -3054,6 +3833,9 @@ function renderRunSummary(summary) {
     });
   }
   renderRunFiles(summary);
+  renderRunFigureTools(summary).catch((err) => {
+    appendLog(`[figures] failed to load candidates: ${err}\n`);
+  });
   applyRunSettings(summary);
 }
 
@@ -3283,6 +4065,35 @@ async function syncPromptFromFile(force = false) {
   if (!pathRel) return;
   if (!force && promptInlineTouched) return;
   await loadFederlichtPromptContent(pathRel, { force });
+}
+
+async function hydrateGeneratedPromptInline(outputPath) {
+  const normalizedPath = normalizePathString(outputPath);
+  if (!normalizedPath) return;
+  const promptField = $("#federlicht-prompt-file");
+  const displayPath = stripSiteRunsPrefix(normalizedPath) || normalizedPath;
+  if (promptField) {
+    promptField.value = displayPath;
+    promptFileTouched = true;
+  }
+  const attemptDelays = [0, 220, 360, 520, 760, 980];
+  let lastErr = null;
+  for (let idx = 0; idx < attemptDelays.length; idx += 1) {
+    const waitMs = attemptDelays[idx];
+    if (waitMs > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, waitMs));
+    }
+    try {
+      await loadFederlichtPromptContent(normalizedPath, { force: true });
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (!isMissingFileError(err)) break;
+    }
+  }
+  if (lastErr && !isMissingFileError(lastErr)) {
+    throw lastErr;
+  }
 }
 
 function normalizeInstructionPath(runRel, rawPath) {
@@ -4282,6 +5093,9 @@ function resetWorkflowState() {
   state.workflow.historyMode = false;
   state.workflow.historySourcePath = "";
   state.workflow.resumeStage = "";
+  state.workflow.resumePromptPath = "";
+  state.workflow.resumePromptStage = "";
+  state.workflow.resumePromptAt = "";
   state.workflow.historyStageStatus = {};
   state.workflow.historyFailedStage = "";
   state.workflow.selectedStages = new Set(selectedStagesInOrder());
@@ -4749,7 +5563,8 @@ function syncWorkflowHistoryControls() {
   const hintEl = $("#workflow-history-hint");
   const resumeBtn = $("#workflow-resume-apply");
   const promptBtn = $("#workflow-resume-prompt");
-  if (!controls || !hintEl || !resumeBtn || !promptBtn) return;
+  const guideEl = $("#workflow-resume-guide");
+  if (!controls || !hintEl || !resumeBtn || !promptBtn || !guideEl) return;
   const active =
     state.workflow.historyMode
     && state.workflow.kind === "federlicht"
@@ -4760,6 +5575,8 @@ function syncWorkflowHistoryControls() {
     resumeBtn.disabled = true;
     resumeBtn.textContent = "Resume from stage";
     promptBtn.disabled = true;
+    guideEl.innerHTML = "";
+    guideEl.classList.add("is-empty");
     return;
   }
   const ordered = workflowStageOrder().filter((id) => WORKFLOW_STAGE_ORDER.includes(id));
@@ -4774,13 +5591,60 @@ function syncWorkflowHistoryControls() {
   const failedStage = String(state.workflow.historyFailedStage || "").trim();
   const failedText = failedStage ? ` · stopped at ${workflowLabel(failedStage)}` : "";
   hintEl.textContent = sourceName
-    ? `History checkpoint: ${lastLabel} -> resume ${resumeLabel}${failedText} (${sourceName})`
-    : `History checkpoint: ${lastLabel} -> resume ${resumeLabel}${failedText}`;
+    ? `체크포인트: 마지막 완료 ${lastLabel} · 재시작 ${resumeLabel}${failedText} (${sourceName})`
+    : `체크포인트: 마지막 완료 ${lastLabel} · 재시작 ${resumeLabel}${failedText}`;
   resumeBtn.disabled = !resumeStage;
   resumeBtn.textContent = resumeStage
     ? `Resume from ${workflowLabel(resumeStage)}`
     : "Resume from stage";
   promptBtn.disabled = !normalizePathString(state.workflow.runRel || "");
+  const promptPath = normalizePathString(state.workflow.resumePromptPath || "");
+  const promptStage = state.workflow.resumePromptStage || resumeStage || "";
+  const promptRun = normalizePathString(state.workflow.runRel || "");
+  if (!promptPath) {
+    guideEl.innerHTML = "";
+    guideEl.classList.add("is-empty");
+    return;
+  }
+  const promptRel = stripRunPrefix(promptPath, promptRun) || stripSiteRunsPrefix(promptPath) || promptPath;
+  const promptTime = state.workflow.resumePromptAt
+    ? new Date(state.workflow.resumePromptAt).toLocaleString()
+    : "";
+  guideEl.classList.remove("is-empty");
+  guideEl.innerHTML = `
+    <div class="workflow-resume-guide-head">
+      <strong>최근 update request</strong>
+      <span>선택 단계: ${escapeHtml(promptStage ? workflowLabel(promptStage) : "선택 필요")}</span>
+    </div>
+    <div class="workflow-resume-guide-meta">
+      <span>파일:</span>
+      <code>${escapeHtml(promptRel)}</code>
+      ${promptTime ? `<span>${escapeHtml(promptTime)}</span>` : ""}
+    </div>
+    <div class="workflow-resume-guide-actions">
+      <button type="button" class="ghost" data-workflow-open-update="${escapeHtml(promptPath)}">Open update request</button>
+      <button type="button" class="ghost" data-workflow-focus-inline="true">Focus Inline Prompt</button>
+    </div>
+  `;
+  guideEl.querySelectorAll("[data-workflow-open-update]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const path = btn.getAttribute("data-workflow-open-update") || "";
+      if (!path) return;
+      await loadFilePreview(path);
+    });
+  });
+  guideEl.querySelectorAll("[data-workflow-focus-inline]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelector('.tab[data-tab="federlicht"]')?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      const prompt = $("#federlicht-prompt");
+      if (prompt) {
+        prompt.focus();
+        prompt.setSelectionRange(prompt.value.length, prompt.value.length);
+      }
+    });
+  });
 }
 
 function applyResumeStagesFromStage(stageId) {
@@ -4856,11 +5720,20 @@ async function draftWorkflowResumePrompt() {
   if (promptFileInput) {
     promptFileInput.value = updatePath;
   }
+  state.workflow.resumePromptPath = updatePath;
+  state.workflow.resumePromptStage = resumeStage || "writer";
+  state.workflow.resumePromptAt = new Date().toISOString();
   promptFileTouched = true;
   await syncPromptFromFile(true).catch((err) => {
     appendLog(`[workflow] resume prompt load warning: ${err}\n`);
   });
+  await loadFilePreview(updatePath).catch((err) => {
+    appendLog(`[workflow] resume prompt preview warning: ${err}\n`);
+  });
+  const updateRel = stripRunPrefix(updatePath, runRel) || updatePath;
+  setJobStatus(`Update request ready · ${updateRel}`, false);
   appendLog(`[workflow] resume prompt ready: ${updatePath}\n`);
+  syncWorkflowHistoryControls();
 }
 
 function inferHistoryJobKind(path, kindHint = "") {
@@ -5613,7 +6486,8 @@ function initPipelineFromInputs() {
   updatePipelineOutputs();
 }
 
-function normalizeLogText(text) {
+function normalizeLogText(text, opts = {}) {
+  const ensureTrailingNewline = Boolean(opts.ensureTrailingNewline);
   if (!text) return "";
   const raw = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (!raw) return "";
@@ -5621,15 +6495,11 @@ function normalizeLogText(text) {
   if (trimmed.toLowerCase() === "[reducer]") {
     return "";
   }
-  const lines = raw.split("\n");
-  const normalized = lines
-    .map((line) => {
-      if (line.length <= LOG_LINE_MAX_CHARS) return line;
-      const keep = Math.max(200, LOG_LINE_MAX_CHARS - 48);
-      return `${line.slice(0, keep)} … [line truncated]`;
-    })
-    .join("\n");
-  return normalized.endsWith("\n") ? normalized : `${normalized}\n`;
+  const normalized = raw;
+  if (ensureTrailingNewline && !normalized.endsWith("\n")) {
+    return `${normalized}\n`;
+  }
+  return normalized;
 }
 
 function setLogBufferFromText(text) {
@@ -5637,7 +6507,7 @@ function setLogBufferFromText(text) {
   const lines = content.split(/\r?\n/);
   const buffer = lines.map((line, idx) => {
     if (idx === lines.length - 1 && line === "") return "";
-    return normalizeLogText(line);
+    return normalizeLogText(line, { ensureTrailingNewline: true });
   });
   state.logBuffer = buffer.slice(-LOG_LINE_LIMIT);
   scheduleLogRender(true);
@@ -5755,12 +6625,26 @@ function renderRawLogWithLinks(rawText) {
     .join("\n");
 }
 
+function isStructuredLogLine(line) {
+  const text = String(line || "").trim();
+  if (!text) return false;
+  if (/^\[[^\]]+\]/.test(text)) return true;
+  if (/^#{1,6}\s/.test(text)) return true;
+  if (/^[-*]\s+/.test(text)) return true;
+  if (/^\d+\.\s+/.test(text)) return true;
+  return false;
+}
+
+function reflowLogTextForDisplay(rawText) {
+  return String(rawText || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
 function renderLogs(autoScroll = false) {
   const out = $("#log-output");
   const mdOut = $("#log-output-md");
   const shell = $(".log-shell");
   if (!out || !mdOut || !shell) return;
-  const raw = state.logBuffer.join("");
+  const raw = reflowLogTextForDisplay(state.logBuffer.join(""));
   const shouldStickRaw = autoScroll || isNearBottom(out);
   const shouldStickMd = autoScroll || isNearBottom(mdOut);
   out.innerHTML = renderRawLogWithLinks(raw);
@@ -5808,7 +6692,7 @@ function setLogMode(mode) {
 
 function appendLog(text) {
   if (!text) return;
-  const normalized = normalizeLogText(text);
+  const normalized = normalizeLogText(text, { ensureTrailingNewline: true });
   if (!normalized) return;
   state.logBuffer.push(normalized);
   if (state.logBuffer.length > LOG_LINE_LIMIT) {
@@ -6090,22 +6974,6 @@ function applyRunSettings(summary) {
       levelSelect.value = meta.temperature_level;
     }
   }
-  if (meta.max_chars !== undefined && meta.max_chars !== null) {
-    const maxCharsInput = $("#federlicht-max-chars");
-    if (maxCharsInput) maxCharsInput.value = String(meta.max_chars);
-  }
-  if (meta.max_tool_chars !== undefined && meta.max_tool_chars !== null) {
-    const maxToolCharsInput = $("#federlicht-max-tool-chars");
-    if (maxToolCharsInput) maxToolCharsInput.value = String(meta.max_tool_chars);
-  }
-  if (meta.max_pdf_pages !== undefined && meta.max_pdf_pages !== null) {
-    const maxPdfPagesInput = $("#federlicht-max-pdf-pages");
-    if (maxPdfPagesInput) maxPdfPagesInput.value = String(meta.max_pdf_pages);
-  }
-  if (meta.progress_chars !== undefined && meta.progress_chars !== null) {
-    const progressCharsInput = $("#federlicht-progress-chars");
-    if (progressCharsInput) progressCharsInput.value = String(meta.progress_chars);
-  }
   if (meta.quality_iterations !== undefined && meta.quality_iterations !== null) {
     setQualityIterations(meta.quality_iterations);
   }
@@ -6131,20 +6999,41 @@ function setKillEnabled(enabled) {
   if (kill) kill.disabled = !enabled;
 }
 
-function setPrimaryRunButtonState(selector, enabled, idleLabel, runningLabel) {
-  const button = $(selector);
-  if (!button) return;
-  button.disabled = !enabled;
-  button.classList.toggle("is-running", !enabled);
-  button.textContent = enabled ? idleLabel : runningLabel;
+function setPrimaryRunButtonState(selectors, enabled, idleLabel, runningLabel) {
+  const targets = Array.isArray(selectors) ? selectors : [selectors];
+  targets.forEach((selector) => {
+    const button = $(selector);
+    if (!button) return;
+    button.disabled = !enabled;
+    button.classList.toggle("is-running", !enabled);
+    button.textContent = enabled ? idleLabel : runningLabel;
+  });
 }
 
 function setFederlichtRunEnabled(enabled) {
-  setPrimaryRunButtonState("#federlicht-run", enabled, "Run Federlicht", "Running...");
+  setPrimaryRunButtonState(
+    ["#federlicht-run", "#quick-run-federlicht"],
+    enabled,
+    "Run Federlicht",
+    "Running...",
+  );
 }
 
 function setFeatherRunEnabled(enabled) {
-  setPrimaryRunButtonState("#feather-run", enabled, "Run Feather", "Running...");
+  setPrimaryRunButtonState(
+    ["#feather-run", "#quick-run-feather"],
+    enabled,
+    "Run Feather",
+    "Running...",
+  );
+}
+
+function setPromptGenerateEnabled(enabled) {
+  const button = $("#federlicht-prompt-generate");
+  if (!button) return;
+  button.disabled = !enabled;
+  button.classList.toggle("is-running", !enabled);
+  button.textContent = enabled ? "Generate" : "Generating...";
 }
 
 function describeJobKind(kind) {
@@ -6402,19 +7291,7 @@ function buildFederlichtPayload() {
       10,
     ),
     quality_strategy: $("#federlicht-quality-strategy")?.value,
-    max_chars: Number.parseInt($("#federlicht-max-chars")?.value || "", 10),
-    max_tool_chars: Number.parseInt(
-      $("#federlicht-max-tool-chars")?.value || "",
-      10,
-    ),
-    progress_chars: Number.parseInt(
-      $("#federlicht-progress-chars")?.value || "",
-      10,
-    ),
-    max_pdf_pages: Number.parseInt(
-      $("#federlicht-max-pdf-pages")?.value || "",
-      10,
-    ),
+    progress_chars: 0,
     tags: noTags ? undefined : $("#federlicht-tags")?.value,
     no_tags: noTags ? true : undefined,
     figures: figuresEnabled ? true : undefined,
@@ -6434,10 +7311,6 @@ function buildFederlichtPayload() {
     throw new Error("Output report path is required.");
   }
   if (!Number.isFinite(payload.quality_iterations)) delete payload.quality_iterations;
-  if (!Number.isFinite(payload.max_chars)) delete payload.max_chars;
-  if (!Number.isFinite(payload.max_tool_chars)) delete payload.max_tool_chars;
-  if (!Number.isFinite(payload.progress_chars)) delete payload.progress_chars;
-  if (!Number.isFinite(payload.max_pdf_pages)) delete payload.max_pdf_pages;
   return pruneEmpty(payload);
 }
 
@@ -6524,6 +7397,17 @@ function handleTabs() {
         panel.classList.toggle("active", name === key);
       });
     });
+  });
+}
+
+function handleQuickRunButtons() {
+  const featherQuick = $("#quick-run-feather");
+  const federlichtQuick = $("#quick-run-federlicht");
+  featherQuick?.addEventListener("click", () => {
+    $("#feather-form")?.requestSubmit();
+  });
+  federlichtQuick?.addEventListener("click", () => {
+    $("#federlicht-form")?.requestSubmit();
   });
 }
 
@@ -7110,6 +7994,7 @@ function handleFederlichtPromptPicker() {
     await loadInstructionModalItems();
   });
   genBtn?.addEventListener("click", async () => {
+    setPromptGenerateEnabled(false);
     try {
       const payload = buildPromptPayloadFromFederlicht();
       promptFileTouched = true;
@@ -7117,11 +8002,9 @@ function handleFederlichtPromptPicker() {
         kind: "prompt",
         spotLabel: "Prompt Generate",
         spotPath: payload.output,
-        onSuccess: () => {
+        onSuccess: async () => {
           if (payload.output) {
-            const field = $("#federlicht-prompt-file");
-            if (field) field.value = payload.output;
-            syncPromptFromFile(true).catch((err) => {
+            await hydrateGeneratedPromptInline(payload.output).catch((err) => {
               if (!isMissingFileError(err)) {
                 appendLog(`[prompt] failed to load: ${err}\n`);
               }
@@ -7129,9 +8012,13 @@ function handleFederlichtPromptPicker() {
             appendLog(`[prompt] ready: ${payload.output}\n`);
           }
         },
+        onDone: () => {
+          setPromptGenerateEnabled(true);
+        },
       });
     } catch (err) {
       appendLog(`[prompt] ${err}\n`);
+      setPromptGenerateEnabled(true);
     }
   });
 }
@@ -7295,10 +8182,19 @@ function handleWorkflowHistoryControls() {
     setJobStatus(`Resume preset ready from ${workflowLabel(targetStage)}.`, false);
   });
   $("#workflow-resume-prompt")?.addEventListener("click", async () => {
+    const btn = $("#workflow-resume-prompt");
+    const original = btn?.textContent || "Draft update prompt";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Drafting...";
+    }
     try {
       await draftWorkflowResumePrompt();
     } catch (err) {
       appendLog(`[workflow] resume prompt failed: ${err}\n`);
+    } finally {
+      if (btn) btn.textContent = original;
+      syncWorkflowHistoryControls();
     }
   });
   syncWorkflowHistoryControls();
@@ -7514,16 +8410,52 @@ function normalizeApplyTo(value) {
       .filter(Boolean)
       .forEach((token) => tokens.push(token));
   });
+  const aliasMap = {
+    plan: "planner",
+    plans: "planner",
+    align: "alignment",
+    aligned: "alignment",
+    aligner: "alignment",
+  };
+  const normalizedTokens = tokens.map((token) => {
+    const lowered = String(token || "").trim().toLowerCase();
+    if (!lowered) return "";
+    return aliasMap[lowered] || lowered;
+  }).filter(Boolean);
+  const repaired = [];
+  for (let idx = 0; idx < normalizedTokens.length; idx += 1) {
+    const token = normalizedTokens[idx];
+    const pair = normalizedTokens.slice(idx, idx + 2);
+    const triplet = normalizedTokens.slice(idx, idx + 3);
+    if (pair.length === 2 && pair[0] === "pla" && pair[1] === "er") {
+      repaired.push("planner");
+      idx += 1;
+      continue;
+    }
+    if (triplet.length === 3 && triplet[0] === "alig" && triplet[1] === "me" && triplet[2] === "t") {
+      repaired.push("alignment");
+      idx += 2;
+      continue;
+    }
+    repaired.push(token);
+  }
   const deduped = [];
   const seen = new Set();
-  tokens.forEach((token) => {
+  repaired.forEach((token) => {
     const normalized = String(token).trim();
     if (!normalized) return;
     if (seen.has(normalized)) return;
     seen.add(normalized);
     deduped.push(normalized);
   });
-  return deduped;
+  let cleaned = deduped;
+  if (seen.has("planner")) {
+    cleaned = cleaned.filter((token) => token !== "pla" && token !== "er");
+  }
+  if (seen.has("alignment")) {
+    cleaned = cleaned.filter((token) => token !== "alig" && token !== "me" && token !== "t");
+  }
+  return cleaned;
 }
 
 function renderAgentApplyTargetChecks() {
@@ -8102,6 +9034,7 @@ function bindForms() {
 
   $("#prompt-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
+    setPromptGenerateEnabled(false);
     try {
       const payload = buildPromptPayload();
       const outputPath = payload.output;
@@ -8109,10 +9042,9 @@ function bindForms() {
         kind: "prompt",
         spotLabel: "Prompt Generate",
         spotPath: outputPath,
-        onSuccess: () => {
+        onSuccess: async () => {
           if (outputPath) {
-            $("#federlicht-prompt-file").value = outputPath;
-            syncPromptFromFile(true).catch((err) => {
+            await hydrateGeneratedPromptInline(outputPath).catch((err) => {
               if (!isMissingFileError(err)) {
                 appendLog(`[prompt] failed to load: ${err}\n`);
               }
@@ -8120,9 +9052,13 @@ function bindForms() {
             appendLog(`[prompt] ready: ${outputPath}\n`);
           }
         },
+        onDone: () => {
+          setPromptGenerateEnabled(true);
+        },
       });
     } catch (err) {
       appendLog(`[prompt] ${err}\n`);
+      setPromptGenerateEnabled(true);
     }
   });
 }
@@ -8180,6 +9116,7 @@ async function bootstrap() {
   handleAskPanel();
   handleWorkspacePanel();
   handleTabs();
+  handleQuickRunButtons();
   handleFeatherRunName();
   handleFeatherAgenticControls();
   handleRunOutputTouch();
@@ -8213,6 +9150,7 @@ async function bootstrap() {
   bindForms();
   setFederlichtRunEnabled(true);
   setFeatherRunEnabled(true);
+  setPromptGenerateEnabled(true);
   renderJobs();
   resetWorkflowState();
   renderWorkflow();

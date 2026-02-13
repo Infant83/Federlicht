@@ -474,6 +474,9 @@ def run_pipeline(
         meta["template_adjustment_path"] = rel_path_or_abs(template_adjustment_path, run_dir)
     if preview_path:
         meta["figures_preview_path"] = rel_path_or_abs(preview_path, run_dir)
+    artwork_log_path = notes_dir / "artwork_tool_calls.md"
+    if artwork_log_path.exists():
+        meta["artwork_tool_log_path"] = rel_path_or_abs(artwork_log_path, run_dir)
     append_report_workflow_outputs(
         result.workflow_path,
         run_dir,

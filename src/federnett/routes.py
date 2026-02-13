@@ -14,6 +14,7 @@ from .commands import (
 )
 from .filesystem import (
     clear_help_history,
+    delete_run_file as _delete_run_file,
     list_dir as _list_dir,
     list_instruction_files as _list_instruction_files,
     list_run_dirs,
@@ -30,7 +31,7 @@ from .filesystem import (
 from .help_agent import answer_help_question, stream_help_question
 from .jobs import Job
 from .templates import list_template_styles, list_templates, read_template_style, template_details
-from .utils import resolve_under_root as _resolve_under_root, safe_rel as _safe_rel
+from .utils import parse_bool as _parse_bool, resolve_under_root as _resolve_under_root, safe_rel as _safe_rel
 
 
 class HandlerLike(Protocol):
@@ -431,6 +432,11 @@ def handle_api_post(
             result = _write_text_file(cfg.root, raw_path, content)
             handler._send_json(result)
             return
+        if path == "/api/files/delete":
+            raw_path = payload.get("path")
+            result = _delete_run_file(cfg.root, raw_path, cfg.run_roots)
+            handler._send_json(result)
+            return
         if path == "/api/runs/trash":
             run_rel = payload.get("run")
             result = move_run_to_trash(cfg.root, run_rel, cfg.run_roots)
@@ -491,6 +497,8 @@ def handle_api_post(
                 max_sources = int(max_sources_raw) if max_sources_raw is not None else 8
             except Exception:
                 max_sources = 8
+            web_search_raw = _parse_bool(payload, "web_search")
+            web_search_value = bool(web_search_raw) if web_search_raw is not None else False
             result = answer_help_question(
                 cfg.root,
                 question,
@@ -499,6 +507,7 @@ def handle_api_post(
                 max_sources=max_sources,
                 history=history_value,
                 run_rel=run_value,
+                web_search=web_search_value,
             )
             handler._send_json(result)
             return
@@ -519,6 +528,8 @@ def handle_api_post(
                 max_sources = int(max_sources_raw) if max_sources_raw is not None else 8
             except Exception:
                 max_sources = 8
+            web_search_raw = _parse_bool(payload, "web_search")
+            web_search_value = bool(web_search_raw) if web_search_raw is not None else False
             events = stream_help_question(
                 cfg.root,
                 question,
@@ -527,6 +538,7 @@ def handle_api_post(
                 max_sources=max_sources,
                 history=history_value,
                 run_rel=run_value,
+                web_search=web_search_value,
             )
             _stream_help_events(handler, events)
             return

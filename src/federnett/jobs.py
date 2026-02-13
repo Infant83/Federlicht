@@ -34,12 +34,15 @@ class Job:
     def append_log(self, text: str, stream: str = "stdout") -> None:
         if not text:
             return
+        normalized = str(text)
+        if normalized and not normalized.endswith("\n"):
+            normalized = f"{normalized}\n"
         with self._cond:
             entry = {
                 "index": len(self.logs),
                 "ts": now_ts(),
                 "stream": stream,
-                "text": text.rstrip("\n"),
+                "text": normalized,
             }
             self.logs.append(entry)
             self._cond.notify_all()

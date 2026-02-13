@@ -1917,6 +1917,8 @@ def format_metadata_block(meta: dict, output_format: str) -> str:
             lines.append(f"Report prompt: {meta.get('report_prompt_path')}")
         if meta.get("figures_preview_path"):
             lines.append(f"Figure candidates: {meta.get('figures_preview_path')}")
+        if meta.get("artwork_tool_log_path"):
+            lines.append(f"Artwork tool log: {meta.get('artwork_tool_log_path')}")
     notice_lines = transparency_notice_lines(meta.get("language"))
     if output_format == "tex":
         block = ["", "\\section*{Miscellaneous}", "\\small", "\\begin{itemize}"]
@@ -1940,6 +1942,7 @@ def format_metadata_block(meta: dict, output_format: str) -> str:
         add_link("Instruction file", meta.get("instruction_path"))
         add_link("Report prompt", meta.get("report_prompt_path"))
         add_link("Figure candidates", meta.get("figures_preview_path"))
+        add_link("Artwork tool log", meta.get("artwork_tool_log_path"))
         notice_items = "\n".join(f"<li>{html_lib.escape(line)}</li>" for line in notice_lines)
         items = "\n".join(items_list)
         return "\n".join(
@@ -4892,6 +4895,7 @@ def build_appendix_block(
         ("Evidence notes", notes_dir / "evidence_notes.md"),
         ("Claim-evidence map", notes_dir / "claim_evidence_map.md"),
         ("Report workflow", notes_dir / "report_workflow.md"),
+        ("Artwork tool log", notes_dir / "artwork_tool_calls.md"),
     ]
     checklist = [
         "원문 링크/파일 경로를 확인했는가?",

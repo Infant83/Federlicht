@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import mimetypes
 from pathlib import Path
+import re
 import shutil
 from typing import Any, Iterable, Optional
 
@@ -311,6 +312,68 @@ def write_text_file(root: Path, raw_path: str | None, content: str) -> dict[str,
         "abs_path": str(path.resolve()),
         "size": stat.st_size,
         "updated_at": iso_ts(stat.st_mtime),
+    }
+
+
+def _find_run_dir_for_path(path: Path, run_roots: Iterable[Path]) -> Optional[Path]:
+    resolved = path.resolve()
+    for run_root in run_roots:
+        if not run_root.exists():
+            continue
+        root_resolved = run_root.resolve()
+        try:
+            rel = resolved.relative_to(root_resolved)
+        except ValueError:
+            continue
+        if not rel.parts:
+            continue
+        candidate = root_resolved / rel.parts[0]
+        if candidate.exists() and candidate.is_dir() and _is_run_dir(candidate):
+            return candidate
+    return None
+
+
+def delete_run_file(root: Path, raw_path: str | None, run_roots: Iterable[Path]) -> dict[str, Any]:
+    path = resolve_under_root(root, raw_path)
+    if not path or not path.exists() or not path.is_file():
+        raise ValueError(f"File not found: {raw_path}")
+    run_dir = _find_run_dir_for_path(path, run_roots)
+    if not run_dir:
+        raise ValueError("Deletion is allowed only for files inside configured run folders.")
+    try:
+        rel_in_run = path.resolve().relative_to(run_dir.resolve()).as_posix()
+    except ValueError as exc:
+        raise ValueError("Target file is outside the run folder boundary.") from exc
+
+    lower_rel = rel_in_run.lower()
+    is_instruction = lower_rel.startswith("instruction/")
+    is_report = bool(re.match(r"^report_full(?:_[0-9]+)?\.(html|md|tex)$", rel_in_run, re.IGNORECASE))
+    if not (is_instruction or is_report):
+        raise ValueError(
+            "Deletion is restricted to instruction/* files and generated report_full* outputs."
+        )
+    if is_instruction and not _is_instruction_file(path):
+        raise ValueError("Only text-like instruction files can be deleted from instruction/.")
+
+    deleted_rel = safe_rel(path, root)
+    path.unlink()
+
+    cleaned_dirs: list[str] = []
+    run_dir_resolved = run_dir.resolve()
+    parent = path.parent
+    while parent != run_dir_resolved:
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+        cleaned_dirs.append(safe_rel(parent, root))
+        parent = parent.parent
+
+    return {
+        "deleted": True,
+        "path": deleted_rel,
+        "run_rel": safe_rel(run_dir, root),
+        "cleaned_dirs": cleaned_dirs,
     }
 
 

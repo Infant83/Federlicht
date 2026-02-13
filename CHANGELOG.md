@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.7.0
+- Improve Federnett Ask panel execution UX and readability:
+  - replace `Action mode` dropdown with a theme-consistent Plan/Act segmented switch
+  - keep mode hint text synchronized with active mode
+  - preserve preferences for action mode and artifact-write policy
+- Add Ask-panel capability observability:
+  - show `Agent 도구/스킬/MCP` capability chips in the panel
+  - add per-capability runtime status indicators (`running/done/error/disabled`) with live activity text
+  - add stream activity events for `source_index`, `web_research`, and `llm_generate`
+- Strengthen help-agent response payloads:
+  - include capability descriptors in both sync and streaming responses
+  - forward activity telemetry without breaking existing source/done events
+- Fix Live Logs line-join issue in streaming jobs:
+  - preserve newline boundaries in server-side job log entries
+  - keep log rendering readable for Feather/Federlicht stream output
+- Add writer artwork-tool traceability:
+  - log artwork tool calls to `report_notes/artwork_tool_calls.jsonl` and `report_notes/artwork_tool_calls.md`
+  - emit concise `[artwork-tool]` runtime log lines
+  - expose Artwork tool log link in report `Miscellaneous` metadata and appendix artifact list when available
+- Help documentation update:
+  - add Tools/Skills/MCP explanation and extension points in Help modal
+- Test coverage additions:
+  - metadata rendering for artwork tool log links
+  - newline normalization in job log append behavior
+  - streaming help-agent tests updated for activity/capabilities events
+
 ## 1.6.0
 - Strengthen Federnett "Agent 와 작업하기" UX:
   - add left-side thread list with per-run/per-profile scoped conversation sessions

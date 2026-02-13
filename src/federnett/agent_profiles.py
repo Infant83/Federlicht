@@ -10,6 +10,58 @@ from .utils import safe_rel
 
 PROFILE_ID_RE = re.compile(r"[A-Za-z0-9_.-]+\Z")
 SIX_DIGIT_PROFILE_ID_RE = re.compile(r"\d{6}\Z")
+APPLY_TO_ALIASES = {
+    "plan": "planner",
+    "plans": "planner",
+    "align": "alignment",
+    "aligned": "alignment",
+    "aligner": "alignment",
+}
+APPLY_TO_FRAGMENT_REPAIRS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("pla", "er"), "planner"),
+    (("alig", "me", "t"), "alignment"),
+)
+
+
+def _normalize_apply_to(value: Any) -> list[str]:
+    values = value if isinstance(value, (list, tuple, set)) else [value]
+    tokens: list[str] = []
+    for entry in values:
+        raw = str(entry or "")
+        for token in re.split(r"[,\n]+", raw):
+            cleaned = token.strip().lower()
+            if not cleaned:
+                continue
+            tokens.append(APPLY_TO_ALIASES.get(cleaned, cleaned))
+    repaired: list[str] = []
+    idx = 0
+    while idx < len(tokens):
+        matched = False
+        for parts, replacement in APPLY_TO_FRAGMENT_REPAIRS:
+            size = len(parts)
+            chunk = tuple(tokens[idx : idx + size])
+            if len(chunk) == size and chunk == parts:
+                repaired.append(replacement)
+                idx += size
+                matched = True
+                break
+        if matched:
+            continue
+        repaired.append(tokens[idx])
+        idx += 1
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for token in repaired:
+        normalized = str(token).strip().lower()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(normalized)
+    if "planner" in seen:
+        deduped = [token for token in deduped if token not in {"pla", "er"}]
+    if "alignment" in seen:
+        deduped = [token for token in deduped if token not in {"alig", "me", "t"}]
+    return deduped
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -105,7 +157,7 @@ def list_agent_profiles(root: Path) -> list[dict[str, Any]]:
                     "tagline": data.get("tagline") or "",
                     "author_name": data.get("author_name") or "",
                     "organization": data.get("organization") or "",
-                    "apply_to": data.get("apply_to") or [],
+                    "apply_to": _normalize_apply_to(data.get("apply_to") or []),
                     "source": source,
                     "path": safe_rel(path, root),
                     "read_only": source == "builtin",
@@ -132,6 +184,7 @@ def get_agent_profile(
         if not path or not path.exists():
             continue
         data = _load_json(path)
+        data["apply_to"] = _normalize_apply_to(data.get("apply_to") or [])
         memory_text = ""
         memory_hook = data.get("memory_hook") or {}
         memory_path = memory_hook.get("path") if isinstance(memory_hook, dict) else None
@@ -170,6 +223,7 @@ def save_agent_profile(
     else:
         profile_id = _generate_site_profile_id(dir_path)
     profile["id"] = profile_id
+    profile["apply_to"] = _normalize_apply_to(profile.get("apply_to") or [])
 
     name = str(profile.get("name") or "").strip()
     author_name = str(profile.get("author_name") or "").strip()

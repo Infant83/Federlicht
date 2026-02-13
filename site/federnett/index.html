@@ -23,12 +23,10 @@
           />
         </div>
         <div class="showcase-copy">
-          <div class="hero-badge">Agentic Research Studio</div>
-          <h1>Enlighten your Technology Insight.</h1>
+          <h1>Enlighten Your Technology Insight.</h1>
           <p>
-            Run Feather to collect evidence, then drive Federlicht to craft
-            reports. Logs stream live and everything stays inside your repo
-            root.
+            Collect evidence with Feather, synthesize with Federlicht, and keep every
+            <span class="no-wrap">decision auditable inside your repo.</span>
           </p>
           <div class="meta-strip" id="meta-strip"></div>
         </div>
@@ -37,7 +35,10 @@
         <div class="brand">
           <span class="brand-dot" aria-hidden="true"></span>
           <div class="brand-text">
-            <strong>Federnett</strong>
+            <div class="brand-title-row">
+              <strong>Federnett</strong>
+              <span class="brand-kicker">Agentic Research Studio</span>
+            </div>
             <span>Feather + Federlicht Studio</span>
           </div>
         </div>
@@ -71,23 +72,49 @@
             <p>코드/문서/런 이력을 바탕으로 이어서 답변합니다.</p>
             </div>
             <div class="ask-panel-actions">
+              <button type="button" id="ask-thread-toggle" class="ghost">대화 스레드</button>
               <button type="button" id="ask-reset" class="ghost">Reset</button>
               <button type="button" id="ask-close" class="ghost">접기</button>
             </div>
           </div>
         <div class="ask-status" id="ask-status">Ready.</div>
         <div id="ask-history" class="ask-history"></div>
+        <div class="ask-thread-popover" id="ask-thread-popover" aria-hidden="true">
+          <div class="ask-threads-head">
+            <h3>대화 스레드</h3>
+            <div class="ask-threads-actions">
+              <button type="button" id="ask-thread-new" class="ghost mini">새로 만들기</button>
+              <button type="button" id="ask-thread-delete" class="ghost mini">삭제</button>
+            </div>
+          </div>
+          <div id="ask-thread-list" class="ask-thread-list"></div>
+        </div>
+        <div class="ask-policy-row">
+          <div class="ask-policy-field ask-mode-field">
+            <span>Action mode</span>
+            <input type="hidden" id="ask-action-mode" value="plan" />
+            <div class="ask-mode-switch" id="ask-action-mode-switch" role="group" aria-label="Action mode">
+              <button type="button" class="ghost mini is-on" data-ask-mode="plan">Plan</button>
+              <button type="button" class="ghost mini" data-ask-mode="act">Act</button>
+            </div>
+            <small id="ask-action-mode-hint">Plan: 제안 후 확인 실행</small>
+          </div>
+          <label class="ask-policy-check">
+            <input type="checkbox" id="ask-allow-artifacts" />
+            <span>Run/artifacts 쓰기 허용 (실험)</span>
+          </label>
+        </div>
+        <section class="ask-capability-panel" id="ask-capability-panel" aria-live="polite">
+          <div class="ask-capability-head">
+            <strong>Agent 도구/스킬/MCP</strong>
+            <span id="ask-activity-status">대기</span>
+          </div>
+          <div class="ask-capability-grid" id="ask-capability-grid"></div>
+        </section>
         <div class="ask-action-row" id="ask-action-row" aria-live="polite"></div>
         <div class="ask-results">
-          <aside class="ask-threads-wrap">
-            <div class="ask-threads-head">
-              <h3>대화 스레드</h3>
-              <button type="button" id="ask-thread-new" class="ghost mini">새로 만들기</button>
-            </div>
-            <div id="ask-thread-list" class="ask-thread-list"></div>
-          </aside>
           <article class="ask-answer-wrap">
-            <h3>답변</h3>
+            <h3>대화</h3>
             <div id="ask-answer" class="ask-answer"></div>
           </article>
           <aside class="ask-sources-wrap">
@@ -158,19 +185,28 @@
               </div>
             </div>
           </div>
-
-          <div class="tabs" role="tablist">
-            <button
-              class="tab active"
-              data-tab="feather"
-              role="tab"
-              aria-selected="true"
-            >
-              Feather
-            </button>
-            <button class="tab" data-tab="federlicht" role="tab">
-              Federlicht
-            </button>
+          <div class="tabs-row">
+            <div class="tabs" role="tablist">
+              <button
+                class="tab active"
+                data-tab="feather"
+                role="tab"
+                aria-selected="true"
+              >
+                Feather
+              </button>
+              <button class="tab" data-tab="federlicht" role="tab">
+                Federlicht
+              </button>
+            </div>
+            <div class="quick-run-row" role="group" aria-label="Quick run actions">
+              <button type="button" class="primary quick-run-button" id="quick-run-feather">
+                Run Feather
+              </button>
+              <button type="button" class="primary quick-run-button" id="quick-run-federlicht">
+                Run Federlicht
+              </button>
+            </div>
           </div>
           <div class="tab-guide" id="tab-guide" aria-live="polite">
             <strong>1단계 Feather</strong>
@@ -309,9 +345,6 @@
                   </div>
                 </details>
 
-                <div class="actions wide">
-                  <button type="submit" class="primary" id="feather-run">Run Feather</button>
-                </div>
               </form>
             </div>
           </section>
@@ -470,32 +503,6 @@
                       <input id="federlicht-quality-strategy" value="pairwise" />
                     </label>
                     <label>
-                      <span>Max Chars</span>
-                      <input id="federlicht-max-chars" type="number" min="1000" />
-                    </label>
-                    <label>
-                      <span>Max Tool Chars</span>
-                      <input
-                        id="federlicht-max-tool-chars"
-                        type="number"
-                        min="0"
-                        placeholder="0 (auto)"
-                      />
-                    </label>
-                    <label>
-                      <span>Progress Chars</span>
-                      <input
-                        id="federlicht-progress-chars"
-                        type="number"
-                        min="100"
-                        placeholder="800"
-                      />
-                    </label>
-                    <label>
-                      <span>Max PDF Pages</span>
-                      <input id="federlicht-max-pdf-pages" type="number" min="0" />
-                    </label>
-                    <label>
                       <span>Figures Mode</span>
                       <input id="federlicht-figures-mode" value="auto" />
                     </label>
@@ -524,11 +531,6 @@
                   </div>
                 </details>
 
-                <div class="actions wide">
-                  <button type="submit" class="primary" id="federlicht-run">
-                    Run Federlicht
-                  </button>
-                </div>
               </form>
             </div>
           </section>
@@ -562,9 +564,10 @@
                     Trash Run
                   </button>
                 </div>
-                <ul id="run-summary-lines" class="summary-lines"></ul>
+                <div id="run-summary-lines" class="summary-lines"></div>
                 <div id="run-summary-links" class="summary-links"></div>
                 <div id="run-summary-reports" class="summary-reports"></div>
+                <div id="run-figure-tools" class="run-figure-tools is-empty"></div>
                 <div class="file-list" id="run-file-list"></div>
               </section>
             </div>
@@ -618,8 +621,27 @@
                     >
                       Draft update prompt
                     </button>
+                    <div class="workflow-help-wrap">
+                      <button
+                        type="button"
+                        id="workflow-resume-help"
+                        class="ghost workflow-help-trigger"
+                        aria-label="Resume 도움말"
+                      >
+                        ?
+                      </button>
+                      <div class="workflow-help-popover" role="tooltip">
+                        <strong>Resume 동작 방식</strong>
+                        <ol>
+                          <li>파이프라인에서 재시작할 에이전트 단계를 클릭합니다.</li>
+                          <li><code>Resume from ...</code> 버튼으로 실행 단계를 해당 위치부터로 맞춥니다.</li>
+                          <li><code>Draft update prompt</code>로 수정요청 파일 생성 후 Inline Prompt에 자동 로드합니다.</li>
+                        </ol>
+                      </div>
+                    </div>
                   </div>
                 </div>
+                <div class="workflow-resume-guide is-empty" id="workflow-resume-guide" aria-live="polite"></div>
                 <div class="workflow-extras is-empty" id="workflow-extras" aria-live="polite"></div>
               </div>
 
@@ -1177,7 +1199,7 @@
                 </li>
                 <li>
                   Advanced toggles map to CLI flags (e.g., depth, web search, figures,
-                  max input tokens). Use them to fine-tune report length and quality.
+                  quality strategy). Use them to fine-tune report quality.
                 </li>
                 <li>
                   <code>--run</code>: run folder to synthesize.
@@ -1222,12 +1244,8 @@
               <h4>Options & Limits</h4>
               <ul>
                 <li>
-                  <code>max-chars</code> / <code>max-pdf-pages</code>: per-file read limits
-                  for <code>read_document</code>.
-                </li>
-                <li>
-                  <code>max-tool-chars</code>: cumulative cap for all <code>read_document</code>
-                  outputs; overflow triggers reducer summaries.
+                  <code>max-chars</code> / <code>max-pdf-pages</code> / <code>max-tool-chars</code>
+                  are CLI-only safety controls (hidden in Federnett UI).
                 </li>
                 <li>
                   PDF follow-ups can use <code>start_page</code> to read later pages without
@@ -1236,6 +1254,32 @@
                 <li>
                   NEEDS_VERIFICATION items prefer tool-cache excerpts; ensure citations
                   point to verified chunks.
+                </li>
+              </ul>
+            </section>
+            <section class="help-section" id="help-env">
+              <h4>Runtime Environment</h4>
+              <ul>
+                <li>
+                  <code>OPENAI_API_KEY</code>: required for OpenAI/OpenAI-compatible model calls.
+                </li>
+                <li>
+                  <code>OPENAI_BASE_URL</code> (or <code>OPENAI_API_BASE</code>):
+                  endpoint for OpenAI-compatible on-prem gateways.
+                </li>
+                <li>
+                  <code>OPENAI_MODEL</code>: default model when UI model field is empty.
+                </li>
+                <li>
+                  <code>OPENAI_MODEL_VISION</code>: default vision model for figure-aware paths.
+                </li>
+                <li>
+                  Optional vision-specific endpoints:
+                  <code>OPENAI_BASE_URL_VISION</code>, <code>OPENAI_API_KEY_VISION</code>.
+                </li>
+                <li>
+                  For on-prem deployments, ensure model context limits are aligned with
+                  Federnett/Federlicht <code>max-input-tokens</code> and quality settings.
                 </li>
               </ul>
             </section>
@@ -1260,8 +1304,35 @@
                   재실행 프리셋을 자동으로 구성해 줍니다.
                 </li>
                 <li>
+                  <code>Draft update prompt</code>는 <code>report_notes/update_request_*.txt</code>를
+                  생성하고, 내용을 Inline Prompt에 바로 로드합니다. 생성 직후 File Preview에서
+                  파일을 바로 열어 수정할 수 있습니다.
+                </li>
+                <li>
                   이 Workflow는 멀티에이전트 오케스트레이션 뷰입니다. 각 stage는 역할별 agent 실행 단위를
                   의미하고, 순서/활성화를 통해 비용과 품질의 균형을 조절합니다.
+                </li>
+              </ul>
+            </section>
+            <section class="help-section" id="help-agent-capability">
+              <h4>Agent Tools / Skills / MCP</h4>
+              <ul>
+                <li>
+                  Ask 패널의 <strong>Agent 도구/스킬/MCP</strong> 칩은 현재 답변에서 사용 가능한 구성과
+                  실행 상태를 보여줍니다.
+                </li>
+                <li>
+                  <code>Source Index</code>, <code>Web Search</code>, <code>LLM Generate</code>는
+                  tool 실행 상태(<em>running/done/error</em>)를 실시간으로 표시합니다.
+                </li>
+                <li>
+                  Skills는 안전 실행 제안(Action Runner) 같은 워크플로우 기능이며, MCP는
+                  등록된 서버가 있을 때만 표시됩니다.
+                </li>
+                <li>
+                  MCP/Skill 확장은 소스 코드에서 표준 인터페이스를 유지해 추가하세요:
+                  <code>src/federnett/help_agent.py</code> capability payload, 
+                  <code>site/federnett/app.js</code> capability renderer를 함께 업데이트하면 됩니다.
                 </li>
               </ul>
             </section>
