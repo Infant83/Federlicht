@@ -26,7 +26,22 @@ def test_build_mermaid_timeline_basic() -> None:
 
 
 def test_render_d2_svg_missing_cli(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(artwork.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(artwork, "_resolve_d2_command", lambda: [])
     result = artwork.render_d2_svg(tmp_path, "a -> b")
     assert result["ok"] == "false"
     assert result["error"] == "d2_cli_missing"
+
+
+def test_render_diagrams_missing_package(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(artwork, "_has_diagrams_package", lambda: False)
+    result = artwork.render_diagrams_architecture(tmp_path, "a|A;b|B", "a->b")
+    assert result["ok"] == "false"
+    assert result["error"] == "diagrams_missing"
+
+
+def test_render_diagrams_missing_dot(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(artwork, "_has_diagrams_package", lambda: True)
+    monkeypatch.setattr(artwork, "_resolve_dot_command", lambda: None)
+    result = artwork.render_diagrams_architecture(tmp_path, "a|A;b|B", "a->b")
+    assert result["ok"] == "false"
+    assert result["error"] == "graphviz_dot_missing"

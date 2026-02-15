@@ -2,7 +2,7 @@
 
 Author: Hyun-Jung Kim (angpangmokjang@gmail.com, Infant@kias.re.kr)
 
-Version: 1.5.0
+Version: 1.8.0
 
 ## Core Idea
 Federlicht is an agentic research and reporting platform designed around one principle:
@@ -103,6 +103,17 @@ python -m pip install "federlicht[report]"
 # Dependency-only install for run.py / local scripts:
 python -m pip install -r requirements.txt
 ```
+
+### Diagram Tooling (Mermaid / D2 / diagrams)
+- Mermaid artifact rendering uses Mermaid CLI (`mmdc`):
+  - `npm i -g @mermaid-js/mermaid-cli`
+- D2 artifact rendering uses D2 CLI:
+  - install: `winget install -e --id Terrastruct.D2`
+  - if PATH is not refreshed, set `D2_BIN` to full executable path (e.g., `C:\Program Files\D2\d2.exe`).
+- Python `diagrams` rendering requires:
+  - python deps: `python -m pip install diagrams graphviz`
+  - Graphviz CLI (`dot`): `winget install -e --id Graphviz.Graphviz`
+  - if PATH is not refreshed, set `GRAPHVIZ_DOT` to full path (e.g., `C:\Program Files\Graphviz\bin\dot.exe`).
 
 ## Usage
 ```bash

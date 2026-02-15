@@ -33,8 +33,16 @@ For OpenAI-compatible local models (e.g., `qwen3-*`), set `OPENAI_BASE_URL` (or 
 
 Diagram tooling notes:
 - Mermaid rendering in HTML/report viewers works via client-side JavaScript (no local binary required).
-- D2 export is optional and requires the `d2` CLI on PATH: `d2 --version` should work.
-- If D2 is unavailable, the artwork tools fall back to Mermaid snippets.
+- Mermaid artifact export (`artwork_mermaid_render`) requires Mermaid CLI:
+  - `npm i -g @mermaid-js/mermaid-cli` (check: `mmdc --version`)
+- D2 export is optional and requires the `d2` CLI:
+  - install (Windows): `winget install -e --id Terrastruct.D2`
+  - if PATH is not reflected yet, set `D2_BIN` to full path (e.g., `C:\Program Files\D2\d2.exe`).
+- Python diagrams export (`artwork_diagrams_render`) requires:
+  - python packages: `diagrams`, `graphviz`
+  - Graphviz CLI (`dot`) binary
+  - if PATH is not reflected yet, set `GRAPHVIZ_DOT` to full path (e.g., `C:\Program Files\Graphviz\bin\dot.exe`).
+- If D2/diagrams renderers are unavailable, artwork tools fall back to Mermaid snippets.
 
 ## Quick start
 ```bash
@@ -286,6 +294,7 @@ When output is `.html`, links inside the report open in a side panel:
 ## Artwork agent (writer subagent)
 - The writer stage can delegate diagram generation to an internal `artwork_agent` subagent.
 - Primary output is Mermaid snippets (flowchart/timeline) for inline insertion.
+- `mermaid_render` is available when Mermaid CLI (`mmdc`) is installed, and can export SVG/PNG/PDF under `report_assets/artwork/`.
 - Optional D2 path: when `d2` CLI is installed, the agent can render SVG artifacts under `report_assets/artwork/`.
 - This path is best used for workflow maps, timelines, architecture blocks, and compact explanatory figures.
 

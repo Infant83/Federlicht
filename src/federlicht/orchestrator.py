@@ -803,6 +803,76 @@ class ReportOrchestrator:
                 )
                 return message
 
+        def artwork_mermaid_render(
+            diagram_source: str,
+            output_rel_path: str = "report_assets/artwork/mermaid_diagram.svg",
+            output_format: str = "svg",
+            theme: str = "default",
+            background_color: str = "transparent",
+            width: int = 0,
+            height: int = 0,
+            scale: float = 1.0,
+        ) -> str:
+            """Render Mermaid source into an SVG/PNG/PDF artifact under the run directory."""
+            result = feder_artwork.render_mermaid_diagram(
+                run_dir,
+                diagram_source,
+                output_rel_path=output_rel_path,
+                output_format=output_format,
+                theme=theme,
+                background_color=background_color,
+                width=width,
+                height=height,
+                scale=scale,
+            )
+            if str(result.get("ok", "")).lower() != "true":
+                message = (
+                    "[artwork][error] "
+                    + str(result.get("message") or result.get("error") or "mermaid_render_failed")
+                )
+                _append_artwork_log(
+                    "artwork_mermaid_render",
+                    params={
+                        "output_rel_path": output_rel_path,
+                        "output_format": output_format,
+                        "theme": theme,
+                        "background_color": background_color,
+                        "width": int(width or 0),
+                        "height": int(height or 0),
+                        "scale": float(scale or 1.0),
+                        "source_chars": len(str(diagram_source or "")),
+                    },
+                    output="",
+                    ok=False,
+                    error=message,
+                )
+                return message
+            rel_path = str(result.get("path") or "").strip()
+            markdown = str(result.get("markdown") or "").strip()
+            fmt = str(result.get("format") or output_format or "svg").strip().lower()
+            lines = []
+            if rel_path:
+                lines.append(f"[artwork] generated: {rel_path} ({fmt})")
+            if markdown:
+                lines.append(markdown)
+            output_text = "\n".join(lines).strip() or "[artwork] generated"
+            _append_artwork_log(
+                "artwork_mermaid_render",
+                params={
+                    "output_rel_path": output_rel_path,
+                    "output_format": fmt,
+                    "theme": theme,
+                    "background_color": background_color,
+                    "width": int(width or 0),
+                    "height": int(height or 0),
+                    "scale": float(scale or 1.0),
+                    "source_chars": len(str(diagram_source or "")),
+                },
+                output=output_text,
+                ok=True,
+            )
+            return output_text
+
         def artwork_d2_render(
             d2_source: str,
             output_rel_path: str = "report_assets/artwork/d2_diagram.svg",
@@ -856,11 +926,70 @@ class ReportOrchestrator:
             )
             return output_text
 
+        def artwork_diagrams_render(
+            nodes: str,
+            edges: str,
+            output_rel_path: str = "report_assets/artwork/diagrams_architecture.svg",
+            direction: str = "LR",
+            title: str = "",
+        ) -> str:
+            """Render Python-diagrams architecture SVG under the run directory and return embed snippet."""
+            result = feder_artwork.render_diagrams_architecture(
+                run_dir,
+                nodes,
+                edges,
+                output_rel_path=output_rel_path,
+                direction=direction,
+                title=title,
+            )
+            if str(result.get("ok", "")).lower() != "true":
+                message = (
+                    "[artwork][error] "
+                    + str(result.get("message") or result.get("error") or "diagrams_render_failed")
+                )
+                _append_artwork_log(
+                    "artwork_diagrams_render",
+                    params={
+                        "output_rel_path": output_rel_path,
+                        "direction": direction,
+                        "title": title,
+                        "nodes_chars": len(str(nodes or "")),
+                        "edges_chars": len(str(edges or "")),
+                    },
+                    output="",
+                    ok=False,
+                    error=message,
+                )
+                return message
+            rel_path = str(result.get("path") or "").strip()
+            markdown = str(result.get("markdown") or "").strip()
+            lines = []
+            if rel_path:
+                lines.append(f"[artwork] generated: {rel_path}")
+            if markdown:
+                lines.append(markdown)
+            output_text = "\n".join(lines).strip() or "[artwork] generated"
+            _append_artwork_log(
+                "artwork_diagrams_render",
+                params={
+                    "output_rel_path": output_rel_path,
+                    "direction": direction,
+                    "title": title,
+                    "nodes_chars": len(str(nodes or "")),
+                    "edges_chars": len(str(edges or "")),
+                },
+                output=output_text,
+                ok=True,
+            )
+            return output_text
+
         artwork_tools = [
             artwork_capabilities,
             artwork_mermaid_flowchart,
             artwork_mermaid_timeline,
+            artwork_mermaid_render,
             artwork_d2_render,
+            artwork_diagrams_render,
         ]
 
         all_stages = set(STAGE_INFO)

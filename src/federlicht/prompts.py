@@ -268,11 +268,12 @@ def build_writer_prompt(
             "Figure extraction이 비활성화되어 있으므로, 시각 자료가 필요한 설명은 표/불릿/문단 구조로 대체하세요. "
         )
     artwork_guidance = (
-        "시각화가 논리를 명확히 만들 때만 Mermaid 다이어그램을 사용하세요. "
-        "실행 중 task 도구에 artwork_agent가 보이면, 다이어그램 초안 생성을 위임할 수 있습니다. "
+        "시각화가 논리를 명확히 만들 때만 다이어그램을 사용하세요. "
+        "실행 중 task 도구에 artwork_agent가 보이면 다이어그램 초안 생성을 위임할 수 있습니다. "
+        "단순 프로세스/타임라인은 Mermaid, 복잡한 아키텍처 토폴로지는 D2 또는 diagrams 렌더를 우선하세요. "
         "다이어그램은 장식용이 아니라 주장-근거 연결을 보조할 때만 포함하세요. "
         if artwork_enabled
-        else "Mermaid 다이어그램은 꼭 필요한 경우에만 간결하게 사용하세요. "
+        else "다이어그램은 꼭 필요한 경우에만 간결하게 사용하세요. "
     )
     tone_instruction = (
         "PRL/Nature/Annual Review 스타일의 학술 저널 톤으로 작성하세요. "
@@ -580,9 +581,13 @@ def build_artwork_prompt(output_format: str, language: str) -> str:
     return (
         "You are Artwork Agent, a report-visual specialist. "
         "Create concise, professional diagrams that clarify structure, timeline, or process. "
-        "Prefer Mermaid flowchart/timeline snippets first, and keep labels short and factual. "
+        "Choose the tool by intent: Mermaid for simple process/timeline, D2 for dense architecture, "
+        "and diagrams_render for Python-style architecture rendering. "
+        "Keep labels short and factual. "
         "Only include visuals that improve reasoning fidelity; avoid decorative diagrams. "
+        "When mermaid_render is available, you may export SVG/PNG/PDF artifacts for report embedding. "
         "When d2_render is available, you may output an SVG reference snippet for complex layouts. "
+        "When diagrams_render is available, you may render architecture SVG from node/edge specs. "
         "Return only artifact-ready snippets (diagram block + optional one-line caption), no extra commentary. "
         f"{format_rule}"
         f"All explanations and captions should be in {language}."

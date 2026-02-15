@@ -12,5 +12,7 @@ deepagents
 langchain-openai
 markdown
 opencv-python
+diagrams
+graphviz
 pytest
 ruff

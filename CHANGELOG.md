@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.8.0
+- Expand artwork/diagram runtime with a new `artwork_diagrams_render` tool:
+  - render architecture SVG artifacts via Python `diagrams` from node/edge specs
+  - keep run-local artifact output under `report_assets/artwork/`
+- Harden renderer binary discovery on Windows environments with delayed PATH refresh:
+  - add D2 executable fallback lookup (`D2_BIN`, common install paths)
+  - add Graphviz `dot` fallback lookup (`GRAPHVIZ_DOT`, common install paths)
+  - auto-bootstrap Graphviz runtime env for diagrams rendering
+- Improve artwork capability guidance:
+  - clarify tool selection policy (Mermaid for simple flow/timeline, D2/diagrams for complex architecture)
+  - surface renderer availability diagnostics in capability output
+- Federnett capability registry/runtime updates:
+  - add `artwork.artwork_diagrams_render` to runtime tools and capability packs
+- Dependency and packaging updates:
+  - bump package version to `1.8.0`
+  - add `diagrams` and `graphviz` to `artwork`/`all` extras
+  - add `diagrams`, `graphviz` to `requirements.txt` convenience bundle
+- Documentation updates:
+  - add Mermaid/D2/diagrams install and PATH fallback guidance in `README.md`
+  - update diagram tooling section in `docs/federlicht_report.md`
+
 ## 1.7.0
 - Improve Federnett Ask panel execution UX and readability:
   - replace `Action mode` dropdown with a theme-consistent Plan/Act segmented switch
